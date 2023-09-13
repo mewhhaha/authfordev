@@ -1,0 +1,22 @@
+{
+  "name": "@workers/user",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "upload": "wrangler deploy --name authfordev-user",
+    "start": "wrangler dev"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20230904.0",
+    "@internal/sign": "workspace:^",
+    "@mewhhaha/json-string": "^0.0.24",
+    "@mewhhaha/little-fetcher": "^0.0.24",
+    "@mewhhaha/little-router": "^0.0.24",
+    "@mewhhaha/little-router-plugin-data": "^0.0.24",
+    "@mewhhaha/little-router-plugin-query": "^0.0.24",
+    "@mewhhaha/typed-response": "^0.0.24",
+    "arktype": "1.0.21-alpha",
+    "typescript": "^5.2.2",
+    "wrangler": "^3.0.0"
+  }
+}

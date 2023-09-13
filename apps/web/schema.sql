@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS applications;
+CREATE TABLE IF NOT EXISTS applications (slug TEXT PRIMARY KEY, mac TEXT NOT NULL);

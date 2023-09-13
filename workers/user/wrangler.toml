@@ -1,0 +1,11 @@
+name = "authfordev-user"
+main = "src/index.ts"
+compatibility_date = "2023-09-04"
+
+[[durable_objects.bindings]]
+name = "DO_USER"
+class_name = "DurableObjectUser"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["DurableObjectUser"]

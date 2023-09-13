@@ -1,0 +1,44 @@
+{
+  "private": true,
+  "sideEffects": false,
+  "type": "module",
+  "scripts": {
+    "build": "remix build",
+    "dev": "remix dev --manual -c \"pnpm run start\"",
+    "start": "wrangler pages dev --compatibility-date=2023-06-21 ./public",
+    "typecheck": "tsc",
+    "d1-local": "wrangler d1 execute d1-authfordev --local --file=./schema.sql",
+    "d1-remote": "wrangler d1 execute d1-authfordev --file=./schema.sql",
+    "upload": "wrangler pages deploy --project-name authfordev-web"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.0.18",
+    "@internal/sign": "workspace:^",
+    "@remix-run/cloudflare": "^1.19.3",
+    "@remix-run/cloudflare-pages": "^1.19.3",
+    "@remix-run/css-bundle": "^1.19.3",
+    "@remix-run/react": "^1.19.3",
+    "arktype": "1.0.21-alpha",
+    "clsx": "^2.0.0",
+    "isbot": "^3.6.13",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tailwind-merge": "^1.14.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20230904.0",
+    "@remix-run/dev": "^1.19.3",
+    "@remix-run/eslint-config": "^1.19.3",
+    "@tailwindcss/forms": "^0.5.6",
+    "@types/react": "^18.2.21",
+    "@types/react-dom": "^18.2.7",
+    "eslint": "^8.49.0",
+    "eslint-plugin-tailwindcss": "^3.13.0",
+    "tailwindcss": "^3.3.3",
+    "typescript": "^5.2.2",
+    "wrangler": "^3.1.1"
+  },
+  "engines": {
+    "node": ">=16.13.0"
+  }
+}
