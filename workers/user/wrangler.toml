@@ -9,3 +9,7 @@ class_name = "DurableObjectUser"
 [[migrations]]
 tag = "v1"
 new_classes = ["DurableObjectUser"]
+
+[vars]
+API_URL_PASSWORDLESS = "https://v4.passwordless.dev"
+API_URL_MAILCHANNELS = "https://api.mailchannels.net/tx/v1"

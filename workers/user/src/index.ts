@@ -17,7 +17,7 @@ export interface Env {
   API_URL_MAILCHANNELS: string;
   SECRET_FOR_HMAC: string;
   DO_USER: DurableObjectNamespace;
-  DKIM: string;
+  DKIM_PRIVATE_KEY: string;
 }
 
 type DeviceSlip = {
@@ -215,7 +215,7 @@ const router = Router<[Env, ExecutionContext]>()
         username,
         application: slug,
         code,
-        dkim: env.DKIM,
+        dkim: env.DKIM_PRIVATE_KEY,
       });
       ctx.waitUntil(sendEmail(env.API_URL_MAILCHANNELS, body));
 
@@ -279,7 +279,7 @@ const router = Router<[Env, ExecutionContext]>()
         username: params.username,
         application: params.slug,
         code,
-        dkim: env.DKIM,
+        dkim: env.DKIM_PRIVATE_KEY,
       });
       ctx.waitUntil(sendEmail(env.API_URL_MAILCHANNELS, body));
 
