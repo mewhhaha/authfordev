@@ -1,0 +1,22 @@
+{
+  "name": "@mewhhaha/authfordev-api",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "prepublish": "pnpm -w build",
+    "build": "tsc -p tsconfig.json && api-extractor run --local --verbose"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "sideEffects": false,
+  "devDependencies": {
+    "@microsoft/api-extractor": "^7.36.4",
+    "@workers/user": "workspace:^",
+    "typescript": "^5.2.2"
+  }
+}

@@ -1,12 +1,12 @@
 export const signApplication = (
   salt: string,
-  { slug, secret }: { slug: string; secret: string }
+  { id, pk }: { id: string; pk: string }
 ) => {
-  if (slug.includes("#")) {
+  if (id.includes("#")) {
     throw new Error("Invalid slug");
   }
 
-  return signData(salt, `${slug}#${secret}`);
+  return signData(salt, `${id}#${pk}`);
 };
 
 const signData = async (
@@ -28,4 +28,31 @@ const signData = async (
   const mac = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
 
   return btoa(String.fromCharCode(...new Uint8Array(mac)));
+};
+
+export const createAuthorization = ({
+  id,
+  pk,
+  mac,
+}: {
+  id: string;
+  pk: string;
+  mac: string;
+}) => {
+  return `Auth4 id="${id}", pk="${pk}", mac="${mac}"`;
+};
+
+export const parseAuthorization = (authorization: string) => {
+  const groups = authorization.match(
+    /^Auth4 id="(?<id>[^"]+)", pk="(?<pk>[^"]+)", mac="(?<mac>[^"]+)"$/
+  )?.groups;
+  const pk = groups?.pk;
+  const mac = groups?.mac;
+  const id = groups?.id;
+
+  if (!pk || !mac || !id) {
+    return undefined;
+  }
+
+  return { id, pk, mac };
 };

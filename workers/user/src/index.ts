@@ -10,9 +10,9 @@ import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { type } from "arktype";
 import { BodyRegisterToken, passwordless } from "./api/passwordless";
 import { fetcher } from "@mewhhaha/little-fetcher";
-import { signApplication } from "@internal/sign";
+import { parseAuthorization, signApplication } from "@internal/sign";
 
-export interface Env {
+interface Env {
   API_URL_PASSWORDLESS: string;
   API_URL_MAILCHANNELS: string;
   SECRET_FOR_HMAC: string;
@@ -136,52 +136,46 @@ export class DurableObjectUser implements DurableObject {
 const auth_ = (async (
   {
     request,
-    params,
   }: PluginContext<{
     init: {
       headers: {
-        Authorization: `Auth4 api-secret="${string}", mac="${string}"`;
+        Authorization:
+          | `Auth4 id="${string}", pk="${string}", mac="${string}"`
+          | (string & {});
       };
     };
   }>,
   env: Env
 ) => {
-  const Authorization = request.headers.get("Authorization");
+  const header = request.headers.get("Authorization");
 
-  if (!Authorization) {
+  if (!header) {
     return error(403, { message: "authorization header missing" });
   }
 
-  const groups = Authorization.match(
-    /^Auth4 api-secret="(?<secret>[^"]+)", mac="(?<mac>[^"]+)"$/
-  )?.groups;
-  const secret = groups?.secret;
-  const mac = groups?.mac;
+  const auth = parseAuthorization(header);
 
-  if (!secret || !mac) {
+  if (!auth) {
     return error(403, { message: "authorization header invalid" });
   }
 
-  const signedData = await signApplication(env.SECRET_FOR_HMAC, {
-    slug: params.slug,
-    secret,
-  });
+  const signedData = await signApplication(env.SECRET_FOR_HMAC, auth);
 
-  if (signedData !== mac) {
+  if (signedData !== auth.mac) {
     return error(403, { message: "mac did not match" });
   }
 
-  return { secret };
+  return { auth: { pk: auth.pk, id: auth.id } };
 }) satisfies Plugin<[Env]>;
 
 const router = Router<[Env, ExecutionContext]>()
   .post(
-    "/:slug/signin",
+    "/signin",
     [auth_, data_(type({ token: "string" }))],
-    async ({ secret, data, params }, env) => {
+    async ({ auth, data }, env) => {
       const api = passwordless(env.API_URL_PASSWORDLESS);
       const response = await api.post("/signin/verify", {
-        headers: { "Content-Type": "application/json", ApiSecret: secret },
+        headers: { "Content-Type": "application/json", ApiSecret: auth.pk },
         body: JSON.stringify({ token: data.token }),
       });
 
@@ -195,10 +189,10 @@ const router = Router<[Env, ExecutionContext]>()
   )
 
   .post(
-    "/:slug/new-user",
+    "/new-user",
     [auth_, data_(type({ email: "string", username: "string" }))],
-    async ({ params: { slug }, data: { email, username } }, env, ctx) => {
-      const user = fetcherUser(env.DO_USER, { slug, username });
+    async ({ auth, data: { email, username } }, env, ctx) => {
+      const user = fetcherUser(env.DO_USER, { application: auth.id, username });
 
       const response = await user.post("/initiate", {
         headers: { "Content-Type": "application/json" },
@@ -213,7 +207,7 @@ const router = Router<[Env, ExecutionContext]>()
       const body = createBody({
         email,
         username,
-        application: slug,
+        application: auth.id,
         code,
         dkim: env.DKIM_PRIVATE_KEY,
       });
@@ -223,16 +217,22 @@ const router = Router<[Env, ExecutionContext]>()
     }
   )
   .post(
-    "/:slug/users/:username/verify-device",
-    [auth_, data_(type({ code: "string", slip: "string" }))],
-    async ({ data, secret, params }, env) => {
+    "/verify-device",
+    [
+      auth_,
+      data_(type({ username: "string", code: "string", slip: "string" })),
+    ],
+    async ({ data: { username, code, slip }, auth }, env) => {
       try {
         const verifyCode = async () => {
-          const user = fetcherUser(env.DO_USER, params);
+          const user = fetcherUser(env.DO_USER, {
+            application: auth.id,
+            username: username,
+          });
 
           const response = await user.post("/devices/verify", {
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code: data.code, id: data.slip }),
+            body: JSON.stringify({ code, id: slip }),
           });
 
           if (response.status === 403) {
@@ -249,8 +249,8 @@ const router = Router<[Env, ExecutionContext]>()
         }
 
         const token = await registerToken(env.API_URL_PASSWORDLESS, {
-          username: params.username,
-          secret,
+          username,
+          pk: auth.pk,
         });
         if (!token) {
           return error(403, { message: "not allowed registration" });
@@ -263,10 +263,10 @@ const router = Router<[Env, ExecutionContext]>()
     }
   )
   .post(
-    "/:slug/users/:username/new-device",
-    [auth_],
-    async ({ params }, env, ctx) => {
-      const user = fetcherUser(env.DO_USER, params);
+    "/new-device",
+    [auth_, data_(type({ username: "string" }))],
+    async ({ auth, data: { username } }, env, ctx) => {
+      const user = fetcherUser(env.DO_USER, { application: auth.id, username });
       const response = await user.post("/devices/new");
 
       if (!response.ok) {
@@ -276,8 +276,8 @@ const router = Router<[Env, ExecutionContext]>()
 
       const body = createBody({
         email,
-        username: params.username,
-        application: params.slug,
+        username,
+        application: auth.id,
         code,
         dkim: env.DKIM_PRIVATE_KEY,
       });
@@ -286,6 +286,10 @@ const router = Router<[Env, ExecutionContext]>()
       return ok(200, { id });
     }
   );
+
+const routes = router.infer;
+/** @public */
+export type Routes = typeof routes;
 
 const sendEmail = async (apiUrl: string, body: BodySend) => {
   const api = mailChannels(apiUrl);
@@ -301,7 +305,7 @@ const sendEmail = async (apiUrl: string, body: BodySend) => {
 
 const registerToken = async (
   apiUrl: string,
-  { username, secret }: { username: string; secret: string }
+  { username, pk }: { username: string; pk: string }
 ) => {
   const pw = passwordless(apiUrl);
 
@@ -311,7 +315,7 @@ const registerToken = async (
   };
 
   const response = await pw.post("/register/token", {
-    headers: { "Content-Type": "application/json", ApiSecret: secret },
+    headers: { "Content-Type": "application/json", ApiSecret: pk },
     body: JSON.stringify(body),
   });
 
@@ -367,12 +371,12 @@ const createBody = ({
 
 const getUserStub = (
   namespace: DurableObjectNamespace,
-  { slug, username }: { slug: string; username: string }
-) => namespace.get(namespace.idFromName(createName(slug, username)));
+  { application, username }: { application: string; username: string }
+) => namespace.get(namespace.idFromName(createName(application, username)));
 
 const fetcherUser = (
   namespace: DurableObjectNamespace,
-  values: { slug: string; username: string }
+  values: { application: string; username: string }
 ) =>
   fetcher<RoutesOf<(typeof DurableObjectUser)["router"]>>(
     getUserStub(namespace, values)

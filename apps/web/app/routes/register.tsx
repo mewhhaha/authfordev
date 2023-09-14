@@ -3,7 +3,7 @@ import { Form, useActionData } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import { cn } from "~/css/cn";
 import { type } from "arktype";
-import { signApplication } from "@internal/sign";
+import { createAuthorization, signApplication } from "@internal/sign";
 import {
   ClipboardIcon,
   EyeIcon,
@@ -24,13 +24,11 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   const formData = await request.formData();
 
   const parseForm = type({
-    slug: `/${form.slug.pattern}/ & string<=32`,
-    secret: "string",
+    pk: `/${form.pk.pattern}/`,
   });
 
   const { data, problems } = parseForm({
-    slug: formData.get(form.slug.name),
-    secret: formData.get(form.secret.name),
+    pk: formData.get(form.pk.name),
   });
 
   if (problems) {
@@ -40,32 +38,29 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     } as const;
   }
 
-  const mac = await signApplication(env.SECRET_FOR_HMAC, data);
+  const id = crypto.randomUUID();
+  const mac = await signApplication(env.SECRET_FOR_HMAC, { id, pk: data.pk });
 
   try {
-    await env.D1.prepare(`INSERT INTO applications (slug, mac) VALUES (?, ?)`)
-      .bind(data.slug, mac)
+    await env.D1.prepare(`INSERT INTO applications (id, mac) VALUES (?, ?)`)
+      .bind(id, mac)
       .run();
-    return { status: 200, slug: data.slug, secret: data.secret, mac } as const;
+
+    const authorization = createAuthorization({ id, pk: data.pk, mac });
+
+    return { status: 200, authorization } as const;
   } catch {
     return { status: 409 } as const;
   }
 }
 
 const form = {
-  slug: {
-    id: "slug",
-    name: "slug",
-    required: true,
-    type: "text",
-    pattern: "^([a-z](-[a-z])?)+$",
-    maxLength: 32,
-  },
-  secret: {
-    id: "secret",
-    name: "secret",
+  pk: {
+    id: "pk",
+    name: "pk",
     required: true,
     type: "password",
+    pattern: "^[^:]+:secret:[^:]+$",
   },
 } as const;
 
@@ -91,37 +86,26 @@ export default function Page() {
           </p>
           <div className="mt-10 flex flex-col gap-4">
             <div>
-              <InputLabel htmlFor={form.slug.id}>
-                Application slug <RequiredMark />
-              </InputLabel>
-              <InputText
-                disabled={result?.status === 200}
-                autoComplete="off"
-                placeholder="this-is-my-slug"
-                {...form.slug}
-              />
-              <InputHelp>
-                Slug can only contain lowercase letters (a-z) and hyphens (-)
-              </InputHelp>
-            </div>
-
-            <div>
-              <InputLabel htmlFor={form.secret.id}>
-                Passwordless secret <RequiredMark />
+              <InputLabel htmlFor={form.pk.id}>
+                Passwordless private API key <RequiredMark />
               </InputLabel>
               <InputText
                 disabled={result?.status === 200}
                 autoComplete="off"
                 placeholder="***"
-                {...form.secret}
+                {...form.pk}
               />
+              <InputHelp>
+                Copy-paste the private api key from your passwordless
+                application
+              </InputHelp>
             </div>
 
             <ButtonPrimary type="submit" className="mx-auto">
               Submit
             </ButtonPrimary>
           </div>
-          <output name="result" htmlFor="slug secret">
+          <output name="result" htmlFor="pk">
             <div
               className={cn(
                 "mt-10 rounded-md border p-4 text-gray-900 dark:border-white/5 dark:text-white",
@@ -130,7 +114,8 @@ export default function Page() {
             >
               {result === undefined && (
                 <p className="text-center">
-                  Values will be output here after submitting the form
+                  Authorization header will be output here after submitting the
+                  form
                 </p>
               )}
               {result?.status === 422 && (
@@ -138,19 +123,18 @@ export default function Page() {
               )}
               {result?.status === 409 && (
                 <p className="text-center">
-                  The application slug is already taken
+                  There was a conflict for some odd reason, please try again
+                  later
                 </p>
               )}
               {result?.status === 200 && (
                 <dl className="flex flex-col gap-4">
                   <p className="text-center">
-                    Save these values in your application
+                    Save this authorization header securely, and use it to
+                    authenticate against the API
                   </p>
-                  <Description label="Application slug">
-                    {result.slug}
-                  </Description>
                   <Description label="Authorization header" type="password">
-                    {`Auth4 api-secret="${result.secret}", mac="${result.mac}"`}
+                    {result.authorization}
                   </Description>
                 </dl>
               )}

@@ -2,9 +2,11 @@
   "name": "@workers/user",
   "version": "0.0.0",
   "private": true,
+  "types": "dist/index.d.ts",
   "scripts": {
     "upload": "wrangler deploy --name authfordev-user",
-    "start": "wrangler dev"
+    "start": "wrangler dev",
+    "build": "tsc -p tsconfig.build.json"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20230904.0",
@@ -18,5 +20,6 @@
     "arktype": "1.0.21-alpha",
     "typescript": "^5.2.2",
     "wrangler": "^3.0.0"
-  }
+  },
+  "sideEffects": false
 }

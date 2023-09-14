@@ -2,6 +2,10 @@ name = "authfordev-user"
 main = "src/index.ts"
 compatibility_date = "2023-09-04"
 
+[vars]
+API_URL_PASSWORDLESS = "https://v4.passwordless.dev"
+API_URL_MAILCHANNELS = "https://api.mailchannels.net/tx/v1"
+
 [[durable_objects.bindings]]
 name = "DO_USER"
 class_name = "DurableObjectUser"
@@ -9,7 +13,3 @@ class_name = "DurableObjectUser"
 [[migrations]]
 tag = "v1"
 new_classes = ["DurableObjectUser"]
-
-[vars]
-API_URL_PASSWORDLESS = "https://v4.passwordless.dev"
-API_URL_MAILCHANNELS = "https://api.mailchannels.net/tx/v1"

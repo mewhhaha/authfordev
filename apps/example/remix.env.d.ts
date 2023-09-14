@@ -6,8 +6,8 @@ import "@remix-run/cloudflare";
 declare module "@remix-run/cloudflare" {
   interface AppLoadContext {
     env: {
-      D1: D1Database;
-      SECRET_FOR_HMAC: string;
+      SECRET_FOR_AUTH: string;
+      AUTHFOR_AUTHORIZATION: string;
     };
   }
 }
