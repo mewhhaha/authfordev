@@ -21,7 +21,6 @@ export const encodeJwt = async (
     } satisfies JwtClaim)
   );
 
-  console.log(salt);
   const hash = await hmac(salt, `${header}.${payload}`);
 
   return `${header}.${payload}.${encode(hash)}`;

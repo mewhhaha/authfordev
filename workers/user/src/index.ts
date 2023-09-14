@@ -100,7 +100,7 @@ export class DurableObjectUser implements DurableObject {
   static router = Router<[DurableObjectUser]>()
     .post("/initiate", [data_(type({ email: "string" }))], ({ data }, user) => {
       if (user.verified) {
-        return error(403, { message: "already verified" });
+        return error(409, { message: "user already exists" });
       }
 
       user.email = data.email;
@@ -109,12 +109,12 @@ export class DurableObjectUser implements DurableObject {
 
       return ok(200, { code: slip.code, id: slip.id });
     })
-    .post("/devices/new", [verified_], ({ email }, user) => {
+    .post("/new-device", [verified_], ({ email }, user) => {
       const { slip } = user.generateSlip();
       return ok(200, { email, code: slip.code, id: slip.id });
     })
     .post(
-      "/devices/verify",
+      "/verify-device",
       [verified_, data_(type({ code: "string", id: "string" }))],
       ({ data }, user) => {
         const { success, message } = user.attemptSlip(data);
@@ -124,7 +124,10 @@ export class DurableObjectUser implements DurableObject {
 
         return ok(200);
       }
-    );
+    )
+    .all("/*", [], () => {
+      return new Response("Not found", { status: 404 });
+    });
 
   fetch(
     request: Request<unknown, CfProperties<unknown>>
@@ -208,10 +211,10 @@ const router = Router<[Env, ExecutionContext]>()
       const body = createBody({
         email,
         username,
-        application: auth.id,
         code,
         dkim: env.DKIM_PRIVATE_KEY,
       });
+
       ctx.waitUntil(sendEmail(env.API_URL_MAILCHANNELS, body));
 
       return ok(200, { id });
@@ -231,7 +234,7 @@ const router = Router<[Env, ExecutionContext]>()
             username: username,
           });
 
-          const response = await user.post("/devices/verify", {
+          const response = await user.post("/verify-device", {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ code, id: slip }),
           });
@@ -267,30 +270,37 @@ const router = Router<[Env, ExecutionContext]>()
     "/new-device",
     [auth_, data_(type({ username: "string" }))],
     async ({ auth, data: { username } }, env, ctx) => {
-      const user = fetcherUser(env.DO_USER, {
-        application: auth.id,
-        username,
-      });
-      const response = await user.post("/devices/new");
+      try {
+        const user = fetcherUser(env.DO_USER, {
+          application: auth.id,
+          username,
+        });
+        const response = await user.post("/new-device");
 
-      if (!response.ok) {
-        return response;
+        if (!response.ok) {
+          return response;
+        }
+        const { email, code, id } = await response.json();
+
+        const body = createBody({
+          email,
+          username,
+          code,
+          dkim: env.DKIM_PRIVATE_KEY,
+        });
+
+        ctx.waitUntil(sendEmail(env.API_URL_MAILCHANNELS, body));
+
+        return ok(200, { id });
+      } catch (err) {
+        console.error(err);
+        return error(404, "user not found");
       }
-      const { email, code, id } = await response.json();
-
-      const body = createBody({
-        email,
-        username,
-        application: auth.id,
-        code,
-        dkim: env.DKIM_PRIVATE_KEY,
-      });
-
-      ctx.waitUntil(sendEmail(env.API_URL_MAILCHANNELS, body));
-
-      return ok(200, { id });
     }
-  );
+  )
+  .all("/*", [], () => {
+    return new Response("Not found", { status: 404 });
+  });
 
 const routes = router.infer;
 /** @public */
@@ -345,13 +355,11 @@ const createName = (slug: string, username: string) => {
 const createBody = ({
   email,
   username,
-  application,
   code,
   dkim,
 }: {
   email: string;
   username: string;
-  application: string;
   code: string;
   dkim: string;
 }): BodySend => {
@@ -359,6 +367,7 @@ const createBody = ({
     personalizations: [
       {
         to: [{ email, name: email.split("@")[0] }],
+        // https://support.mailchannels.com/hc/en-us/articles/16918954360845-Secure-your-domain-name-against-spoofing-with-Domain-Lockdown-
         // https://support.mailchannels.com/hc/en-us/articles/7122849237389
         dkim_domain: "authfor.dev",
         dkim_selector: "mailchannels",
@@ -367,7 +376,7 @@ const createBody = ({
     ],
     from: {
       email: "noreply@authfor.dev",
-      name: `${application} support`,
+      name: `authfor.dev support`,
     },
     subject: `New device for ${username}`,
     content: [defaultEmail({ code })],

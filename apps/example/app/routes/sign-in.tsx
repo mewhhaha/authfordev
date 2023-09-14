@@ -1,18 +1,25 @@
+import { Client } from "@passwordlessdev/passwordless-client";
 import {
-  type V2_MetaFunction,
-  type DataFunctionArgs,
   redirect,
+  type DataFunctionArgs,
+  type V2_MetaFunction,
 } from "@remix-run/cloudflare";
 import {
   Form,
+  Link,
   useLoaderData,
+  useNavigate,
   useNavigation,
   useSubmit,
 } from "@remix-run/react";
-import { cn } from "~/css/cn";
+import type { FormEvent, MouseEvent } from "react";
+import { useState } from "react";
 import { authfordev } from "~/api/authfordev";
 import { makeSession } from "~/auth/session";
-import { Client } from "@passwordlessdev/passwordless-client";
+import { ButtonPrimary } from "~/components/ButtonPrimary";
+import { ButtonSecondary } from "~/components/ButtonSecondary";
+import { FormItem } from "~/components/FormItem";
+import { InputText } from "~/components/InputText";
 
 export const meta: V2_MetaFunction = () => {
   return [
@@ -21,7 +28,16 @@ export const meta: V2_MetaFunction = () => {
   ];
 };
 
-export async function loader({ request, context: { env } }: DataFunctionArgs) {
+const form = {
+  email: {
+    id: "email",
+    name: "email",
+    type: "email",
+    required: true,
+  },
+};
+
+export async function loader({ context: { env } }: DataFunctionArgs) {
   return {
     clientArgs: {
       apiKey: env.PASSWORDLESS_PUBLIC_KEY,
@@ -57,111 +73,134 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   throw redirect("/", { headers });
 }
 
-const form = {
-  email: {
-    id: "email",
-    name: "email",
-    type: "email",
-    required: true,
-  },
-};
-
 export default function Index() {
   const data = useLoaderData<typeof loader>();
   const submit = useSubmit();
 
   const navigation = useNavigation();
+  const navigate = useNavigate();
+
+  const [problem, setProblem] = useState<
+    | { reason: "no problem" }
+    | {
+        reason: "unable to sign in" | "unknown credential";
+        email: string;
+      }
+  >({ reason: "no problem" });
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const email = formData.get("email") as string;
+
+    const signin = async () => {
+      const client = new Client(data.clientArgs);
+      const { token, error } = await client.signinWithId(email);
+
+      if (token) {
+        submit({ token }, { method: "POST" });
+      } else if (error) {
+        if (error.errorCode === "unknown_credential") {
+          setProblem({ reason: "unknown credential", email });
+        } else {
+          setProblem({ reason: "unable to sign in", email });
+        }
+      }
+    };
+
+    signin();
+  };
+
+  const handleRegister = (event: MouseEvent<HTMLButtonElement>) => {
+    const form = event.currentTarget.closest("form");
+    const formData = new FormData(form as HTMLFormElement);
+    const email = formData.get("email")?.toString() ?? "";
+
+    navigate(`/register?email=${encodeURIComponent(email)}`);
+  };
 
   return (
     <main>
-      <>
-        <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
-          <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-            <h2 className="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
-              Sign in to your account
-            </h2>
-          </div>
-
-          <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-            <Form
-              onSubmit={(event) => {
-                event.preventDefault();
-
-                const formData = new FormData(event.currentTarget);
-                const email = formData.get("email")?.toString();
-
-                if (!email) {
-                  throw new Error("Email is required");
-                }
-
-                const signin = async () => {
-                  const client = new Client(data.clientArgs);
-                  const { token } = await client.signinWithId(email);
-
-                  if (token) {
-                    submit({ token }, { method: "POST" });
-                  }
-                };
-
-                signin();
-              }}
-              className="space-y-6"
-              method="POST"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <label
-                    htmlFor="email"
-                    className="block text-sm font-medium leading-6 text-gray-900"
-                  >
-                    Email address
-                  </label>
-                </div>
-                <div className="mt-2">
-                  <input
-                    autoComplete="webauthn"
-                    disabled={navigation.state === "submitting"}
-                    className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    {...form.email}
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <ButtonPrimary type="submit">Sign in</ButtonPrimary>
-                <div>{" or "}</div>
-                <ButtonSecondary type="submit" formAction="/register">
-                  Register
-                </ButtonSecondary>
-              </div>
-            </Form>
-          </div>
+      <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
+        <div className="sm:mx-auto sm:w-full sm:max-w-sm">
+          <h2 className="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
+            Sign in to your account
+          </h2>
         </div>
-      </>
+
+        <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+          <Form onSubmit={handleSubmit} className="space-y-6" method="POST">
+            <FormItem
+              label={
+                <label
+                  htmlFor={form.email.id}
+                  className="block text-sm font-medium leading-6 text-gray-900"
+                >
+                  Email address
+                </label>
+              }
+              error={narrow([problem, "reason"], {
+                "no problem": () => undefined,
+                "unable to sign in": () => <>Unable to sign in.</>,
+                "unknown credential": ({ email }) => (
+                  <>
+                    Unknown credential. Is this a{" "}
+                    <Link
+                      to={`/register-device?email=${encodeURIComponent(email)}`}
+                      className="font-semibold text-indigo-600 hover:text-indigo-500"
+                    >
+                      new device?
+                    </Link>
+                  </>
+                ),
+              })}
+            >
+              <InputText
+                autoComplete="webauthn"
+                disabled={navigation.state === "submitting"}
+                {...form.email}
+              />
+            </FormItem>
+
+            <div className="flex items-center gap-4">
+              <ButtonPrimary>Sign in</ButtonPrimary>
+              <div>{" or "}</div>
+              <ButtonSecondary type="button" onClick={handleRegister}>
+                Register
+              </ButtonSecondary>
+            </div>
+          </Form>
+        </div>
+      </div>
     </main>
   );
 }
 
-const ButtonPrimary = (props: JSX.IntrinsicElements["button"]) => {
-  return (
-    <button
-      {...props}
-      className={cn(
-        "flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600",
-        props.className
-      )}
-    />
-  );
+export const split = <
+  const T extends string,
+  C extends { [KEY in T]: (value: KEY) => any }
+>(
+  value: T extends keyof C ? T : keyof C,
+  cases: C
+): ReturnType<C[keyof C]> => {
+  return cases[value](value as never);
 };
 
-const ButtonSecondary = (props: JSX.IntrinsicElements["button"]) => {
-  return (
-    <button
-      {...props}
-      className={cn(
-        "rounded-md bg-white px-3 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600",
-        props.className
-      )}
-    />
-  );
+export const narrow = <
+  T extends Record<any, any>,
+  K extends keyof T,
+  C extends {
+    [KEY in `${T[K]}`]: (
+      value: T extends { [_ in K]: infer B }
+        ? KEY extends B
+          ? T
+          : never
+        : never
+    ) => any;
+  }
+>(
+  [o, p]: [T, K],
+  cases: C
+): ReturnType<C[keyof C]> => {
+  return cases[o[p]](o as never);
 };
