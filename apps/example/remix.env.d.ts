@@ -8,6 +8,9 @@ declare module "@remix-run/cloudflare" {
     env: {
       SECRET_FOR_AUTH: string;
       AUTHFOR_AUTHORIZATION: string;
+      PASSWORDLESS_PUBLIC_KEY: string;
+      PASSWORDLESS_PRIVATE_KEY: string;
+      API_URL_PASSWORDLESS: string;
     };
   }
 }

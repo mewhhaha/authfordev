@@ -10,7 +10,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20230904.0",
-    "@internal/sign": "workspace:^",
+    "@internal/jwt": "workspace:^",
     "@mewhhaha/json-string": "^0.0.24",
     "@mewhhaha/little-fetcher": "^0.0.24",
     "@mewhhaha/little-router": "^0.0.24",
@@ -19,7 +19,7 @@
     "@mewhhaha/typed-response": "^0.0.24",
     "arktype": "1.0.21-alpha",
     "typescript": "^5.2.2",
-    "wrangler": "^3.0.0"
+    "wrangler": "^3.8.0"
   },
   "sideEffects": false
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@internal/sign",
+  "name": "@internal/jwt",
   "private": true,
   "version": "1.0.0",
   "description": "",

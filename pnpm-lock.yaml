@@ -13,15 +13,15 @@ importers:
       '@mewhhaha/little-fetcher':
         specifier: ^0.0.24
         version: 0.0.24
-      '@passwordless/client':
-        specifier: ^0.5.7
-        version: 0.5.7
+      '@passwordlessdev/passwordless-client':
+        specifier: ^1.1.2
+        version: 1.1.2
       '@remix-run/cloudflare':
         specifier: ^1.19.3
-        version: 1.19.3(@cloudflare/workers-types@3.19.0)
+        version: 1.19.3(@cloudflare/workers-types@4.20230904.0)
       '@remix-run/cloudflare-pages':
         specifier: ^1.19.3
-        version: 1.19.3(@cloudflare/workers-types@3.19.0)
+        version: 1.19.3(@cloudflare/workers-types@4.20230904.0)
       '@remix-run/css-bundle':
         specifier: ^1.19.3
         version: 1.19.3
@@ -45,8 +45,8 @@ importers:
         version: 1.14.0
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: ^3.19.0
-        version: 3.19.0
+        specifier: ^4.20230904.0
+        version: 4.20230904.0
       '@mewhhaha/authfordev-api':
         specifier: workspace:^
         version: link:../../packages/authfordev-api
@@ -78,17 +78,17 @@ importers:
         specifier: ^5.0.4
         version: 5.2.2
       wrangler:
-        specifier: ^3.1.1
-        version: 3.7.0
+        specifier: ^3.8.0
+        version: 3.8.0
 
   apps/web:
     dependencies:
       '@heroicons/react':
         specifier: ^2.0.18
         version: 2.0.18(react@18.2.0)
-      '@internal/sign':
+      '@internal/jwt':
         specifier: workspace:^
-        version: link:../../packages/sign
+        version: link:../../packages/jwt
       '@remix-run/cloudflare':
         specifier: ^1.19.3
         version: 1.19.3(@cloudflare/workers-types@4.20230904.0)
@@ -151,8 +151,8 @@ importers:
         specifier: ^5.2.2
         version: 5.2.2
       wrangler:
-        specifier: ^3.1.1
-        version: 3.7.0
+        specifier: ^3.8.0
+        version: 3.8.0
 
   packages/authfordev-api:
     devDependencies:
@@ -166,7 +166,7 @@ importers:
         specifier: ^5.2.2
         version: 5.2.2
 
-  packages/sign:
+  packages/jwt:
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20230904.0
@@ -180,9 +180,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^4.20230904.0
         version: 4.20230904.0
-      '@internal/sign':
+      '@internal/jwt':
         specifier: workspace:^
-        version: link:../../packages/sign
+        version: link:../../packages/jwt
       '@mewhhaha/json-string':
         specifier: ^0.0.24
         version: 0.0.24
@@ -208,8 +208,8 @@ importers:
         specifier: ^5.2.2
         version: 5.2.2
       wrangler:
-        specifier: ^3.0.0
-        version: 3.7.0
+        specifier: ^3.8.0
+        version: 3.8.0
 
 packages:
 
@@ -1563,9 +1563,6 @@ packages:
     dev: true
     optional: true
 
-  /@cloudflare/workers-types@3.19.0:
-    resolution: {integrity: sha512-0FRcsz7Ea3jT+gc5gKPIYciykm1bbAaTpygdzpCwGt0RL+V83zWnYN30NWDW4rIHj/FHtz+MIuBKS61C8l7AzQ==}
-
   /@cloudflare/workers-types@4.20230904.0:
     resolution: {integrity: sha512-IX4oJCe14ctblSPZBlW64BVZ9nYLUo6sD2I5gu3hX0ywByYWm1OuoKm9Xb/Zpbj8Ph18Z7Ryii6u2/ocnncXdA==}
 
@@ -2417,24 +2414,8 @@ packages:
       json-parse-even-better-errors: 2.3.1
     dev: true
 
-  /@passwordless/base-client@0.5.0:
-    resolution: {integrity: sha512-pzKDFuG9JL9z3gJ8lK5k0v0GPQIxdwc+/I+ipCCklgq8JXFvHOXbkVPnIypDBpvrAY5iHeBMune8dnYwYAt6DA==}
-    dev: false
-
-  /@passwordless/client@0.5.7:
-    resolution: {integrity: sha512-PDi4g8Hdl9h7orQK/9YSMLc1gayTE9AJ7sJMI1MtJ/dbTZkAqrozNOt5qGypCGZ/BH9HccG/+6kN/Bxt1AuU7A==}
-    dependencies:
-      '@passwordless/base-client': 0.5.0
-    dev: false
-
-  /@remix-run/cloudflare-pages@1.19.3(@cloudflare/workers-types@3.19.0):
-    resolution: {integrity: sha512-Vie5pUjtq+V2JIU/zHp/SR1DgvaLI+xW54wd2F4l6PA9BqebfO/BqDpGOrLZZK3y5Ah5/qkQf/hAK3JnrBgGXw==}
-    engines: {node: '>=14.0.0'}
-    peerDependencies:
-      '@cloudflare/workers-types': ^3.0.0
-    dependencies:
-      '@cloudflare/workers-types': 3.19.0
-      '@remix-run/cloudflare': 1.19.3(@cloudflare/workers-types@3.19.0)
+  /@passwordlessdev/passwordless-client@1.1.2:
+    resolution: {integrity: sha512-Ji4CC+igHsz/UF410v7MGXsax65yOZQOdvDfDg3hNKSNMux1DtKvD1dphfgDmau5mgI1qEVcZutSI/uDDCzJAg==}
     dev: false
 
   /@remix-run/cloudflare-pages@1.19.3(@cloudflare/workers-types@4.20230904.0):
@@ -2445,17 +2426,6 @@ packages:
     dependencies:
       '@cloudflare/workers-types': 4.20230904.0
       '@remix-run/cloudflare': 1.19.3(@cloudflare/workers-types@4.20230904.0)
-    dev: false
-
-  /@remix-run/cloudflare@1.19.3(@cloudflare/workers-types@3.19.0):
-    resolution: {integrity: sha512-/0x3ww6XjUtR5qs0jcgIa2ELv2tdlFrUE1Q/JuHr0WUtS/xq0GDRjwBF9HPxq0S4VljfHPguDfbycFOORDee2A==}
-    engines: {node: '>=14.0.0'}
-    peerDependencies:
-      '@cloudflare/workers-types': ^2.0.0 || ^3.0.0
-    dependencies:
-      '@cloudflare/kv-asset-handler': 0.1.3
-      '@cloudflare/workers-types': 3.19.0
-      '@remix-run/server-runtime': 1.19.3
     dev: false
 
   /@remix-run/cloudflare@1.19.3(@cloudflare/workers-types@4.20230904.0):
@@ -8529,8 +8499,8 @@ packages:
       '@cloudflare/workerd-windows-64': 1.20230904.0
     dev: true
 
-  /wrangler@3.7.0:
-    resolution: {integrity: sha512-7823G5U7WwDIkqaZrxSh/BQ/pxA4WIX3R9GwYfh+MYJj+k5s56KGQ+K/NmY/JbgZsxVEHDjhoYzqDqJebQMZeg==}
+  /wrangler@3.8.0:
+    resolution: {integrity: sha512-sTdD+6fMEpM9ROxv+gcyxgTKpnf7tB5ftRV5+wupsdljWkow5C00UCWU/IWSOUfuitAGAj1PWATjKfrRp9Bk9w==}
     engines: {node: '>=16.13.0'}
     hasBin: true
     dependencies:

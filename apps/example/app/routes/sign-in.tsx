@@ -3,10 +3,16 @@ import {
   type DataFunctionArgs,
   redirect,
 } from "@remix-run/cloudflare";
-import { Form } from "@remix-run/react";
+import {
+  Form,
+  useLoaderData,
+  useNavigation,
+  useSubmit,
+} from "@remix-run/react";
 import { cn } from "~/css/cn";
 import { authfordev } from "~/api/authfordev";
 import { makeSession } from "~/auth/session";
+import { Client } from "@passwordlessdev/passwordless-client";
 
 export const meta: V2_MetaFunction = () => {
   return [
@@ -14,6 +20,15 @@ export const meta: V2_MetaFunction = () => {
     { name: "description", content: "Welcome to Remix!" },
   ];
 };
+
+export async function loader({ request, context: { env } }: DataFunctionArgs) {
+  return {
+    clientArgs: {
+      apiKey: env.PASSWORDLESS_PUBLIC_KEY,
+      apiUrl: env.API_URL_PASSWORDLESS,
+    },
+  };
+}
 
 export async function action({ request, context: { env } }: DataFunctionArgs) {
   const formData = await request.formData();
@@ -42,7 +57,21 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   throw redirect("/", { headers });
 }
 
+const form = {
+  email: {
+    id: "email",
+    name: "email",
+    type: "email",
+    required: true,
+  },
+};
+
 export default function Index() {
+  const data = useLoaderData<typeof loader>();
+  const submit = useSubmit();
+
+  const navigation = useNavigation();
+
   return (
     <main>
       <>
@@ -54,7 +83,31 @@ export default function Index() {
           </div>
 
           <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-            <Form className="space-y-6" method="POST">
+            <Form
+              onSubmit={(event) => {
+                event.preventDefault();
+
+                const formData = new FormData(event.currentTarget);
+                const email = formData.get("email")?.toString();
+
+                if (!email) {
+                  throw new Error("Email is required");
+                }
+
+                const signin = async () => {
+                  const client = new Client(data.clientArgs);
+                  const { token } = await client.signinWithId(email);
+
+                  if (token) {
+                    submit({ token }, { method: "POST" });
+                  }
+                };
+
+                signin();
+              }}
+              className="space-y-6"
+              method="POST"
+            >
               <div>
                 <div className="flex items-center justify-between">
                   <label
@@ -67,17 +120,16 @@ export default function Index() {
                 <div className="mt-2">
                   <input
                     autoComplete="webauthn"
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
+                    disabled={navigation.state === "submitting"}
                     className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    {...form.email}
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="flex gap-4">
                 <ButtonPrimary type="submit">Sign in</ButtonPrimary>
+                <div>{" or "}</div>
                 <ButtonSecondary type="submit" formAction="/register">
                   Register
                 </ButtonSecondary>
@@ -107,7 +159,7 @@ const ButtonSecondary = (props: JSX.IntrinsicElements["button"]) => {
     <button
       {...props}
       className={cn(
-        "rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600",
+        "rounded-md bg-white px-3 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600",
         props.className
       )}
     />

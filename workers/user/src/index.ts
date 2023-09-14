@@ -10,7 +10,7 @@ import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { type } from "arktype";
 import { BodyRegisterToken, passwordless } from "./api/passwordless";
 import { fetcher } from "@mewhhaha/little-fetcher";
-import { parseAuthorization, signApplication } from "@internal/sign";
+import { parseJwt, decodeJwt } from "@internal/jwt";
 
 interface Env {
   API_URL_PASSWORDLESS: string;
@@ -139,9 +139,7 @@ const auth_ = (async (
   }: PluginContext<{
     init: {
       headers: {
-        Authorization:
-          | `Auth4 id="${string}", pk="${string}", mac="${string}"`
-          | (string & {});
+        Authorization: string;
       };
     };
   }>,
@@ -153,19 +151,19 @@ const auth_ = (async (
     return error(403, { message: "authorization header missing" });
   }
 
-  const auth = parseAuthorization(header);
+  const jwt = parseJwt(header);
 
-  if (!auth) {
+  if (!jwt) {
     return error(403, { message: "authorization header invalid" });
   }
 
-  const signedData = await signApplication(env.SECRET_FOR_HMAC, auth);
+  const auth = await decodeJwt(env.SECRET_FOR_HMAC, jwt);
 
-  if (signedData !== auth.mac) {
-    return error(403, { message: "mac did not match" });
+  if (!auth) {
+    return error(403, { message: "jwt token invalid" });
   }
 
-  return { auth: { pk: auth.pk, id: auth.id } };
+  return { auth };
 }) satisfies Plugin<[Env]>;
 
 const router = Router<[Env, ExecutionContext]>()
@@ -192,7 +190,10 @@ const router = Router<[Env, ExecutionContext]>()
     "/new-user",
     [auth_, data_(type({ email: "string", username: "string" }))],
     async ({ auth, data: { email, username } }, env, ctx) => {
-      const user = fetcherUser(env.DO_USER, { application: auth.id, username });
+      const user = fetcherUser(env.DO_USER, {
+        application: auth.id,
+        username,
+      });
 
       const response = await user.post("/initiate", {
         headers: { "Content-Type": "application/json" },
@@ -266,7 +267,10 @@ const router = Router<[Env, ExecutionContext]>()
     "/new-device",
     [auth_, data_(type({ username: "string" }))],
     async ({ auth, data: { username } }, env, ctx) => {
-      const user = fetcherUser(env.DO_USER, { application: auth.id, username });
+      const user = fetcherUser(env.DO_USER, {
+        application: auth.id,
+        username,
+      });
       const response = await user.post("/devices/new");
 
       if (!response.ok) {
@@ -281,6 +285,7 @@ const router = Router<[Env, ExecutionContext]>()
         code,
         dkim: env.DKIM_PRIVATE_KEY,
       });
+
       ctx.waitUntil(sendEmail(env.API_URL_MAILCHANNELS, body));
 
       return ok(200, { id });

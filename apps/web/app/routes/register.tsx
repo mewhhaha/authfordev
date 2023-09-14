@@ -3,7 +3,7 @@ import { Form, useActionData } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import { cn } from "~/css/cn";
 import { type } from "arktype";
-import { createAuthorization, signApplication } from "@internal/sign";
+import { encodeJwt } from "@internal/jwt";
 import {
   ClipboardIcon,
   EyeIcon,
@@ -39,16 +39,15 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   }
 
   const id = crypto.randomUUID();
-  const mac = await signApplication(env.SECRET_FOR_HMAC, { id, pk: data.pk });
+
+  const jwt = await encodeJwt(env.SECRET_FOR_HMAC, { id, pk: data.pk });
 
   try {
-    await env.D1.prepare(`INSERT INTO applications (id, mac) VALUES (?, ?)`)
-      .bind(id, mac)
+    await env.D1.prepare(`INSERT INTO applications (id) VALUES (?)`)
+      .bind(id)
       .run();
 
-    const authorization = createAuthorization({ id, pk: data.pk, mac });
-
-    return { status: 200, authorization } as const;
+    return { status: 200, authorization: `Bearer ${jwt}` } as const;
   } catch {
     return { status: 409 } as const;
   }
