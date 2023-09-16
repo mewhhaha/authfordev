@@ -16,10 +16,10 @@ interface NotionMagicLinkEmailProps {
 export const SendCodeEmail = ({
   otp = "{{123456}}",
 }: NotionMagicLinkEmailProps) => (
-  <Tailwind>
-    <Html>
-      <Head />
-      <Preview>Register your device with this code</Preview>
+  <Html>
+    <Head />
+    <Preview>Register your device with this code</Preview>
+    <Tailwind>
       <Body className="font-sans">
         <Container className="rounded-md px-8 shadow-md">
           <Heading className="font-sans text-3xl font-normal">
@@ -40,6 +40,6 @@ export const SendCodeEmail = ({
           </Text>
         </Container>
       </Body>
-    </Html>
-  </Tailwind>
+    </Tailwind>
+  </Html>
 );
