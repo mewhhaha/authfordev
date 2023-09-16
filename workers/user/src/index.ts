@@ -11,6 +11,7 @@ import { type } from "arktype";
 import { BodyRegisterToken, passwordless } from "./api/passwordless";
 import { fetcher } from "@mewhhaha/little-fetcher";
 import { parseJwt, decodeJwt } from "@internal/jwt";
+import emailSendCode from "@internal/emails/dist/send-code.json";
 
 interface Env {
   API_URL_PASSWORDLESS: string;
@@ -465,8 +466,8 @@ const fetcherUser = (
 
 const defaultEmail = ({ code }: { code: string }) =>
   ({
-    type: "text/plain",
-    value: `Input the following code by copy-pasting or typing it in manually: ${code}. If you didn't request this, then you can ignore this email.`,
+    type: "text/html",
+    value: emailSendCode.html.replace("{{123456}}", code),
   } as const);
 
 const generateToken = () => {

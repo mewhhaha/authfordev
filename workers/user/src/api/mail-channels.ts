@@ -12,7 +12,7 @@ export type BodySend = {
   }[];
   from: { email: string; name: string };
   subject: string;
-  content: { type: "text/plain"; value: string }[];
+  content: { type: "text/plain" | "text/html"; value: string }[];
 };
 
 type RoutesMailChannels = FetchDefinition<
