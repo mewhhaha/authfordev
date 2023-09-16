@@ -83,15 +83,21 @@ export const parseJwt = (authorization: string) => {
   return jwt;
 };
 
-function decode(str: string) {
-  str = str.replace("-", "+").replace("_", "/");
+const dash = /-/g;
+const underscore = /_/g;
+const plus = /\+/g;
+const slash = /\//g;
+const equals = /=+$/;
+
+const decode = (str: string) => {
+  str = str.replace(dash, "+").replace(underscore, "/");
   while (str.length % 4) {
     str += "=";
   }
   return atob(str);
-}
+};
 
-function encode(str: string) {
+const encode = (str: string) => {
   let base64 = btoa(str);
-  return base64.replace("+", "-").replace("/", "_").replace(/=+$/, "");
-}
+  return base64.replace(plus, "-").replace(slash, "_").replace(equals, "");
+};

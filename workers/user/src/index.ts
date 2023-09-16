@@ -24,7 +24,7 @@ type DeviceSlip = {
   code: string;
   id: string;
   attempts: number;
-  expiry: Date;
+  iat: Date;
 };
 
 const verified_ = (async (_: PluginContext, user: DurableObjectUser) => {
@@ -38,7 +38,7 @@ const verified_ = (async (_: PluginContext, user: DurableObjectUser) => {
 export class DurableObjectUser implements DurableObject {
   email?: string;
   slip?: DeviceSlip;
-  verified?: boolean;
+  verified: boolean = false;
 
   storage: DurableObjectStorage;
 
@@ -52,22 +52,34 @@ export class DurableObjectUser implements DurableObject {
           this[key] = value;
         }
       };
-      await Promise.all([load("slip"), load("email")]);
+      await Promise.all([load("slip"), load("email"), load("verified")]);
     });
   }
 
+  setEmail(email: string) {
+    this.email = email;
+    this.storage.put("email", email);
+  }
+
   generateSlip() {
-    const expiry = new Date();
-    expiry.setHours(expiry.getHours() + 1);
+    if (this.slip) {
+      const seconds10 = 1000 * 10;
+      const cooldown = new Date(this.slip.iat.getTime() + seconds10);
+      if (new Date() < cooldown) {
+        return { success: false } as const;
+      }
+    }
 
     this.slip = {
       id: crypto.randomUUID(),
       attempts: 0,
       code: generateToken(),
-      expiry: expiry,
+      iat: new Date(),
     };
 
-    return { slip: this.slip } as const;
+    this.storage.put("slip", this.slip);
+
+    return { success: true, slip: this.slip } as const;
   }
 
   attemptSlip({ code, id }: { code: string; id: string }) {
@@ -75,10 +87,13 @@ export class DurableObjectUser implements DurableObject {
       return { success: false, message: "missing slip" } as const;
     }
 
+    const hour1 = 1000 * 60 * 60;
+    const expiry = new Date(this.slip.iat.getTime() + hour1);
+
     const attempt = (slip: DeviceSlip) => {
       if (slip.attempts >= 3) {
-        return "slip has expired";
-      } else if (slip.expiry > new Date()) {
+        return "slip attempts over limit";
+      } else if (new Date() > expiry) {
         return "slip has expired";
       } else if (id !== slip?.id) {
         return "invalid slip id";
@@ -93,7 +108,14 @@ export class DurableObjectUser implements DurableObject {
       return { success: false, message: invalid } as const;
     }
 
+    if (!this.verified) {
+      this.verified = true;
+      this.storage.put("verified", true);
+    }
+
     this.slip = undefined;
+    this.storage.delete("slip");
+
     return { success: true } as const;
   }
 
@@ -103,19 +125,27 @@ export class DurableObjectUser implements DurableObject {
         return error(409, { message: "user already exists" });
       }
 
-      user.email = data.email;
+      user.setEmail(data.email);
 
-      const { slip } = user.generateSlip();
+      const { success, slip } = user.generateSlip();
+
+      if (!success) {
+        return error(429, { message: "try again later" });
+      }
 
       return ok(200, { code: slip.code, id: slip.id });
     })
     .post("/new-device", [verified_], ({ email }, user) => {
-      const { slip } = user.generateSlip();
+      const { success, slip } = user.generateSlip();
+      if (!success) {
+        return error(429, { message: "try again later" });
+      }
+
       return ok(200, { email, code: slip.code, id: slip.id });
     })
     .post(
       "/verify-device",
-      [verified_, data_(type({ code: "string", id: "string" }))],
+      [data_(type({ code: "string", id: "string" }))],
       ({ data }, user) => {
         const { success, message } = user.attemptSlip(data);
         if (!success) {
@@ -188,7 +218,44 @@ const router = Router<[Env, ExecutionContext]>()
       return ok(200, { ...signin, success: true });
     }
   )
+  .post(
+    "/list-credentials",
+    [auth_, data_(type({ username: "string" }))],
+    async ({ auth, data }, env) => {
+      const api = passwordless(env.API_URL_PASSWORDLESS);
+      const response = await api.post("/credentials/list", {
+        headers: { "Content-Type": "application/json", ApiSecret: auth.pk },
+        body: JSON.stringify({ userId: data.username }),
+      });
 
+      if (!response.ok) {
+        return error(403, { message: "invalid authentication" });
+      }
+
+      const { values } = await response.json();
+
+      return ok(200, { credentials: values });
+    }
+  )
+  .post(
+    "/delete-credential",
+    [auth_, data_(type({ credentialId: "string" }))],
+    async ({ auth, data }, env) => {
+      const api = passwordless(env.API_URL_PASSWORDLESS);
+      const response = await api.post("/credentials/delete", {
+        headers: { "Content-Type": "application/json", ApiSecret: auth.pk },
+        body: JSON.stringify({ credentialId: data.credentialId }),
+      });
+
+      if (!response.ok) {
+        return error(403, { message: "invalid authentication" });
+      }
+
+      const credentials = await response.json();
+
+      return ok(200, { credentials });
+    }
+  )
   .post(
     "/new-user",
     [auth_, data_(type({ email: "string", username: "string" }))],
@@ -217,7 +284,7 @@ const router = Router<[Env, ExecutionContext]>()
 
       ctx.waitUntil(sendEmail(env.API_URL_MAILCHANNELS, body));
 
-      return ok(200, { id });
+      return ok(200, { slip: id });
     }
   )
   .post(
@@ -231,7 +298,7 @@ const router = Router<[Env, ExecutionContext]>()
         const verifyCode = async () => {
           const user = fetcherUser(env.DO_USER, {
             application: auth.id,
-            username: username,
+            username,
           });
 
           const response = await user.post("/verify-device", {
@@ -291,7 +358,7 @@ const router = Router<[Env, ExecutionContext]>()
 
         ctx.waitUntil(sendEmail(env.API_URL_MAILCHANNELS, body));
 
-        return ok(200, { id });
+        return ok(200, { slip: id });
       } catch (err) {
         console.error(err);
         return error(404, "user not found");

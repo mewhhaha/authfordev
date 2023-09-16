@@ -10,7 +10,7 @@ declare module "@remix-run/cloudflare" {
       AUTHFOR_AUTHORIZATION: string;
       PASSWORDLESS_PUBLIC_KEY: string;
       PASSWORDLESS_PRIVATE_KEY: string;
-      API_URL_PASSWORDLESS: string;
+      PASSWORDLESS_API_URL: string;
     };
   }
 }

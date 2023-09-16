@@ -1,16 +1,31 @@
+import { Client } from "@passwordlessdev/passwordless-client";
 import { redirect, type DataFunctionArgs } from "@remix-run/cloudflare";
-import { Form, useActionData, useLoaderData } from "@remix-run/react";
+import {
+  Form,
+  useActionData,
+  useFetcher,
+  useLoaderData,
+  useNavigation,
+  useSubmit,
+} from "@remix-run/react";
+import { useEffect } from "react";
 import { authfordev } from "~/api/authfordev";
-import { ButtonPrimary } from "~/components/ButtonPrimary";
+import { Button } from "~/components/Button";
 import { FormItem } from "~/components/FormItem";
 import { InputOtp } from "~/components/InputOtp";
 import { InputText } from "~/components/InputText";
 
-export async function loader({ request }: DataFunctionArgs) {
+export async function loader({ request, context: { env } }: DataFunctionArgs) {
   const url = new URL(request.url);
   const email = url.searchParams.get("email");
 
-  return { email: email ?? "" };
+  return {
+    email: email ?? "",
+    clientArgs: {
+      apiKey: env.PASSWORDLESS_PUBLIC_KEY,
+      apiUrl: env.PASSWORDLESS_API_URL,
+    },
+  };
 }
 
 const form = {
@@ -41,16 +56,16 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     });
 
     if (response.ok) {
-      const { id } = await response.json();
-      return { success: true, id };
+      const { slip } = await response.json();
+      return { success: true, slip } as const;
     } else {
-      return { success: false };
+      return { success: false } as const;
     }
   };
 
   const result = await device(env.AUTHFOR_AUTHORIZATION, email);
   if (result.success) {
-    return { success: true, email, id: result.id } as const;
+    return { success: true, email, slip: result.slip } as const;
   } else {
     return { success: false, email } as const;
   }
@@ -60,6 +75,7 @@ export default function Index() {
   const data = useLoaderData<typeof loader>();
 
   const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
 
   return (
     <main>
@@ -90,44 +106,129 @@ export default function Index() {
             </FormItem>
 
             <div className="flex items-center gap-4">
-              <ButtonPrimary>Send new device code</ButtonPrimary>
+              {actionData?.success || navigation.state === "submitting" ? (
+                <Button
+                  secondary
+                  className="w-full transition-colors duration-500"
+                >
+                  Re-send registration code
+                </Button>
+              ) : (
+                <Button
+                  primary
+                  className="w-full transition-colors duration-500"
+                >
+                  Send registration code
+                </Button>
+              )}
             </div>
           </Form>
         </div>
-        {actionData && (
-          <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-            {actionData?.success && (
-              <Form
-                key={actionData.id}
-                action="/verify-code"
-                method="POST"
-                className="space-y-6"
-              >
-                <h2 className="text-center font-semibold">
-                  Input code sent to {actionData.email}
-                </h2>
-                <input name="id" type="hidden" defaultValue={actionData.id} />
-                <fieldset className="flex justify-between">
-                  {[...new Array(OTP_LENGTH).keys()].map((i) => {
-                    return (
-                      <InputOtp
-                        key={i}
-                        name="otp[]"
-                        autoComplete={i === 0 ? "one-time-code" : "off"}
-                      />
-                    );
-                  })}
-                </fieldset>
-                <div className="flex items-center gap-4">
-                  <ButtonPrimary>Register</ButtonPrimary>
-                </div>
-              </Form>
-            )}
-          </div>
-        )}
+        <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+          {navigation.state === "submitting" && (
+            <div className="flex w-full justify-center">
+              <div className="h-6 w-6 animate-spin rounded-full border-4 border-indigo-600/50 border-t-indigo-600" />
+            </div>
+          )}
+          {actionData?.success && navigation.state !== "submitting" && (
+            <FormVerification
+              client={data.clientArgs}
+              email={actionData.email}
+              slip={actionData.slip}
+            />
+          )}
+        </div>
       </div>
     </main>
   );
 }
 
+type FormVerificationProps = {
+  slip: string;
+  email: string;
+  client: { apiUrl: string; apiKey: string };
+};
+
+const FormVerification = ({
+  slip,
+  email,
+  client: { apiUrl, apiKey },
+}: FormVerificationProps) => {
+  const submit = useSubmit();
+  const verify = useFetcher<{ success: false; code: string; token?: string }>();
+
+  useEffect(() => {
+    const token = verify.data?.token;
+    if (!token) return;
+
+    const register = async () => {
+      const client = new Client({ apiUrl, apiKey });
+      const result = await client.register(token, email);
+      if (result.token) {
+        submit({ token }, { method: "POST", action: "/sign-in" });
+      }
+    };
+
+    register();
+  }, [apiKey, apiUrl, email, submit, verify.data?.token]);
+
+  return (
+    <verify.Form
+      key={slip}
+      action="/verify-device"
+      method="POST"
+      className="space-y-6"
+      onChange={(event) => {
+        const formData = new FormData(event.currentTarget);
+
+        if (
+          otp.every((i) => (formData.get(`otp[${i}]`)?.toString() ?? "") !== "")
+        ) {
+          verify.submit(event.currentTarget);
+          event.currentTarget.reset();
+        }
+      }}
+    >
+      <input name="slip" type="hidden" defaultValue={slip} />
+      <input name="username" type="hidden" defaultValue={email} />
+      <FormItem
+        label={
+          <h2 className="text-center font-semibold">
+            Input code sent to {email}
+          </h2>
+        }
+        error={
+          verify.data?.success === false
+            ? "Code is invalid. Please try inputting the code again."
+            : undefined
+        }
+      >
+        <fieldset className="flex justify-between">
+          {otp.map((i) => {
+            const name = `otp[${i}]`;
+            const placeholder =
+              verify.formData?.get(name)?.toString() ??
+              verify.data?.code[i] ??
+              "_";
+
+            return (
+              <InputOtp
+                key={i}
+                autoFocus={i === 0}
+                placeholder={placeholder}
+                name={name}
+                autoComplete={i === 0 ? "one-time-code" : "off"}
+              />
+            );
+          })}
+        </fieldset>
+      </FormItem>
+      <Button primary className="w-full">
+        Register
+      </Button>
+    </verify.Form>
+  );
+};
+
 const OTP_LENGTH = 6;
+const otp = [...new Array(OTP_LENGTH).keys()];

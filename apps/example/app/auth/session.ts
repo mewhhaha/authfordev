@@ -6,6 +6,7 @@ type Env = {
 
 export type SessionData = {
   id: string;
+  credentialId: string;
 };
 
 export const createAppCookieSessionStorage = (env: Env) => {
@@ -14,7 +15,7 @@ export const createAppCookieSessionStorage = (env: Env) => {
       name: "__session",
       httpOnly: true,
       path: "/",
-      expires: new Date(Date.now() + 1000 * 60 * 24),
+
       sameSite: "lax",
       secrets: [env.SECRET_FOR_AUTH],
       secure: true,
@@ -29,11 +30,12 @@ export const authenticate = async (
   const { getSession } = createAppCookieSessionStorage(env);
   const session = await getSession(request.headers.get("Cookie"));
   const id = session.get("id");
-  if (id === undefined) {
+  const credentialId = session.get("credentialId");
+  if (id === undefined || credentialId === undefined) {
     return undefined;
   }
 
-  return { id };
+  return { id, credentialId: credentialId };
 };
 
 export const revalidateSession = async (request: Request, context: Env) => {
@@ -45,12 +47,17 @@ export const revalidateSession = async (request: Request, context: Env) => {
 export const makeSession = async (
   request: Request,
   env: Env,
-  { id }: SessionData
+  { id, credentialId }: SessionData
 ) => {
   const { getSession, commitSession } = createAppCookieSessionStorage(env);
   const session = await getSession(request.headers.get("Cookie"));
   session.set("id", id);
-  return { "Set-Cookie": await commitSession(session) };
+  session.set("credentialId", credentialId);
+  return {
+    "Set-Cookie": await commitSession(session, {
+      expires: new Date(Date.now() + 1000 * 60 * 24),
+    }),
+  };
 };
 
 export const removeSession = async (request: Request, env: Env) => {

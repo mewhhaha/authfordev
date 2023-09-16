@@ -1,9 +1,5 @@
 import { Client } from "@passwordlessdev/passwordless-client";
-import {
-  redirect,
-  type DataFunctionArgs,
-  type V2_MetaFunction,
-} from "@remix-run/cloudflare";
+import { redirect, type DataFunctionArgs } from "@remix-run/cloudflare";
 import {
   Form,
   Link,
@@ -13,27 +9,19 @@ import {
   useSubmit,
 } from "@remix-run/react";
 import type { FormEvent, MouseEvent } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { authfordev } from "~/api/authfordev";
 import { makeSession } from "~/auth/session";
-import { ButtonPrimary } from "~/components/ButtonPrimary";
-import { ButtonSecondary } from "~/components/ButtonSecondary";
+import { Button } from "~/components/Button";
+
 import { FormItem } from "~/components/FormItem";
 import { InputText } from "~/components/InputText";
-
-export const meta: V2_MetaFunction = () => {
-  return [
-    { title: "Example sign in for app" },
-    { name: "description", content: "Welcome to Remix!" },
-  ];
-};
 
 const form = {
   email: {
     id: "email",
     name: "email",
     type: "email",
-    required: true,
   },
 };
 
@@ -41,7 +29,7 @@ export async function loader({ context: { env } }: DataFunctionArgs) {
   return {
     clientArgs: {
       apiKey: env.PASSWORDLESS_PUBLIC_KEY,
-      apiUrl: env.API_URL_PASSWORDLESS,
+      apiUrl: env.PASSWORDLESS_API_URL,
     },
   };
 }
@@ -68,7 +56,10 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
 
   const data = await response.json();
 
-  const headers = await makeSession(request, env, { id: data.userId });
+  const headers = await makeSession(request, env, {
+    id: data.userId,
+    credentialId: data.credentialId,
+  });
 
   throw redirect("/", { headers });
 }
@@ -83,10 +74,18 @@ export default function Index() {
   const [problem, setProblem] = useState<
     | { reason: "no problem" }
     | {
-        reason: "unable to sign in" | "unknown credential";
+        reason: "unknown credential";
+        email: string;
+      }
+    | {
+        reason: "could not sign in";
         email: string;
       }
   >({ reason: "no problem" });
+
+  const { current: client } = useRef(
+    ifClient(() => new Client(data.clientArgs))
+  );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -94,29 +93,47 @@ export default function Index() {
     const email = formData.get("email") as string;
 
     const signin = async () => {
-      const client = new Client(data.clientArgs);
-      const { token, error } = await client.signinWithId(email);
+      const { token, error } = email
+        ? await client.signinWithId(email)
+        : await client.signinWithDiscoverable();
 
       if (token) {
         submit({ token }, { method: "POST" });
-      } else if (error) {
-        if (error.errorCode === "unknown_credential") {
-          setProblem({ reason: "unknown credential", email });
-        } else {
-          setProblem({ reason: "unable to sign in", email });
-        }
+      } else if (error?.errorCode === "unknown_credential") {
+        setProblem({ reason: "unknown credential", email });
+      } else if (error?.errorCode === "unknown") {
+        setProblem({ reason: "could not sign in", email });
       }
     };
 
     signin();
   };
 
+  useEffect(() => {
+    const f = async () => {
+      const { token, error } = await client.signinWithAutofill();
+
+      if (token) {
+        submit({ token }, { method: "POST" });
+      } else if (error) {
+        if (error.errorCode === "unknown_credential") {
+          setProblem({ reason: "unknown credential", email: "" });
+        }
+      }
+    };
+
+    f();
+    return () => {
+      client.abort();
+    };
+  }, [client, submit]);
+
   const handleRegister = (event: MouseEvent<HTMLButtonElement>) => {
     const form = event.currentTarget.closest("form");
     const formData = new FormData(form as HTMLFormElement);
     const email = formData.get("email")?.toString() ?? "";
 
-    navigate(`/register?email=${encodeURIComponent(email)}`);
+    navigate(`/register-user?email=${encodeURIComponent(email)}`);
   };
 
   return (
@@ -141,7 +158,17 @@ export default function Index() {
               }
               error={narrow([problem, "reason"], {
                 "no problem": () => undefined,
-                "unable to sign in": () => <>Unable to sign in.</>,
+                "could not sign in": ({ email }) => (
+                  <>
+                    Could not sign in. Is this a{" "}
+                    <Link
+                      to={`/register-device?email=${encodeURIComponent(email)}`}
+                      className="font-semibold text-indigo-600 hover:text-indigo-500"
+                    >
+                      new device?
+                    </Link>
+                  </>
+                ),
                 "unknown credential": ({ email }) => (
                   <>
                     Unknown credential. Is this a{" "}
@@ -157,17 +184,20 @@ export default function Index() {
             >
               <InputText
                 autoComplete="webauthn"
+                placeholder="Sign in with discoverable"
                 disabled={navigation.state === "submitting"}
                 {...form.email}
               />
             </FormItem>
 
             <div className="flex items-center gap-4">
-              <ButtonPrimary>Sign in</ButtonPrimary>
+              <Button primary className="w-full">
+                Sign in
+              </Button>
               <div>{" or "}</div>
-              <ButtonSecondary type="button" onClick={handleRegister}>
+              <Button secondary type="button" onClick={handleRegister}>
                 Register
-              </ButtonSecondary>
+              </Button>
             </div>
           </Form>
         </div>
@@ -203,4 +233,8 @@ export const narrow = <
   cases: C
 ): ReturnType<C[keyof C]> => {
   return cases[o[p]](o as never);
+};
+
+const ifClient = <T,>(f: () => T): T => {
+  return typeof window === "undefined" ? (undefined as T) : f();
 };
