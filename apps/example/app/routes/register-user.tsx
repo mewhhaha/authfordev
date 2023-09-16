@@ -1,6 +1,7 @@
 import { redirect, type DataFunctionArgs } from "@remix-run/cloudflare";
 import {
   Form,
+  Link,
   useActionData,
   useFetcher,
   useLoaderData,
@@ -59,8 +60,10 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     if (response.ok) {
       const { slip } = await response.json();
       return { success: true, slip } as const;
+    } else if (response.status === 409) {
+      return { success: false, reason: "conflict" } as const;
     } else {
-      return { success: false } as const;
+      return { success: false, reason: "unknown" } as const;
     }
   };
 
@@ -68,7 +71,7 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   if (result.success) {
     return { success: true, email, slip: result.slip } as const;
   }
-  return { success: false } as const;
+  return { success: false, email, reason: result.reason } as const;
 }
 
 export default function Index() {
@@ -96,6 +99,22 @@ export default function Index() {
                 >
                   Email address
                 </label>
+              }
+              error={
+                actionData?.success === false &&
+                actionData.reason === "conflict" ? (
+                  <>
+                    This user already exists. Register a{" "}
+                    <Link
+                      to={`/register-device?email=${encodeURIComponent(
+                        actionData.email
+                      )}`}
+                      className="font-semibold text-indigo-600 hover:text-indigo-500"
+                    >
+                      new device?
+                    </Link>
+                  </>
+                ) : undefined
               }
             >
               <InputText

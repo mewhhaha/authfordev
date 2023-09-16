@@ -111,8 +111,6 @@ export default function Index() {
                 const isDeleteCredentialFailure =
                   item.data?.id === c.descriptor.id;
 
-                console.log(strippedCredentialId, c.descriptor.id);
-
                 return (
                   <li
                     key={c.descriptor.id}
