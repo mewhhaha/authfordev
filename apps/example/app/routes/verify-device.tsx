@@ -22,7 +22,7 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   const response = await api.post("/verify-device", {
     headers: {
       "Content-Type": "application/json",
-      Authorization: env.AUTHFOR_AUTHORIZATION,
+      Authorization: env.AUTHFORDEV_AUTHORIZATION,
     },
     body: JSON.stringify({ username, code, slip }),
   });

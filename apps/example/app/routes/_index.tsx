@@ -29,7 +29,7 @@ export async function loader({ request, context: { env } }: DataFunctionArgs) {
     const response = await api.post("/list-credentials", {
       headers: {
         "Content-Type": "application/json",
-        Authorization: env.AUTHFOR_AUTHORIZATION,
+        Authorization: env.AUTHFORDEV_AUTHORIZATION,
       },
       body: JSON.stringify({ username: session.id }),
     });
@@ -61,7 +61,7 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   const response = await api.post("/delete-credential", {
     headers: {
       "Content-Type": "application/json",
-      Authorization: env.AUTHFOR_AUTHORIZATION,
+      Authorization: env.AUTHFORDEV_AUTHORIZATION,
     },
     body: JSON.stringify({ credentialId: id }),
   });

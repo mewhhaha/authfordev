@@ -63,7 +63,7 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     }
   };
 
-  const result = await device(env.AUTHFOR_AUTHORIZATION, email);
+  const result = await device(env.AUTHFORDEV_AUTHORIZATION, email);
   if (result.success) {
     return { success: true, email, slip: result.slip } as const;
   } else {
@@ -99,6 +99,7 @@ export default function Index() {
               }
             >
               <InputText
+                placeholder="email@example.com"
                 defaultValue={data.email}
                 autoComplete="webauthn"
                 {...form.email}

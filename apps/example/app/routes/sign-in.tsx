@@ -44,7 +44,7 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
 
   const response = await api.post("/signin", {
     headers: {
-      Authorization: env.AUTHFOR_AUTHORIZATION,
+      Authorization: env.AUTHFORDEV_AUTHORIZATION,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ token }),
