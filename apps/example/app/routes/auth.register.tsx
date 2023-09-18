@@ -3,7 +3,7 @@ import { Link, useFetcher, useLoaderData, useSubmit } from "@remix-run/react";
 import { Button } from "~/components/Button";
 import { FormItem } from "~/components/FormItem";
 import { InputText } from "~/components/InputText";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Client } from "@passwordlessdev/passwordless-client";
 
 export async function loader({ context: { env } }: DataFunctionArgs) {
@@ -36,8 +36,10 @@ export default function SignIn() {
 
   const disabled = code.data?.success || code.state === "submitting";
 
-  const registerAndSignIn = useCallback(
-    async (t: string) => {
+  useEffect(() => {
+    const t = register.data?.token;
+    if (!t) return;
+    const registerAndSignIn = async (t: string) => {
       const client = new Client({ apiKey, apiUrl });
 
       const { token, error } = await client.register(t, username);
@@ -49,15 +51,9 @@ export default function SignIn() {
       } else {
         console.error(error);
       }
-    },
-    [apiKey, apiUrl, submit, username]
-  );
-
-  useEffect(() => {
-    const t = register.data?.token;
-    if (!t) return;
+    };
     registerAndSignIn(t);
-  }, [register.data?.token, registerAndSignIn]);
+  }, [apiKey, apiUrl, register.data?.token, submit, username]);
 
   return (
     <main>
