@@ -21,7 +21,7 @@ export const meta: V2_MetaFunction = () => {
 export async function loader({ request, context: { env } }: DataFunctionArgs) {
   const session = await authenticate(request, env);
   if (!session) {
-    throw redirect("/sign-in");
+    throw redirect("/auth/sign-in");
   }
 
   const api = authfordev("https://user.authfor.dev");
@@ -48,7 +48,7 @@ export async function loader({ request, context: { env } }: DataFunctionArgs) {
 export async function action({ request, context: { env } }: DataFunctionArgs) {
   const session = await authenticate(request, env);
   if (!session) {
-    throw redirect("/sign-in");
+    throw redirect("/auth/sign-in");
   }
 
   const formData = await request.formData();
@@ -88,7 +88,7 @@ export default function Index() {
             </h2>
           </div>
           <div className="mt-4 flex md:ml-4 md:mt-0">
-            <Form action="/sign-out" method="POST">
+            <Form action="/auth/api?act=sign-out" method="POST">
               <Button primary>Sign out</Button>
             </Form>
           </div>
@@ -151,7 +151,7 @@ export default function Index() {
                           type="hidden"
                           name="id"
                           value={c.descriptor.id}
-                        ></input>
+                        />
                         <Button
                           secondary
                           disabled={item.state === "submitting"}

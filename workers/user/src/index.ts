@@ -127,9 +127,7 @@ export class DurableObjectUser implements DurableObject {
       }
 
       user.setEmail(data.email);
-
       const { success, slip } = user.generateSlip();
-
       if (!success) {
         return error(429, { message: "try again later" });
       }
@@ -202,7 +200,7 @@ const auth_ = (async (
 
 const router = Router<[Env, ExecutionContext]>()
   .post(
-    "/signin",
+    "/sign-in",
     [auth_, data_(type({ token: "string" }))],
     async ({ auth, data }, env) => {
       const api = passwordless(env.API_URL_PASSWORDLESS);
@@ -213,7 +211,10 @@ const router = Router<[Env, ExecutionContext]>()
 
       const signin = await response.json();
       if (!signin.success) {
-        return error(403, { message: "failed verification" });
+        return error(403, {
+          message: "failed verification",
+          data: { ...signin, success: false },
+        });
       }
 
       return ok(200, { ...signin, success: true });
