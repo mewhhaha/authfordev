@@ -3,7 +3,7 @@ import { Link, useFetcher, useLoaderData, useSubmit } from "@remix-run/react";
 import { Button } from "~/components/Button";
 import { FormItem } from "~/components/FormItem";
 import { InputText } from "~/components/InputText";
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Client } from "@passwordlessdev/passwordless-client";
 
 export async function loader({ context: { env } }: DataFunctionArgs) {
@@ -15,12 +15,12 @@ export async function loader({ context: { env } }: DataFunctionArgs) {
   };
 }
 
-type ActionDataRequestCode =
-  | { success: true; slip: string; reason?: undefined; username: string }
-  | {
-      success: false;
-      reason: "user taken" | "user missing" | "too many attempts";
-    };
+type ActionDataRequestCode = {
+  success: boolean;
+  slip?: string;
+  reason?: "user taken" | "user missing" | "too many attempts";
+  username?: string;
+};
 
 type ActionDataRegister = { success: boolean; token?: string };
 
@@ -28,32 +28,10 @@ export default function SignIn() {
   const {
     clientArgs: { apiKey, apiUrl },
   } = useLoaderData<typeof loader>();
-  const submit = useSubmit();
-  const code = useFetcher<ActionDataRequestCode>();
-  const register = useFetcher<ActionDataRegister>();
 
-  const [username, setUsername] = useState<string>("");
+  const code = useFetcher<ActionDataRequestCode>();
 
   const disabled = code.data?.success || code.state === "submitting";
-
-  useEffect(() => {
-    const t = register.data?.token;
-    if (!t) return;
-    const registerAndSignIn = async (t: string) => {
-      const client = new Client({ apiKey, apiUrl });
-
-      const { token, error } = await client.register(t, username);
-
-      if (token) {
-        const formData = new FormData();
-        formData.set("token", token);
-        submit(formData, { action: "/auth/api?act=sign-in", method: "POST" });
-      } else {
-        console.error(error);
-      }
-    };
-    registerAndSignIn(t);
-  }, [apiKey, apiUrl, register.data?.token, submit, username]);
 
   return (
     <main>
@@ -70,7 +48,6 @@ export default function SignIn() {
             className="flex flex-col gap-4"
           >
             <input name="q" type="hidden" defaultValue="new-user" />
-            <input type="hidden" name="username" value={username} />
             <FormItem
               error={
                 code.data?.success === false ? (
@@ -91,9 +68,12 @@ export default function SignIn() {
                 placeholder="user@example.com"
                 required
                 onChange={(event) => {
-                  setUsername(event.currentTarget.value);
+                  const el = event.currentTarget
+                    .nextElementSibling as HTMLInputElement;
+                  el.value = event.currentTarget.value;
                 }}
               />
+              <input type="hidden" name="username" defaultValue="" />
             </FormItem>
             <div className="flex items-center gap-4">
               <Button
@@ -116,51 +96,12 @@ export default function SignIn() {
               </Button>
             </div>
           </code.Form>
-          {code.data?.success && (
-            <register.Form
-              key={code.data.slip}
-              action="/auth/api?act=register-device"
-              method="POST"
-              className="mt-10 flex flex-col gap-4"
-            >
-              <input type="hidden" name="slip" defaultValue={code.data.slip} />
-              <input
-                type="hidden"
-                name="username"
-                defaultValue={code.data.username}
-              />
-              <FormItem
-                label={<label>Code sent to {code.data.username}</label>}
-              >
-                <InputText
-                  name="code"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="000000"
-                  className="w-full text-center"
-                  onFocus={(event) => {
-                    event.currentTarget.setSelectionRange(0, 6);
-                  }}
-                  onInput={(event) => {
-                    const codeLength = 6;
-                    event.currentTarget.value = event.currentTarget.value
-                      .replace(/[^\d]+/g, "")
-                      .slice(0, codeLength);
-
-                    if (event.currentTarget.value.length === codeLength) {
-                      const form = event.currentTarget.closest("form");
-                      register.submit(form, {
-                        action: register.formAction,
-                        method: register.formMethod,
-                      });
-                    }
-                  }}
-                />
-              </FormItem>
-
-              <Button primary>Register</Button>
-            </register.Form>
+          {code.data?.success && code.data.username && code.data.slip && (
+            <FormOneTimeCode
+              username={code.data.username}
+              slip={code.data.slip}
+              client={{ apiKey, apiUrl }}
+            />
           )}
           <Link
             className="mt-10 block text-sm font-medium text-indigo-600 hover:underline"
@@ -173,3 +114,80 @@ export default function SignIn() {
     </main>
   );
 }
+
+type FormOneTimeCodeProps = {
+  username: string;
+  slip: string;
+  client: { apiKey: string; apiUrl: string };
+};
+
+const FormOneTimeCode = ({
+  username,
+  slip,
+  client: { apiKey, apiUrl },
+}: FormOneTimeCodeProps) => {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const submit = useSubmit();
+  const register = useFetcher<ActionDataRegister>();
+
+  useEffect(() => {
+    const registerToken = register.data?.token;
+
+    if (!registerToken || !username) return;
+
+    const registerAndSignIn = async () => {
+      const client = new Client({ apiKey, apiUrl });
+
+      const { token, error } = await client.register(registerToken, username);
+
+      if (token) {
+        const formData = new FormData();
+        formData.set("token", token);
+        submit(formData, { action: "/auth/api?act=sign-in", method: "POST" });
+      } else {
+        console.error(error);
+      }
+    };
+    registerAndSignIn();
+  }, [apiKey, apiUrl, username, register.data?.token, submit]);
+
+  return (
+    <register.Form
+      key={slip}
+      action="/auth/api?act=register-device"
+      method="POST"
+      className="mt-10 flex flex-col gap-4"
+    >
+      <input type="hidden" name="slip" defaultValue={slip} />
+      <input type="hidden" name="username" defaultValue={username} />
+      <FormItem label={<label>Code sent to {username}</label>}>
+        <InputText
+          name="code"
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          placeholder="000000"
+          className="w-full text-center"
+          onFocus={(event) => {
+            event.currentTarget.setSelectionRange(0, 6);
+          }}
+          onInput={(event) => {
+            const codeLength = 6;
+            event.currentTarget.value = event.currentTarget.value
+              .replace(/[^\d]+/g, "")
+              .slice(0, codeLength);
+
+            if (event.currentTarget.value.length === codeLength) {
+              buttonRef.current?.click();
+            }
+          }}
+        />
+      </FormItem>
+
+      <Button ref={buttonRef} primary>
+        Register
+      </Button>
+    </register.Form>
+  );
+};
