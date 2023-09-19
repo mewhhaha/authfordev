@@ -1,9 +1,16 @@
 import { type DataFunctionArgs } from "@remix-run/cloudflare";
-import { Link, useFetcher, useLoaderData, useSubmit } from "@remix-run/react";
+import {
+  Form,
+  Link,
+  useFetcher,
+  useLoaderData,
+  useNavigation,
+  useSubmit,
+} from "@remix-run/react";
 import { Button } from "~/components/Button";
 import { FormItem } from "~/components/FormItem";
 import { InputText } from "~/components/InputText";
-import { useEffect, useRef } from "react";
+import { useRef, useState } from "react";
 import { Client } from "@passwordlessdev/passwordless-client";
 
 export async function loader({ context: { env } }: DataFunctionArgs) {
@@ -127,44 +134,71 @@ const FormOneTimeCode = ({
   client: { apiKey, apiUrl },
 }: FormOneTimeCodeProps) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
-
+  const [status, setStatus] = useState<"idle" | "failed" | "loading">("idle");
   const submit = useSubmit();
-  const register = useFetcher<ActionDataRegister>();
-
-  useEffect(() => {
-    const registerToken = register.data?.token;
-
-    if (!registerToken || !username) return;
-
-    const registerAndSignIn = async () => {
-      const client = new Client({ apiKey, apiUrl });
-
-      const { token, error } = await client.register(registerToken, username);
-
-      if (token) {
-        const formData = new FormData();
-        formData.set("token", token);
-        submit(formData, { action: "/auth/api?act=sign-in", method: "POST" });
-      } else {
-        console.error(error);
-      }
-    };
-    registerAndSignIn();
-  }, [apiKey, apiUrl, username, register.data?.token, submit]);
+  const navigation = useNavigation();
 
   return (
-    <register.Form
+    <Form
       key={slip}
       action="/auth/api?act=register-device"
       method="POST"
       className="mt-10 flex flex-col gap-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+
+        const f = async () => {
+          setStatus("loading");
+          const response = await fetch(form.action, {
+            method: form.method,
+            body: new FormData(form),
+          });
+
+          const { token: registerToken } =
+            await response.json<ActionDataRegister>();
+
+          const client = new Client({ apiKey, apiUrl });
+
+          if (!registerToken) {
+            console.error("Failed to register device");
+            setStatus("failed");
+            return;
+          }
+
+          const { token, error } = await client.register(
+            registerToken,
+            username
+          );
+
+          if (error && !token) {
+            console.error(error);
+            setStatus("failed");
+            return;
+          }
+
+          submit(
+            { token },
+            {
+              action: "/auth/api?act=sign-in",
+              method: "POST",
+            }
+          );
+        };
+
+        f();
+      }}
     >
       <input type="hidden" name="slip" defaultValue={slip} />
       <input type="hidden" name="username" defaultValue={username} />
-      <FormItem label={<label>Code sent to {username}</label>}>
+      <FormItem
+        label={<label>Code sent to {username}</label>}
+        error={status === "failed" ? "Code is invalid" : undefined}
+      >
         <InputText
           name="code"
           type="text"
+          readOnly={status === "loading" || navigation.state === "loading"}
           inputMode="numeric"
           autoComplete="one-time-code"
           placeholder="000000"
@@ -185,9 +219,13 @@ const FormOneTimeCode = ({
         />
       </FormItem>
 
-      <Button ref={buttonRef} primary>
+      <Button
+        loading={status === "loading" || navigation.state === "loading"}
+        ref={buttonRef}
+        primary
+      >
         Register
       </Button>
-    </register.Form>
+    </Form>
   );
 };
