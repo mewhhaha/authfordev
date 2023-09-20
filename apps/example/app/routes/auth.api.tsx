@@ -9,6 +9,10 @@ const urlSignInSuccess = "/";
 const urlInputCode = (username: string, slip: string) =>
   `/auth/input-code/${encodeURIComponent(username)}/${slip}`;
 
+const authfordev = fetcher<Routes>("fetch", {
+  base: "https://user.authfor.dev",
+});
+
 export async function action({ request, context: { env } }: DataFunctionArgs) {
   const authorization = env.AUTHFORDEV_AUTHORIZATION;
 
@@ -185,7 +189,3 @@ const registerDevice = async (
 
   return await response.json();
 };
-
-const authfordev = fetcher<Routes>("fetch", {
-  base: "https://user.authfor.dev",
-});
