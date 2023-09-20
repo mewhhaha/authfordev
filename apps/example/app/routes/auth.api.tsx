@@ -8,7 +8,6 @@ const urlSignIn = "/auth/sign-in";
 const urlSignInSuccess = "/";
 const urlInputCode = (username: string, slip: string) =>
   `/auth/input-code/${encodeURIComponent(username)}/${slip}`;
-
 const authfordev = fetcher<Routes>("fetch", {
   base: "https://user.authfor.dev",
 });
