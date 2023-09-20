@@ -54,11 +54,9 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
         username: form.username,
       });
       if (data.slip !== undefined) {
-        return {
-          success: true,
-          slip: data.slip,
-          username: form.username,
-        } as const;
+        throw redirect(
+          `/auth/input-code/${encodeURIComponent(form.username)}/${data.slip}`
+        );
       } else {
         return { success: false, reason: data.reason ?? "user taken" } as const;
       }
@@ -71,11 +69,9 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
       }
       const data = await newDevice(authorization, { username: form.username });
       if (data.slip !== undefined) {
-        return {
-          success: true,
-          slip: data.slip,
-          username: form.username,
-        } as const;
+        throw redirect(
+          `/auth/input-code/${encodeURIComponent(form.username)}/${data.slip}`
+        );
       } else {
         return {
           success: false,

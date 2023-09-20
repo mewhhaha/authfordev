@@ -32,7 +32,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         )}
       >
         <div className="flex items-center">
-          {loading && <Spin className="mr-2 h-4 w-4 border-4" />}
+          {loading && <Spin className="mr-2 h-4 w-4 border-4 text-white" />}
           {children}
         </div>
       </button>

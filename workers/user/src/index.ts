@@ -64,8 +64,8 @@ export class DurableObjectUser implements DurableObject {
 
   generateSlip() {
     if (this.slip) {
-      const seconds10 = 1000 * 10;
-      const cooldown = new Date(this.slip.iat.getTime() + seconds10);
+      const seconds5 = 1000 * 5;
+      const cooldown = new Date(this.slip.iat.getTime() + seconds5);
       if (new Date() < cooldown) {
         return { success: false } as const;
       }
@@ -123,13 +123,13 @@ export class DurableObjectUser implements DurableObject {
   static router = Router<[DurableObjectUser]>()
     .post("/initiate", [data_(type({ email: "string" }))], ({ data }, user) => {
       if (user.verified) {
-        return error(409, { message: "user already exists" });
+        return error(409, { message: "user_already_verified" });
       }
 
       user.setEmail(data.email);
       const { success, slip } = user.generateSlip();
       if (!success) {
-        return error(429, { message: "try again later" });
+        return error(429, { message: "too_many_requests" });
       }
 
       return ok(200, { code: slip.code, id: slip.id });
@@ -137,7 +137,7 @@ export class DurableObjectUser implements DurableObject {
     .post("/new-device", [verified_], ({ email }, user) => {
       const { success, slip } = user.generateSlip();
       if (!success) {
-        return error(429, { message: "try again later" });
+        return error(429, { message: "too_many_requests" });
       }
 
       return ok(200, { email, code: slip.code, id: slip.id });
@@ -180,19 +180,19 @@ const auth_ = (async (
   const header = request.headers.get("Authorization");
 
   if (!header) {
-    return error(403, { message: "authorization header missing" });
+    return error(403, { message: "authorization_header_missing" });
   }
 
   const jwt = parseJwt(header);
 
   if (!jwt) {
-    return error(403, { message: "authorization header invalid" });
+    return error(403, { message: "authorization_header_invalid" });
   }
 
   const auth = await decodeJwt(env.SECRET_FOR_HMAC, jwt);
 
   if (!auth) {
-    return error(403, { message: "jwt token invalid" });
+    return error(403, { message: "jwt_token_invalid" });
   }
 
   return { auth };
@@ -212,7 +212,7 @@ const router = Router<[Env, ExecutionContext]>()
       const signin = await response.json();
       if (!signin.success) {
         return error(403, {
-          message: "failed verification",
+          message: "verification_failed",
           data: { ...signin, success: false },
         });
       }
@@ -231,7 +231,7 @@ const router = Router<[Env, ExecutionContext]>()
       });
 
       if (!response.ok) {
-        return error(403, { message: "invalid authentication" });
+        return error(403, { message: "list_not_allowed" });
       }
 
       const { values } = await response.json();
@@ -250,7 +250,7 @@ const router = Router<[Env, ExecutionContext]>()
       });
 
       if (!response.ok) {
-        return error(403, { message: "invalid authentication" });
+        return error(403, { message: "delete_not_allowed" });
       }
 
       const credentials = await response.json();
@@ -318,7 +318,7 @@ const router = Router<[Env, ExecutionContext]>()
 
         const verified = await verifyCode();
         if (!verified) {
-          return error(403, { message: "attempt is not valid" });
+          return error(403, { message: "attempt_invalid" });
         }
 
         const token = await registerToken(env.API_URL_PASSWORDLESS, {
@@ -326,12 +326,12 @@ const router = Router<[Env, ExecutionContext]>()
           pk: auth.pk,
         });
         if (!token) {
-          return error(403, { message: "not allowed registration" });
+          return error(403, { message: "registration_not_allowed" });
         }
 
         return ok(200, { token });
       } catch {
-        return error(404, { message: "user not found" });
+        return error(404, { message: "user_missing" });
       }
     }
   )
@@ -363,7 +363,7 @@ const router = Router<[Env, ExecutionContext]>()
         return ok(200, { slip: id });
       } catch (err) {
         console.error(err);
-        return error(404, "user not found");
+        return error(404, "user_missing");
       }
     }
   )
