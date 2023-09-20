@@ -43,17 +43,11 @@ export default function SignIn() {
               error={actionData?.success === false && actionData.reason}
             >
               <InputText
-                name="email"
+                name="username"
                 readOnly={navigation.state !== "idle"}
                 placeholder="user@example.com"
                 required
-                onChange={(event) => {
-                  const siblingElement = event.currentTarget
-                    .nextElementSibling as HTMLInputElement;
-                  siblingElement.value = event.currentTarget.value;
-                }}
               />
-              <input type="hidden" name="username" defaultValue="" />
             </FormItem>
             <div className="flex items-center gap-4">
               <Button

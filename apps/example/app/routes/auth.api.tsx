@@ -4,6 +4,11 @@ import type { DataFunctionArgs } from "@remix-run/cloudflare";
 import { redirect } from "@remix-run/cloudflare";
 import { authenticate, makeSession, removeSession } from "~/auth/session";
 
+const urlSignIn = "/auth/sign-in";
+const urlSignInSuccess = "/";
+const urlInputCode = (username: string, slip: string) =>
+  `/auth/input-code/${encodeURIComponent(username)}/${slip}`;
+
 export async function action({ request, context: { env } }: DataFunctionArgs) {
   const authorization = env.AUTHFORDEV_AUTHORIZATION;
 
@@ -12,7 +17,8 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   const act = url.searchParams.get("act");
 
   const form = {
-    email: formData.get("email")?.toString(),
+    // In this example the username is synonymous with the email, but you could make these be different
+    email: formData.get("username")?.toString(),
     username: formData.get("username")?.toString(),
     token: formData.get("token")?.toString(),
     slip: formData.get("slip")?.toString(),
@@ -23,16 +29,16 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     case "sign-out": {
       const session = await authenticate(request, env);
       if (!session) {
-        throw redirect("/auth/sign-in");
+        throw redirect(urlSignIn);
       }
 
-      throw redirect("/auth/sign-in", {
+      throw redirect(urlSignIn, {
         headers: await removeSession(request, env),
       });
     }
     case "sign-in": {
       if (!form.token) {
-        throw new Response("Malformed form data sign-in", { status: 422 });
+        throw new Response("Missing form data for sign-in", { status: 422 });
       }
       const { data } = await signIn(authorization, { token: form.token });
       if (data) {
@@ -40,23 +46,21 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
           id: data.userId,
           credentialId: data.credentialId,
         });
-        throw redirect("/", { headers });
+        throw redirect(urlSignInSuccess, { headers });
       } else {
         return { success: false } as const;
       }
     }
     case "new-user": {
       if (!form.email || !form.username) {
-        throw new Response("Malformed form data for new-user", { status: 422 });
+        throw new Response("Missing form data for new-user", { status: 422 });
       }
       const data = await newUser(authorization, {
         email: form.email,
         username: form.username,
       });
       if (data.slip !== undefined) {
-        throw redirect(
-          `/auth/input-code/${encodeURIComponent(form.username)}/${data.slip}`
-        );
+        throw redirect(urlInputCode(form.username, data.slip));
       } else {
         return {
           success: false,
@@ -69,15 +73,13 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     }
     case "new-device": {
       if (!form.username) {
-        throw new Response("Malformed form data for new-device", {
+        throw new Response("Missing form data for new-device", {
           status: 422,
         });
       }
       const data = await newDevice(authorization, { username: form.username });
       if (data.slip !== undefined) {
-        throw redirect(
-          `/auth/input-code/${encodeURIComponent(form.username)}/${data.slip}`
-        );
+        throw redirect(urlInputCode(form.username, data.slip));
       } else {
         return {
           success: false,
@@ -90,7 +92,7 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     }
     case "register-device": {
       if (!form.code || !form.slip || !form.username) {
-        throw new Response("Malformed form data for register-device", {
+        throw new Response("Missing form data for register-device", {
           status: 422,
         });
       }
