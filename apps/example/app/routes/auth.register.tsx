@@ -1,7 +1,6 @@
 import { type DataFunctionArgs } from "@remix-run/cloudflare";
 import { Form, Link, useActionData, useNavigation } from "@remix-run/react";
 import { Button } from "~/components/Button";
-import { FormItem } from "~/components/FormItem";
 import { InputText } from "~/components/InputText";
 
 export async function loader({ context: { env } }: DataFunctionArgs) {
@@ -38,17 +37,17 @@ export default function SignIn() {
             action="/auth/api?act=new-user"
             className="flex flex-col gap-4"
           >
-            <input name="q" type="hidden" defaultValue="new-user" />
-            <FormItem
-              error={actionData?.success === false && actionData.reason}
-            >
+            <div>
               <InputText
                 name="username"
                 readOnly={navigation.state !== "idle"}
                 placeholder="user@example.com"
                 required
               />
-            </FormItem>
+              {actionData?.success === false && (
+                <p className="mt-1 text-sm text-red-600">{actionData.reason}</p>
+              )}
+            </div>
             <div className="flex items-center gap-4">
               <Button
                 primary

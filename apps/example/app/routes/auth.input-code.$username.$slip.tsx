@@ -7,7 +7,6 @@ import {
   useSubmit,
 } from "@remix-run/react";
 import { Button } from "~/components/Button";
-import { FormItem } from "~/components/FormItem";
 import { InputText } from "~/components/InputText";
 import type { FocusEvent, FormEvent } from "react";
 import { useRef, useState } from "react";
@@ -108,11 +107,7 @@ export default function SignIn() {
           <Form className="flex flex-col gap-4" onSubmit={registerDevice}>
             <input type="hidden" name="slip" defaultValue={slip} />
             <input type="hidden" name="username" defaultValue={username} />
-            <FormItem
-              error={
-                status === "failed" && "Registration was aborted or invalid"
-              }
-            >
+            <div>
               <InputText
                 name="code"
                 type="text"
@@ -126,7 +121,12 @@ export default function SignIn() {
                 onFocus={selectAllText}
                 onInput={submitWhenFilled}
               />
-            </FormItem>
+              {status === "failed" && (
+                <p className="mt-1 text-sm text-red-600">
+                  Registration was aborted or invalid
+                </p>
+              )}
+            </div>
 
             <Button
               loading={
