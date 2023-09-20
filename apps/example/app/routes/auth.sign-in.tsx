@@ -35,13 +35,6 @@ export default function SignIn() {
     }
   };
 
-  let status: "idle" | "loading" | "failed" = "idle";
-  if (signIn.state === "submitting") {
-    status = "loading";
-  } else if (failure || signIn.data?.success === false) {
-    status = "failed";
-  }
-
   return (
     <main>
       <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
@@ -53,7 +46,7 @@ export default function SignIn() {
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-sm">
           <div className="flex items-center gap-4">
             <Button
-              loading={status === "loading"}
+              loading={signIn.state === "submitting"}
               primary
               className="flex-1 whitespace-nowrap"
               onClick={handleSignIn}
@@ -65,7 +58,7 @@ export default function SignIn() {
               Register
             </Button>
           </div>
-          {status === "failed" && (
+          {failure && signIn.state === "idle" && (
             <p className="mt-4 w-full text-sm text-red-600">
               Failed to sign in. Is this a{" "}
               <Link
