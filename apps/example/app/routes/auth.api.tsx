@@ -58,7 +58,13 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
           `/auth/input-code/${encodeURIComponent(form.username)}/${data.slip}`
         );
       } else {
-        return { success: false, reason: data.reason ?? "user taken" } as const;
+        return {
+          success: false,
+          reason:
+            data.status === 429
+              ? "Too many attempts, try again later"
+              : "User already exists",
+        } as const;
       }
     }
     case "new-device": {
@@ -75,7 +81,10 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
       } else {
         return {
           success: false,
-          reason: data.reason ?? "user missing",
+          reason:
+            data.status === 429
+              ? "Too many attempts, try again later"
+              : "User is missing",
         } as const;
       }
     }
@@ -130,12 +139,8 @@ const newUser = async (
     body: JSON.stringify({ username, email }),
   });
 
-  if (response.status === 429) {
-    return { slip: undefined, reason: "too many attempts" } as const;
-  }
-
   if (!response.ok) {
-    return { slip: undefined } as const;
+    return { slip: undefined, status: response.status } as const;
   }
 
   return await response.json();
@@ -153,12 +158,8 @@ const newDevice = async (
     body: JSON.stringify({ username }),
   });
 
-  if (response.status === 429) {
-    return { slip: undefined, reason: "too many attempts" } as const;
-  }
-
   if (!response.ok) {
-    return { slip: undefined } as const;
+    return { slip: undefined, status: response.status } as const;
   }
 
   return await response.json();

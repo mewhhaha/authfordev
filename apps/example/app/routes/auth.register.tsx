@@ -40,18 +40,7 @@ export default function SignIn() {
           >
             <input name="q" type="hidden" defaultValue="new-user" />
             <FormItem
-              error={
-                actionData?.success === false ? (
-                  <>
-                    {actionData.reason === "user missing" &&
-                      "User is not registered"}
-                    {actionData.reason === "user taken" &&
-                      "User is already registered"}
-                    {actionData.reason === "too many attempts" &&
-                      "Too many attempts, try again later"}
-                  </>
-                ) : undefined
-              }
+              error={actionData?.success === false && actionData.reason}
             >
               <InputText
                 name="email"
