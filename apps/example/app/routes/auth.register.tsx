@@ -1,5 +1,5 @@
 import { type DataFunctionArgs } from "@remix-run/cloudflare";
-import { Form, Link, useActionData, useNavigation } from "@remix-run/react";
+import { Link, useFetcher } from "@remix-run/react";
 import { Button } from "~/components/Button";
 import { InputText } from "~/components/InputText";
 
@@ -20,8 +20,7 @@ type ActionDataRequestCode = {
 };
 
 export default function SignIn() {
-  const actionData = useActionData<ActionDataRequestCode>();
-  const navigation = useNavigation();
+  const register = useFetcher<ActionDataRequestCode>();
 
   return (
     <main>
@@ -32,7 +31,7 @@ export default function SignIn() {
           </h2>
         </div>
         <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-          <Form
+          <register.Form
             method="POST"
             action="/auth/api?act=new-user"
             className="flex flex-col gap-4"
@@ -40,20 +39,24 @@ export default function SignIn() {
             <div>
               <InputText
                 name="username"
-                readOnly={navigation.state !== "idle"}
+                type="email"
+                autoComplete="webauthn"
+                readOnly={register.state !== "idle"}
                 placeholder="user@example.com"
                 required
               />
-              {actionData?.success === false && (
-                <p className="mt-1 text-sm text-red-600">{actionData.reason}</p>
+              {register.data?.success === false && (
+                <p className="mt-1 text-sm text-red-600">
+                  {register.data.reason}
+                </p>
               )}
             </div>
             <div className="flex items-center gap-4">
               <Button
                 primary
                 loading={
-                  navigation.state !== "idle" &&
-                  navigation.formAction?.includes("new-user")
+                  register.state !== "idle" &&
+                  register.formAction?.includes("new-user")
                 }
                 className="flex-1"
               >
@@ -63,8 +66,8 @@ export default function SignIn() {
               <Button
                 secondary
                 loading={
-                  navigation.state !== "idle" &&
-                  navigation.formAction?.includes("new-device")
+                  register.state !== "idle" &&
+                  register.formAction?.includes("new-device")
                 }
                 formAction="/auth/api?act=new-device"
                 formMethod="POST"
@@ -72,7 +75,7 @@ export default function SignIn() {
                 New device
               </Button>
             </div>
-          </Form>
+          </register.Form>
           <Link
             className="mt-10 block text-sm font-medium text-indigo-600 hover:underline"
             to="/auth/sign-in"

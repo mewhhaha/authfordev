@@ -71,87 +71,99 @@ export default function Page() {
       <h1 className="mb-10 text-center text-4xl">
         authfor.dev<Blink interval={500}>|</Blink>
       </h1>
-      <div className="rounded-none border border-black p-4 dark:border-white/10 md:rounded-md">
-        <Form method="post">
-          <h2 className="text-base font-semibold leading-7 text-gray-900 dark:text-white">
-            Connect passwordless authentication
-          </h2>
-          <p className="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400">
-            This requires a passwordless application which you can sign up for
-            at{" "}
-            <LinkExternal href="https://admin.passwordless.dev/">
-              https://admin.passwordless.dev/
-            </LinkExternal>
-          </p>
-          <div className="mt-10 flex flex-col gap-4">
-            <div>
-              <InputLabel htmlFor={form.pk.id}>
-                Passwordless private API key <RequiredMark />
-              </InputLabel>
-              <InputText
-                disabled={result?.status === 200}
-                autoComplete="off"
-                placeholder="***"
-                {...form.pk}
-              />
-              <InputHelp>
-                Copy-paste the private api key from your passwordless
-                application
-              </InputHelp>
-            </div>
+      <div className="rounded-none border border-black p-4 md:rounded-md">
+        <Form method="POST" className="space-y-10">
+          <section>
+            <h2 className="text-base font-semibold leading-7 text-gray-900 ">
+              Step 1
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-gray-600">
+              Create an account and an application at{" "}
+              <LinkExternal href="https://admin.passwordless.dev/">
+                https://admin.passwordless.dev/
+              </LinkExternal>
+            </p>
+          </section>
 
-            <ButtonPrimary type="submit" className="mx-auto">
-              Submit
-            </ButtonPrimary>
-          </div>
-          <output name="result" htmlFor="pk">
-            <div
-              className={cn(
-                "mt-10 rounded-md border p-4 text-gray-900 dark:border-white/5 dark:text-white",
-                result === undefined ? "opacity-60" : ""
-              )}
-            >
-              {result === undefined && (
-                <p className="text-center">
-                  Authorization header will be output here after submitting the
-                  form
+          <section>
+            <h2 className="text-base font-semibold leading-7 text-gray-900 ">
+              Step 2
+            </h2>
+            <p className="mb-2 mt-1 text-sm leading-6 text-gray-600">
+              Copy-paste the private api key from your newly created application
+            </p>
+            <div>
+              <div>
+                <InputLabel htmlFor={form.pk.id}>
+                  Passwordless private API key <RequiredMark />
+                </InputLabel>
+                <InputText
+                  disabled={result?.status === 200}
+                  autoComplete="off"
+                  placeholder="***"
+                  aria-invalid={result?.status === 422}
+                  aria-describedby="pk-error"
+                  {...form.pk}
+                />
+                <p className="mt-2 text-sm text-red-600" id="pk-error">
+                  {result?.status === 422 && "Not a valid private API key."}
+                  {result?.status === 409 && "Unknown error, try again."}
                 </p>
-              )}
-              {result?.status === 422 && (
-                <p className="text-center">Could not parse the form properly</p>
-              )}
-              {result?.status === 409 && (
-                <p className="text-center">
-                  There was a conflict for some odd reason, please try again
-                  later
-                </p>
-              )}
-              {result?.status === 200 && (
-                <dl className="flex flex-col gap-4">
-                  <p className="text-center">
-                    Save this authorization header securely, and use it to
-                    authenticate against the API
-                  </p>
-                  <Description label="Authorization header" type="password">
-                    {result.authorization}
-                  </Description>
+              </div>
+              <ButtonPrimary type="submit" className="w-full">
+                Submit
+              </ButtonPrimary>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-base font-semibold leading-7 text-gray-900 ">
+              Step 3
+            </h2>
+            <p className="mb-2 mt-1 text-sm leading-6 text-gray-600">
+              Save this authorization header in your application and use it to
+              authenticate
+            </p>
+            <output name="result" htmlFor="pk">
+              {result?.status !== 200 && (
+                <dl>
+                  <DescriptionInput label="Authorization header">
+                    Waiting for step 2 to be completed
+                  </DescriptionInput>
                 </dl>
               )}
-            </div>
-          </output>
+              {result?.status === 200 && (
+                <dl>
+                  <DescriptionInput
+                    label="Authorization header"
+                    type="password"
+                    copy
+                  >
+                    {result.authorization}
+                  </DescriptionInput>
+                </dl>
+              )}
+            </output>
+          </section>
         </Form>
       </div>
     </main>
   );
 }
 
-type DescriptionProps = {
+type DescriptionInputProps = {
   label: React.ReactNode;
   children: string;
   type?: "password";
+  copy?: boolean;
 };
 
-const Description = ({ label, type, children }: DescriptionProps) => {
+const DescriptionInput = ({
+  label,
+  type,
+  children,
+  copy,
+}: DescriptionInputProps) => {
   const [visible, setVisible] = useState(type !== "password");
 
   return (
@@ -164,7 +176,7 @@ const Description = ({ label, type, children }: DescriptionProps) => {
             value={children}
             type={type === "password" && !visible ? "password" : "text"}
             className={
-              (cn("grow bg-transparent text-gray-900 dark:text-white"),
+              (cn("grow bg-transparent text-gray-900"),
               type === "password" ? "pr-12" : "")
             }
           />
@@ -184,7 +196,7 @@ const Description = ({ label, type, children }: DescriptionProps) => {
             </button>
           )}
         </div>
-        <ButtonCopy value={children} />
+        {copy && <ButtonCopy value={children} />}
       </dd>
     </div>
   );
@@ -235,19 +247,7 @@ const InputLabel = (props: JSX.IntrinsicElements["label"]) => {
     <label
       {...props}
       className={cn(
-        "mb-2 block text-sm font-medium leading-6 text-gray-900 dark:text-white",
-        props.className
-      )}
-    />
-  );
-};
-
-const InputHelp = (props: JSX.IntrinsicElements["p"]) => {
-  return (
-    <p
-      {...props}
-      className={cn(
-        "mt-2 bg-blue-50 px-2 py-1 text-sm text-gray-600 dark:bg-blue-900 dark:text-gray-100",
+        "mb-2 block text-sm font-medium leading-6 text-gray-900",
         props.className
       )}
     />
@@ -259,7 +259,7 @@ const InputText = (props: JSX.IntrinsicElements["input"]) => {
     <input
       {...props}
       className={cn(
-        "block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 dark:bg-white/5 dark:text-white dark:ring-inset dark:ring-white/10 dark:disabled:bg-gray-950 dark:disabled:ring-white/5 sm:text-sm sm:leading-6",
+        "block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6",
         props.className
       )}
     />
