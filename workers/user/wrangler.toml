@@ -13,3 +13,8 @@ class_name = "DurableObjectUser"
 [[migrations]]
 tag = "v1"
 new_classes = ["DurableObjectUser"]
+
+[[d1_databases]]
+binding = "D1"
+database_name = "d1-authfordev"
+database_id = "d39b2703-c5e8-4173-9eb9-9acacfd19223"

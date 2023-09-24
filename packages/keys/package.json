@@ -1,5 +1,5 @@
 {
-  "name": "@internal/jwt",
+  "name": "@internal/keys",
   "private": true,
   "version": "1.0.0",
   "description": "",
@@ -15,8 +15,8 @@
   "license": "ISC",
   "sideEffects": false,
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20230904.0",
+    "@cloudflare/workers-types": "^4.20230914.0",
     "typescript": "^5.2.2",
-    "vitest": "^0.34.4"
+    "vitest": "^0.34.5"
   }
 }

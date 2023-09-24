@@ -1,2 +1,0 @@
-DROP TABLE IF EXISTS applications;
-CREATE TABLE IF NOT EXISTS applications (id TEXT PRIMARY KEY);

@@ -6,21 +6,26 @@
   "scripts": {
     "upload": "wrangler deploy --name authfordev-user",
     "start": "wrangler dev",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "d1-local": "wrangler d1 execute d1-authfordev --local --file=./schema.sql",
+    "d1-remote": "wrangler d1 execute d1-authfordev --file=./schema.sql"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20230904.0",
+    "@cloudflare/workers-types": "^4.20230914.0",
     "@internal/emails": "workspace:^",
-    "@internal/jwt": "workspace:^",
-    "@mewhhaha/json-string": "^0.0.24",
-    "@mewhhaha/little-fetcher": "^0.0.24",
-    "@mewhhaha/little-router": "^0.0.24",
-    "@mewhhaha/little-router-plugin-data": "^0.0.24",
-    "@mewhhaha/little-router-plugin-query": "^0.0.24",
-    "@mewhhaha/typed-response": "^0.0.24",
+    "@internal/keys": "workspace:^",
+    "@mewhhaha/json-string": "^0.0.25",
+    "@mewhhaha/little-fetcher": "^0.0.25",
+    "@mewhhaha/little-router": "^0.0.25",
+    "@mewhhaha/little-router-plugin-data": "^0.0.25",
+    "@mewhhaha/little-router-plugin-query": "^0.0.25",
+    "@mewhhaha/typed-response": "^0.0.25",
+    "@passwordless-id/webauthn": "^1.2.6",
+    "@types/invariant": "^2.2.35",
     "arktype": "1.0.21-alpha",
+    "invariant": "^2.2.4",
     "typescript": "^5.2.2",
-    "wrangler": "^3.8.0"
+    "wrangler": "^3.9.0"
   },
   "sideEffects": false
 }

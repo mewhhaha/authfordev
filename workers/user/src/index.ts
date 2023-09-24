@@ -1,171 +1,28 @@
-import {
-  Plugin,
-  PluginContext,
-  Router,
-  RoutesOf,
-} from "@mewhhaha/little-router";
+import { Plugin, PluginContext, Router } from "@mewhhaha/little-router";
 import { BodySend, mailChannels } from "./api/mail-channels";
 import { error, ok } from "@mewhhaha/typed-response";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { type } from "arktype";
-import { BodyRegisterToken, passwordless } from "./api/passwordless";
-import { fetcher } from "@mewhhaha/little-fetcher";
-import { parseJwt, decodeJwt } from "@internal/jwt";
+import { passwordless } from "./api/passwordless";
+
+import { decodeHeader } from "@internal/keys";
 import emailSendCode from "@internal/emails/dist/send-code.json";
+import { $user } from "./user";
+import { $webauthn } from "./webauthn";
+import invariant from "invariant";
 
 interface Env {
   API_URL_PASSWORDLESS: string;
   API_URL_MAILCHANNELS: string;
-  SECRET_FOR_HMAC: string;
+  SECRET_FOR_PRIVATE_KEY: string;
+  SECRET_FOR_PUBLIC_KEY: string;
+  D1: D1Database;
   DO_USER: DurableObjectNamespace;
+  DO_WEBAUTHN: DurableObjectNamespace;
   DKIM_PRIVATE_KEY: string;
 }
 
-type DeviceSlip = {
-  code: string;
-  id: string;
-  attempts: number;
-  iat: Date;
-};
-
-const verified_ = (async (_: PluginContext, user: DurableObjectUser) => {
-  if (!user.verified || !user.email) {
-    return error(403, { message: "user not verified" });
-  }
-
-  return { email: user.email };
-}) satisfies Plugin<[DurableObjectUser]>;
-
-export class DurableObjectUser implements DurableObject {
-  email?: string;
-  slip?: DeviceSlip;
-  verified: boolean = false;
-
-  storage: DurableObjectStorage;
-
-  constructor(state: DurableObjectState) {
-    this.storage = state.storage;
-
-    state.blockConcurrencyWhile(async () => {
-      const load = async <T extends keyof this>(key: T) => {
-        const value = await this.storage.get<this[T]>(key as string);
-        if (value) {
-          this[key] = value;
-        }
-      };
-      await Promise.all([load("slip"), load("email"), load("verified")]);
-    });
-  }
-
-  setEmail(email: string) {
-    this.email = email;
-    this.storage.put("email", email);
-  }
-
-  generateSlip() {
-    if (this.slip) {
-      const seconds5 = 1000 * 5;
-      const cooldown = new Date(this.slip.iat.getTime() + seconds5);
-      if (new Date() < cooldown) {
-        return { success: false } as const;
-      }
-    }
-
-    this.slip = {
-      id: crypto.randomUUID(),
-      attempts: 0,
-      code: generateToken(),
-      iat: new Date(),
-    };
-
-    this.storage.put("slip", this.slip);
-
-    return { success: true, slip: this.slip } as const;
-  }
-
-  attemptSlip({ code, id }: { code: string; id: string }) {
-    if (this.slip === undefined) {
-      return { success: false, message: "missing slip" } as const;
-    }
-
-    const hour1 = 1000 * 60 * 60;
-    const expiry = new Date(this.slip.iat.getTime() + hour1);
-
-    const attempt = (slip: DeviceSlip) => {
-      if (slip.attempts >= 3) {
-        return "slip attempts over limit";
-      } else if (new Date() > expiry) {
-        return "slip has expired";
-      } else if (id !== slip?.id) {
-        return "invalid slip id";
-      } else if (code !== slip?.code) {
-        return "invalid slip code";
-      }
-    };
-
-    const invalid = attempt(this.slip);
-    if (invalid) {
-      this.slip.attempts += 1;
-      return { success: false, message: invalid } as const;
-    }
-
-    if (!this.verified) {
-      this.verified = true;
-      this.storage.put("verified", true);
-    }
-
-    this.slip = undefined;
-    this.storage.delete("slip");
-
-    return { success: true } as const;
-  }
-
-  static router = Router<[DurableObjectUser]>()
-    .post("/initiate", [data_(type({ email: "string" }))], ({ data }, user) => {
-      if (user.verified) {
-        return error(409, { message: "user_already_verified" });
-      }
-
-      user.setEmail(data.email);
-      const { success, slip } = user.generateSlip();
-      if (!success) {
-        return error(429, { message: "too_many_requests" });
-      }
-
-      return ok(200, { code: slip.code, id: slip.id });
-    })
-    .post("/new-device", [verified_], ({ email }, user) => {
-      const { success, slip } = user.generateSlip();
-      if (!success) {
-        return error(429, { message: "too_many_requests" });
-      }
-
-      return ok(200, { email, code: slip.code, id: slip.id });
-    })
-    .post(
-      "/verify-device",
-      [data_(type({ code: "string", id: "string" }))],
-      ({ data }, user) => {
-        const { success, message } = user.attemptSlip(data);
-        if (!success) {
-          return error(403, { message });
-        }
-
-        return ok(200);
-      }
-    )
-    .all("/*", [], () => {
-      return new Response("Not found", { status: 404 });
-    });
-
-  fetch(
-    request: Request<unknown, CfProperties<unknown>>
-  ): Response | Promise<Response> {
-    return DurableObjectUser.router.handle(request, this);
-  }
-}
-
-const auth_ = (async (
+const private_ = (async (
   {
     request,
   }: PluginContext<{
@@ -178,30 +35,134 @@ const auth_ = (async (
   env: Env
 ) => {
   const header = request.headers.get("Authorization");
-
   if (!header) {
     return error(403, { message: "authorization_header_missing" });
   }
 
-  const jwt = parseJwt(header);
-
-  if (!jwt) {
+  const app = await decodeHeader(env.SECRET_FOR_PRIVATE_KEY, "private", header);
+  if (!app) {
     return error(403, { message: "authorization_header_invalid" });
   }
 
-  const auth = await decodeJwt(env.SECRET_FOR_HMAC, jwt);
-
-  if (!auth) {
-    return error(403, { message: "jwt_token_invalid" });
-  }
-
-  return { auth };
+  return { app };
 }) satisfies Plugin<[Env]>;
 
 const router = Router<[Env, ExecutionContext]>()
   .post(
-    "/sign-in",
-    [auth_, data_(type({ token: "string" }))],
+    "/register-user/email",
+    [
+      private_,
+      data_(
+        type({
+          aliases: "string[]",
+          email: "string",
+        })
+      ),
+    ],
+    async ({ app, data: { email, aliases } }, env, ctx) => {
+      if (await areAliasesTaken(env.D1, app, aliases)) {
+        return error(409, { message: "aliases_already_in_use" });
+      }
+
+      const jurisdiction = env.DO_WEBAUTHN.jurisdiction("eu");
+      const user = $user(jurisdiction, jurisdiction.newUniqueId());
+
+      user.post("/");
+
+      const { session, code } = await createChallenge(jurisdiction);
+      invariant(code, "unexpected empty code");
+
+      const body = createBody({
+        email,
+        username: aliases[0] ?? email,
+        code,
+        dkim: env.DKIM_PRIVATE_KEY,
+      });
+
+      ctx.waitUntil(sendEmail(env.API_URL_MAILCHANNELS, body));
+
+      return ok(200, { session, code });
+    }
+  )
+  .post(
+    "/register-device/email",
+    [
+      private_,
+      data_(
+        type({
+          alias: "string",
+        })
+      ),
+    ],
+    async ({ app, data: { alias } }, env, ctx) => {
+      const userId = await aliasedUserId(env.D1, app, alias);
+      if (userId === null) {
+        return error(404, { message: "user_missing" });
+      }
+
+      const user = $user(env.DO_USER, userId);
+
+      const { email } = await user.get("/email").then((r) => r.json());
+
+      const jurisdiction = env.DO_WEBAUTHN.jurisdiction("eu");
+      const { session, code } = await createChallenge(jurisdiction);
+      invariant(code, "unexpected empty code");
+
+      const body = createBody({
+        email,
+        username: alias,
+        code,
+        dkim: env.DKIM_PRIVATE_KEY,
+      });
+
+      ctx.waitUntil(sendEmail(env.API_URL_MAILCHANNELS, body));
+
+      return ok(200, { session, code });
+    }
+  )
+  .post(
+    "/signin-verify",
+    [private_, data_(type({ token: "string" }))],
+    async ({ auth, data }, env) => {
+      const api = passwordless(env.API_URL_PASSWORDLESS);
+      const response = await api.post("/signin/verify", {
+        headers: { "Content-Type": "application/json", ApiSecret: auth.pk },
+        body: JSON.stringify({ token: data.token }),
+      });
+
+      const signin = await response.json();
+      if (!signin.success) {
+        return error(403, {
+          message: "verification_failed",
+          data: { ...signin, success: false },
+        });
+      }
+
+      return ok(200, { ...signin, success: true });
+    }
+  )
+  .post(
+    "/webauthn/register/begin",
+    [public_, data_(type({ token: "string" }))],
+    async () => {
+      return new Response();
+    }
+  )
+  .post("/webauthn/register/complete", [], async () => {
+    return new Response();
+  })
+  .post("/webauthn/signin/begin", [], async () => {
+    return new Response();
+  })
+  .post("/webauthn/signin/complete", [], async () => {
+    return new Response();
+  })
+  .post("/webauthn/signin/verify", [], async () => {
+    return new Response();
+  })
+  .post(
+    "/signin-challenge",
+    [private_, data_(type({ token: "string" }))],
     async ({ auth, data }, env) => {
       const api = passwordless(env.API_URL_PASSWORDLESS);
       const response = await api.post("/signin/verify", {
@@ -222,7 +183,7 @@ const router = Router<[Env, ExecutionContext]>()
   )
   .post(
     "/list-credentials",
-    [auth_, data_(type({ username: "string" }))],
+    [private_, data_(type({ username: "string" }))],
     async ({ auth, data }, env) => {
       const api = passwordless(env.API_URL_PASSWORDLESS);
       const response = await api.post("/credentials/list", {
@@ -241,7 +202,7 @@ const router = Router<[Env, ExecutionContext]>()
   )
   .post(
     "/delete-credential",
-    [auth_, data_(type({ credentialId: "string" }))],
+    [private_, data_(type({ credentialId: "string" }))],
     async ({ auth, data }, env) => {
       const api = passwordless(env.API_URL_PASSWORDLESS);
       const response = await api.post("/credentials/delete", {
@@ -260,14 +221,14 @@ const router = Router<[Env, ExecutionContext]>()
   )
   .post(
     "/new-user",
-    [auth_, data_(type({ email: "string", username: "string" }))],
+    [private_, data_(type({ email: "string", username: "string" }))],
     async ({ auth, data: { email, username } }, env, ctx) => {
-      const user = fetcherUser(env.DO_USER, {
+      const user = $user(env.DO_USER, {
         application: auth.id,
         username,
       });
 
-      const response = await user.post("/initiate", {
+      const response = await user.post("/challenge-device-unverified", {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
@@ -292,22 +253,18 @@ const router = Router<[Env, ExecutionContext]>()
   .post(
     "/verify-device",
     [
-      auth_,
-      data_(type({ username: "string", code: "string", slip: "string" })),
+      private_,
+      data_(type({ username: "string", code: "string", id: "string" })),
     ],
-    async ({ data: { username, code, slip }, auth }, env) => {
+    async ({ data: { username, code, id }, auth }, env) => {
       try {
         const verifyCode = async () => {
-          const user = fetcherUser(env.DO_USER, {
+          const user = $user(env.DO_USER, {
             application: auth.id,
             username,
           });
 
-          const response = await user.post("/verify-device", {
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code, id: slip }),
-          });
-
+          const response = await user.post(`/verify-device/${id}/${code}`);
           if (response.status === 403) {
             const { message } = await response.json();
             console.log(message);
@@ -337,14 +294,14 @@ const router = Router<[Env, ExecutionContext]>()
   )
   .post(
     "/new-device",
-    [auth_, data_(type({ username: "string" }))],
+    [private_, data_(type({ username: "string" }))],
     async ({ auth, data: { username } }, env, ctx) => {
       try {
-        const user = fetcherUser(env.DO_USER, {
+        const user = $user(env.DO_USER, {
           application: auth.id,
           username,
         });
-        const response = await user.post("/new-device");
+        const response = await user.post("/challenge-device");
 
         if (!response.ok) {
           return response;
@@ -385,30 +342,6 @@ const sendEmail = async (apiUrl: string, body: BodySend) => {
   if (!response.ok) {
     console.error(new Error(await response.text()));
   }
-};
-
-const registerToken = async (
-  apiUrl: string,
-  { username, pk }: { username: string; pk: string }
-) => {
-  const pw = passwordless(apiUrl);
-
-  const body: BodyRegisterToken = {
-    userId: username,
-    username: username,
-  };
-
-  const response = await pw.post("/register/token", {
-    headers: { "Content-Type": "application/json", ApiSecret: pk },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const { token } = await response.json();
-  return token;
 };
 
 const handler: ExportedHandler<Env> = {
@@ -452,27 +385,50 @@ const createBody = ({
   };
 };
 
-const getUserStub = (
-  namespace: DurableObjectNamespace,
-  { application, username }: { application: string; username: string }
-) => namespace.get(namespace.idFromName(createName(application, username)));
-
-const fetcherUser = (
-  namespace: DurableObjectNamespace,
-  values: { application: string; username: string }
-) =>
-  fetcher<RoutesOf<(typeof DurableObjectUser)["router"]>>(
-    getUserStub(namespace, values)
-  );
-
 const defaultEmail = ({ code }: { code: string }) =>
   ({
     type: "text/html",
     value: emailSendCode.html.replace("{{123456}}", code),
   } as const);
 
-const generateToken = () => {
-  const buffer = new Uint8Array(6);
-  const randomBuffer = crypto.getRandomValues(buffer);
-  return [...randomBuffer].map((value) => (value % 10).toString()).join("");
+const hour1 = () => new Date(Date.now() + 1000 * 60 * 60);
+const minute5 = () => new Date(Date.now() + 1000 * 60 * 5);
+
+const qmarks = (length: number) => new Array(length).fill("?").join(",");
+
+const areAliasesTaken = async (
+  db: D1Database,
+  app: string,
+  aliases: string[]
+) => {
+  const values = qmarks(aliases.length);
+  const result = await db
+    .prepare(
+      `SELECT COUNT(*) FROM alias WHERE application_id = ? AND name IN (${values})`
+    )
+    .bind(app, ...aliases)
+    .first<number>();
+
+  return result === 0 || result === null;
+};
+
+const createChallenge = async (namespace: DurableObjectNamespace) => {
+  const session = namespace.newUniqueId();
+  const challenge = $webauthn(namespace, session.toString());
+  const response = await challenge.post("/challenge", {
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code: true, expiry: hour1(), attempts: 1 }),
+  });
+
+  invariant(response.ok, "unexpected error");
+  return { session, code: (await response.json()).code };
+};
+
+const aliasedUserId = async (db: D1Database, app: string, alias: string) => {
+  const result = await db
+    .prepare(`SELECT user_id FROM alias WHERE application_id = ? AND name = ?`)
+    .bind(app, alias)
+    .first<string>();
+
+  return result;
 };
