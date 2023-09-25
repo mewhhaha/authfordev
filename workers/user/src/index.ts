@@ -8,7 +8,6 @@ import { passwordless } from "./api/passwordless";
 import { decodeHeader } from "@internal/keys";
 import emailSendCode from "@internal/emails/dist/send-code.json";
 import { $user } from "./user";
-import { $webauthn } from "./webauthn";
 import invariant from "invariant";
 
 interface Env {
@@ -67,7 +66,10 @@ const router = Router<[Env, ExecutionContext]>()
       const jurisdiction = env.DO_WEBAUTHN.jurisdiction("eu");
       const user = $user(jurisdiction, jurisdiction.newUniqueId());
 
-      user.post("/");
+      const w = user.post("/occupy/challenge", {
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
 
       const { session, code } = await createChallenge(jurisdiction);
       invariant(code, "unexpected empty code");

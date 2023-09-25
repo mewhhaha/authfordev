@@ -1,0 +1,22 @@
+{
+  "name": "@internal/jwt",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "sideEffects": false,
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20230914.0",
+    "typescript": "^5.2.2",
+    "vitest": "^0.34.5"
+  }
+}
