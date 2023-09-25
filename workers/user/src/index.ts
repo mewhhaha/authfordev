@@ -66,13 +66,14 @@ const router = Router<[Env, ExecutionContext]>()
       const jurisdiction = env.DO_WEBAUTHN.jurisdiction("eu");
       const user = $user(jurisdiction, jurisdiction.newUniqueId());
 
-      const w = user.post("/occupy/challenge", {
+      const response = await user.post("/occupy/challenge", {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
 
-      const { session, code } = await createChallenge(jurisdiction);
-      invariant(code, "unexpected empty code");
+      if (!response.ok) {
+        return response;
+      }
 
       const body = createBody({
         email,

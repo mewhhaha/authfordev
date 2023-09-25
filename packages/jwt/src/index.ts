@@ -1,24 +1,25 @@
-type JwtClaim = {
+type JwtClaim<T = Record<never, never>> = {
   jti: string;
   sub: string;
   iat: number;
-  pk: string;
-};
+  exp: string;
+} & T;
 
 const encoder = new TextEncoder();
 
-export const encodeJwt = async (
-  salt: string,
-  { id, pk }: { id: string; pk: string }
+export const encodeJwt = async <T extends Record<any, any>>(
+  { sub, expiry, salt }: { sub: string; expiry: Date; salt: string },
+  fields: T
 ) => {
   const header = encode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const payload = encode(
     JSON.stringify({
       jti: crypto.randomUUID(),
-      sub: id,
+      sub,
+      exp: expiry.toISOString(),
       iat: (new Date().getTime() / 1000) | 0,
-      pk,
-    } satisfies JwtClaim)
+      ...fields,
+    } satisfies JwtClaim<T>)
   );
 
   const hash = await hmac(salt, `${header}.${payload}`);
@@ -26,7 +27,7 @@ export const encodeJwt = async (
   return `${header}.${payload}.${encode(hash)}`;
 };
 
-export const decodeJwt = async (salt: string, jwt: string) => {
+export const decodeJwt = async <T>(salt: string, jwt: string) => {
   const [encodedHeader, encodedPayload, encodedHash] = jwt.split(".");
 
   if (
@@ -38,9 +39,9 @@ export const decodeJwt = async (salt: string, jwt: string) => {
 
   const payload = decode(encodedPayload);
 
-  const claim = JSON.parse(payload) as JwtClaim;
+  const claim = JSON.parse(payload) as JwtClaim<T>;
 
-  return { id: claim.sub, pk: claim.pk };
+  return { id: claim.sub };
 };
 
 const hmac = async (
