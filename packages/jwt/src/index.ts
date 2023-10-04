@@ -2,46 +2,41 @@ type JwtClaim<T = Record<never, never>> = {
   jti: string;
   sub: string;
   iat: number;
-  exp: string;
+  exp: number;
+  aud: string;
 } & T;
 
 const encoder = new TextEncoder();
 
-export const encodeJwt = async <T extends Record<any, any>>(
-  { sub, expiry, salt }: { sub: string; expiry: Date; salt: string },
-  fields: T
+export const encodeJwt = async <
+  T extends Record<any, any> = Record<never, never>
+>(
+  salt: string,
+  payload: Omit<JwtClaim<T>, "iat">
 ) => {
   const header = encode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-  const payload = encode(
+  const claim = encode(
     JSON.stringify({
-      jti: crypto.randomUUID(),
-      sub,
-      exp: expiry.toISOString(),
-      iat: (new Date().getTime() / 1000) | 0,
-      ...fields,
-    } satisfies JwtClaim<T>)
+      iat: jwtTime(new Date()),
+      ...payload,
+    })
   );
 
-  const hash = await hmac(salt, `${header}.${payload}`);
+  const hash = await hmac(salt, `${header}.${claim}`);
 
-  return `${header}.${payload}.${encode(hash)}`;
+  return `${header}.${claim}.${encode(hash)}`;
 };
 
 export const decodeJwt = async <T>(salt: string, jwt: string) => {
-  const [encodedHeader, encodedPayload, encodedHash] = jwt.split(".");
+  const [encodedHeader, encodedClaim, encodedHash] = jwt.split(".");
 
   if (
-    encode(await hmac(salt, `${encodedHeader}.${encodedPayload}`)) !==
-    encodedHash
+    encode(await hmac(salt, `${encodedHeader}.${encodedClaim}`)) !== encodedHash
   ) {
     return undefined;
   }
 
-  const payload = decode(encodedPayload);
-
-  const claim = JSON.parse(payload) as JwtClaim<T>;
-
-  return { id: claim.sub };
+  return JSON.parse(decode(encodedClaim)) as JwtClaim<T>;
 };
 
 const hmac = async (
@@ -90,7 +85,7 @@ const plus = /\+/g;
 const slash = /\//g;
 const equals = /=+$/;
 
-const decode = (str: string) => {
+export const decode = (str: string) => {
   str = str.replace(dash, "+").replace(underscore, "/");
   while (str.length % 4) {
     str += "=";
@@ -98,7 +93,10 @@ const decode = (str: string) => {
   return atob(str);
 };
 
-const encode = (str: string) => {
+export const encode = (str: string) => {
   let base64 = btoa(str);
   return base64.replace(plus, "-").replace(slash, "_").replace(equals, "");
 };
+
+export const jwtTime = (date: Date) => (date.getTime() / 1000) | 0;
+export const jwtDate = (num: number) => new Date(num * 1000);

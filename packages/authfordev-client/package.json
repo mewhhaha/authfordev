@@ -1,5 +1,5 @@
 {
-  "name": "@mewhhaha/authfordev-api",
+  "name": "@mewhhaha/authfordev-client",
   "private": true,
   "version": "1.0.0",
   "description": "",
@@ -15,8 +15,10 @@
   "license": "ISC",
   "sideEffects": false,
   "devDependencies": {
-    "@microsoft/api-extractor": "^7.37.3",
-    "@workers/user": "workspace:^",
+    "@internal/jwt": "workspace:^",
+    "@mewhhaha/authfordev-api": "workspace:^",
+    "@mewhhaha/little-fetcher": "^0.0.25",
+    "@passwordless-id/webauthn": "^1.2.6",
     "typescript": "^5.2.2"
   }
 }

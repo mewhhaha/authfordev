@@ -2,7 +2,7 @@
   "name": "@workers/user",
   "version": "0.0.0",
   "private": true,
-  "types": "dist/index.d.ts",
+  "types": "dist/worker.d.ts",
   "scripts": {
     "upload": "wrangler deploy --name authfordev-user",
     "start": "wrangler dev",
@@ -11,8 +11,9 @@
     "d1-remote": "wrangler d1 execute d1-authfordev --file=./schema.sql"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20230914.0",
+    "@cloudflare/workers-types": "^4.20230922.0",
     "@internal/emails": "workspace:^",
+    "@internal/jwt": "workspace:^",
     "@internal/keys": "workspace:^",
     "@mewhhaha/json-string": "^0.0.25",
     "@mewhhaha/little-fetcher": "^0.0.25",
@@ -25,7 +26,8 @@
     "arktype": "1.0.21-alpha",
     "invariant": "^2.2.4",
     "typescript": "^5.2.2",
-    "wrangler": "^3.9.0"
+    "uuidv7": "^0.6.3",
+    "wrangler": "^3.10.1"
   },
   "sideEffects": false
 }
