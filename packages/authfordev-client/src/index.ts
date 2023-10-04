@@ -3,7 +3,7 @@ import { fetcher } from "@mewhhaha/little-fetcher";
 import { client } from "@passwordless-id/webauthn";
 import { encode, decode } from "@internal/jwt";
 
-const Client = ({
+export const Client = ({
   apiUrl,
   publicKey,
 }: {
@@ -13,7 +13,7 @@ const Client = ({
   let controller: AbortController;
   const api = fetcher<Routes>("fetch", { base: apiUrl });
 
-  const signin = async ({}: {}) => {
+  const signin = async () => {
     controller?.abort();
     controller = new AbortController();
 
@@ -36,7 +36,7 @@ const Client = ({
 
       const { jti }: { jti: string } = JSON.parse(decode(payload));
 
-      const authentication = await client.authenticate([], jti);
+      const authentication = await client.authenticate([], encode(jti));
 
       const signinToken = `${token}#${encode(JSON.stringify(authentication))}`;
 
@@ -52,27 +52,28 @@ const Client = ({
     }
   };
 
-  const register = async (token: string, code: string) => {
+  const register = async (token: string, code: string, username: string) => {
     controller?.abort();
     controller = new AbortController();
 
-    const response = await api.post("/client/register-device", {
-      headers: { "Content-Type": "application/json", Authorization: publicKey },
-      body: JSON.stringify({ token, code }),
-      signal: controller.signal,
-    });
+    try {
+      const [_header, payload] = token.split(".");
+      const { jti }: { jti: string } = JSON.parse(decode(payload));
 
-    if (!response.ok) {
+      const registration = await client.register(username, encode(jti));
+
+      const registrationToken = `${token}#${encode(
+        JSON.stringify(registration)
+      )}#${encode(code)}`;
+
+      return { success: true, token: registrationToken } as const;
+    } catch (e) {
       return {
         success: false,
-        reason: await response.json().then((r) => r.message),
-      } as const;
-    }
-
-    if (response.status === 401) {
-      return {
-        success: false,
-        reason: "publicKey missing",
+        reason:
+          e instanceof Error && e.name === "AbortError"
+            ? "signin_aborted"
+            : "error_unknown",
       } as const;
     }
   };

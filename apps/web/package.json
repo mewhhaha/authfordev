@@ -8,7 +8,8 @@
     "start": "wrangler pages dev --compatibility-date=2023-06-21 ./public",
     "typecheck": "tsc",
     "upload": "pnpm build && wrangler pages deploy --project-name authfordev-web ./public",
-    "logs": "wrangler pages deployment tail --project-name authfordev-web"
+    "logs": "wrangler pages deployment tail --project-name authfordev-web",
+    "d1-local": "wrangler d1 execute d1-authfordev --local --file=../../workers/user/schema.sql"
   },
   "dependencies": {
     "@heroicons/react": "^2.0.18",
@@ -25,14 +26,15 @@
     "tailwind-merge": "^1.14.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20230922.0",
+    "@cloudflare/workers-types": "^4.20231002.0",
     "@remix-run/dev": "^2.0.1",
     "@remix-run/eslint-config": "^2.0.1",
     "@tailwindcss/forms": "^0.5.6",
-    "@types/react": "^18.2.23",
-    "@types/react-dom": "^18.2.8",
+    "@types/react": "^18.2.24",
+    "@types/react-dom": "^18.2.9",
     "eslint": "^8.50.0",
     "eslint-plugin-tailwindcss": "^3.13.0",
+    "random-words": "^2.0.0",
     "tailwindcss": "^3.3.3",
     "typescript": "^5.2.2",
     "wrangler": "^3.10.1"

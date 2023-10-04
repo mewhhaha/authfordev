@@ -1,16 +1,17 @@
-import type { DataFunctionArgs, V2_MetaFunction } from "@remix-run/cloudflare";
+import type { DataFunctionArgs, MetaFunction } from "@remix-run/cloudflare";
 import { Form, useActionData } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import { cn } from "~/css/cn";
 import { type } from "arktype";
-import { encodeJwt } from "@internal/jwt";
+import { encodeHeader } from "@internal/keys";
 import {
   ClipboardIcon,
   EyeIcon,
   EyeSlashIcon,
 } from "@heroicons/react/24/outline";
+import { generate } from "random-words";
 
-export const meta: V2_MetaFunction = () => {
+export const meta: MetaFunction = () => {
   return [
     { title: "authfor.dev" },
     {
@@ -23,12 +24,15 @@ export const meta: V2_MetaFunction = () => {
 export async function action({ request, context: { env } }: DataFunctionArgs) {
   const formData = await request.formData();
 
-  const parseForm = type({
-    pk: `/${form.pk.pattern}/`,
-  });
+  const parseForm = type(
+    {
+      slug: `0<string<=50&/${form.slug.pattern}/`,
+    },
+    { keys: "strict" }
+  );
 
   const { data, problems } = parseForm({
-    pk: formData.get(form.pk.name),
+    slug: formData.get(form.slug.name),
   });
 
   if (problems) {
@@ -38,36 +42,46 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     } as const;
   }
 
-  const id = crypto.randomUUID();
-
-  const jwt = await encodeJwt(env.SECRET_FOR_HMAC, { id, pk: data.pk });
+  const serverKey = await encodeHeader(
+    env.SECRET_FOR_SERVER,
+    "server",
+    data.slug
+  );
+  const clientKey = await encodeHeader(
+    env.SECRET_FOR_CLIENT,
+    "client",
+    data.slug
+  );
 
   try {
-    await env.D1.prepare(`INSERT INTO applications (id) VALUES (?)`)
-      .bind(id)
+    await env.D1.prepare(`INSERT INTO app (id, created_at) VALUES (?, ?)`)
+      .bind(data.slug, Date.now())
       .run();
 
-    return { status: 200, authorization: `Bearer ${jwt}` } as const;
+    return { status: 200, serverKey, clientKey } as const;
   } catch {
     return { status: 409 } as const;
   }
 }
 
 const form = {
-  pk: {
-    id: "pk",
-    name: "pk",
+  slug: {
+    id: "slug",
+    name: "slug",
     required: true,
-    type: "password",
-    pattern: "^[^:]+:secret:[^:]+$",
+    type: "text",
+    maxLength: 50,
+    pattern: "([a-z]+(-[a-z]+)+?)",
   },
 } as const;
 
 export default function Page() {
   const result = useActionData<typeof action>();
 
+  const [suggestion] = useState(() => generate(5).join("-"));
+
   return (
-    <main className="mx-auto w-full max-w-3xl pt-10">
+    <main className="mx-auto w-full max-w-2xl pt-10">
       <h1 className="mb-10 text-center text-4xl">
         authfor.dev<Blink interval={500}>|</Blink>
       </h1>
@@ -75,39 +89,33 @@ export default function Page() {
         <Form method="POST" className="space-y-10">
           <section>
             <h2 className="text-base font-semibold leading-7 text-gray-900 ">
-              Step 1
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-gray-600">
-              Create an account and an application at{" "}
-              <LinkExternal href="https://admin.passwordless.dev/">
-                https://admin.passwordless.dev/
-              </LinkExternal>
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-base font-semibold leading-7 text-gray-900 ">
-              Step 2
+              Step 1/2
             </h2>
             <p className="mb-2 mt-1 text-sm leading-6 text-gray-600">
-              Copy-paste the private api key from your newly created application
+              Pick a memorable name for your application.
             </p>
             <div>
-              <div>
-                <InputLabel htmlFor={form.pk.id}>
-                  Passwordless private API key <RequiredMark />
+              <div className="mb-4">
+                <InputLabel htmlFor={form.slug.id}>
+                  Slug name <RequiredMark />
                 </InputLabel>
                 <InputText
-                  disabled={result?.status === 200}
                   autoComplete="off"
-                  placeholder="***"
-                  aria-invalid={result?.status === 422}
-                  aria-describedby="pk-error"
-                  {...form.pk}
+                  defaultValue={suggestion}
+                  onChange={(event) => {
+                    event.currentTarget.value = event.currentTarget.value
+                      .toLocaleLowerCase()
+                      .replace(/[^a-z]/g, "-");
+                  }}
+                  aria-invalid={
+                    result?.status === 422 || result?.status === 409
+                  }
+                  aria-describedby="slug-error"
+                  {...form.slug}
                 />
-                <p className="mt-2 text-sm text-red-600" id="pk-error">
-                  {result?.status === 422 && "Not a valid private API key."}
-                  {result?.status === 409 && "Unknown error, try again."}
+                <p className="mt-2 text-sm text-red-600" id="slug-error">
+                  {result?.status === 422 && "Not a valid name."}
+                  {result?.status === 409 && "Name is already taken."}
                 </p>
               </div>
               <ButtonPrimary type="submit" className="w-full">
@@ -115,36 +123,25 @@ export default function Page() {
               </ButtonPrimary>
             </div>
           </section>
-
-          <section>
-            <h2 className="text-base font-semibold leading-7 text-gray-900 ">
-              Step 3
-            </h2>
-            <p className="mb-2 mt-1 text-sm leading-6 text-gray-600">
-              Save this authorization header in your application and use it to
-              authenticate
-            </p>
-            <output name="result" htmlFor="pk">
-              {result?.status !== 200 && (
-                <dl>
-                  <DescriptionInput label="Authorization header">
-                    Waiting for step 2 to be completed
-                  </DescriptionInput>
-                </dl>
-              )}
-              {result?.status === 200 && (
-                <dl>
-                  <DescriptionInput
-                    label="Authorization header"
-                    type="password"
-                    copy
-                  >
-                    {result.authorization}
-                  </DescriptionInput>
-                </dl>
-              )}
-            </output>
-          </section>
+          {result?.status === 200 && (
+            <section>
+              <h2 className="text-base font-semibold leading-7 text-gray-900 ">
+                Step 2/2
+              </h2>
+              <p className="mb-2 mt-1 text-sm leading-6 text-gray-600">
+                Copy-paste the keys to your application and use them as
+                authorization headers. You cannot recover them if you lose them.
+              </p>
+              <div className="flex flex-col gap-4">
+                <DescriptionInput label="Server key (secret)" copy>
+                  {result.serverKey}
+                </DescriptionInput>
+                <DescriptionInput label="Client key" copy>
+                  {result.clientKey}
+                </DescriptionInput>
+              </div>
+            </section>
+          )}
         </Form>
       </div>
     </main>
@@ -168,17 +165,19 @@ const DescriptionInput = ({
 
   return (
     <div>
-      <dt className="mb-2 text-sm font-semibold">{label}</dt>
+      <dt className="mb-2 block text-sm font-medium leading-6 text-gray-900">
+        {label}
+      </dt>
       <dd className="flex">
         <div className="relative grow">
           <InputText
             readOnly
             value={children}
             type={type === "password" && !visible ? "password" : "text"}
-            className={
-              (cn("grow bg-transparent text-gray-900"),
-              type === "password" ? "pr-12" : "")
-            }
+            className={cn(
+              "grow text-ellipsis bg-transparent text-gray-900",
+              type === "password" ? "pr-12" : ""
+            )}
           />
           {type === "password" && (
             <button
@@ -224,21 +223,6 @@ const ButtonCopy = ({ value, ...props }: ButtonCopyProps) => {
     >
       {copied ? "copied" : <ClipboardIcon className="h-6 w-6" />}
     </button>
-  );
-};
-
-const LinkExternal = (props: JSX.IntrinsicElements["a"]) => {
-  return (
-    <a
-      target="_blank"
-      rel="noreferrer"
-      {...props}
-      children={props.children}
-      className={cn(
-        "text-blue-600 underline visited:text-indigo-600 hover:text-blue-500",
-        props.className
-      )}
-    />
   );
 };
 

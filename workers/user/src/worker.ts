@@ -7,7 +7,7 @@ import { decodeHeader } from "@internal/keys";
 import emailSendCode from "@internal/emails/dist/send-code.json";
 import { $user } from "./user";
 import { Env } from "./env";
-import { decode, decodeJwt, encodeJwt, jwtTime } from "@internal/jwt";
+import { decode, decodeJwt, encode, encodeJwt, jwtTime } from "@internal/jwt";
 import { uuidv7 } from "uuidv7";
 import { server } from "@passwordless-id/webauthn";
 import {
@@ -17,7 +17,9 @@ import {
 } from "./parsers";
 import { hmac } from "./helpers";
 
-const private_ = (async (
+export { DurableObjectUser } from "./user";
+
+const server_ = (async (
   {
     request,
   }: PluginContext<{
@@ -34,7 +36,7 @@ const private_ = (async (
     return error(401, { message: "authorization_missing" });
   }
 
-  const app = await decodeHeader(env.SECRET_FOR_PRIVATE_KEY, "private", header);
+  const app = await decodeHeader(env.SECRET_FOR_SERVER, "server", header);
   if (!app) {
     return error(403, { message: "authorization_invalid" });
   }
@@ -42,7 +44,7 @@ const private_ = (async (
   return { app };
 }) satisfies Plugin<[Env]>;
 
-const public_ = (async (
+const client_ = (async (
   {
     request,
   }: PluginContext<{
@@ -59,7 +61,7 @@ const public_ = (async (
     return error(401, { message: "authorization_missing" });
   }
 
-  const app = await decodeHeader(env.SECRET_FOR_PUBLIC_KEY, "public", header);
+  const app = await decodeHeader(env.SECRET_FOR_CLIENT, "client", header);
   if (!app) {
     return error(403, { message: "authorization_invalid" });
   }
@@ -71,7 +73,7 @@ const router = Router<[Env, ExecutionContext]>()
   .post(
     "/new-user",
     [
-      private_,
+      server_,
       data_(
         type({
           aliases: "string[]",
@@ -80,7 +82,7 @@ const router = Router<[Env, ExecutionContext]>()
       ),
     ],
     async ({ app, data: { email, aliases } }, env, ctx) => {
-      const jurisdiction = env.DO_WEBAUTHN.jurisdiction("eu");
+      const jurisdiction = env.DO_USER.jurisdiction("eu");
       const userId = jurisdiction.newUniqueId().toString();
 
       const challenge = generateRegisterChallenge();
@@ -99,7 +101,7 @@ const router = Router<[Env, ExecutionContext]>()
         return error(409, { message: "aliases_already_in_use" });
       }
 
-      const user = $user(env.DO_WEBAUTHN, userId);
+      const user = $user(env.DO_USER, userId);
 
       const response = await user.post("/occupy", {
         headers: { "Content-Type": "application/json" },
@@ -112,7 +114,7 @@ const router = Router<[Env, ExecutionContext]>()
       const claim = {
         jti: challenge.id,
         sub: userId.toString(),
-        exp: challenge.expiry,
+        exp: jwtTime(challenge.expiredAt),
         aud: app,
       };
       const token = await encodeJwt(env.SECRET_FOR_REGISTER, claim);
@@ -132,7 +134,7 @@ const router = Router<[Env, ExecutionContext]>()
   .post(
     "/new-device",
     [
-      private_,
+      server_,
       data_(
         type({
           alias: "string",
@@ -174,7 +176,7 @@ const router = Router<[Env, ExecutionContext]>()
       const claim = {
         jti: challenge.id,
         sub: userId,
-        exp: challenge.expiry,
+        exp: jwtTime(challenge.expiredAt),
         aud: app,
       };
       const token = await encodeJwt(env.SECRET_FOR_REGISTER, claim);
@@ -194,7 +196,7 @@ const router = Router<[Env, ExecutionContext]>()
 
   .post(
     "/list-credentials",
-    [private_, data_(type({ userId: "string" }))],
+    [server_, data_(type({ userId: "string" }))],
     async ({ app, data }, env) => {
       try {
         const { results } = await env.D1.prepare(
@@ -215,7 +217,7 @@ const router = Router<[Env, ExecutionContext]>()
   )
   .post(
     "/delete-credential",
-    [private_, data_(type({ userId: "string", credentialId: "string" }))],
+    [server_, data_(type({ userId: "string", credentialId: "string" }))],
     async ({ app, data }, env) => {
       try {
         await env.D1.prepare(
@@ -232,7 +234,7 @@ const router = Router<[Env, ExecutionContext]>()
   )
   .post(
     "/verify-signin",
-    [private_, data_(type({ token: "string" }))],
+    [server_, data_(type({ token: "string" }))],
     async ({ app, data, url }, env) => {
       const [tokenRaw, signinRaw] = data.token.split("#");
       const { claim, message } = await parseClaim(
@@ -266,7 +268,7 @@ const router = Router<[Env, ExecutionContext]>()
           authentication,
           expected.credential,
           {
-            challenge: claim.jti,
+            challenge: encode(claim.jti),
             origin: url.host,
             counter: expected.authenticator.counter,
             userVerified: true,
@@ -281,10 +283,10 @@ const router = Router<[Env, ExecutionContext]>()
   )
   .post(
     "/client/register-device",
-    [public_, data_(type({ token: "string", code: "string" }))],
+    [client_, data_(type({ token: "string" }))],
 
     async ({ app, url, data }, env) => {
-      const [tokenRaw, registrationRaw] = data.token.split("#");
+      const [tokenRaw, registrationRaw, codeRaw] = data.token.split("#");
       const { claim, message } = await parseClaim(
         env.SECRET_FOR_REGISTER,
         app,
@@ -293,6 +295,8 @@ const router = Router<[Env, ExecutionContext]>()
       if (!claim) {
         return error(403, { message });
       }
+
+      const code = decode(codeRaw);
 
       const { data: encoded, problems } = parseRegistrationEncoded(
         JSON.parse(decode(registrationRaw))
@@ -303,7 +307,7 @@ const router = Router<[Env, ExecutionContext]>()
 
       try {
         const parsed = await server.verifyRegistration(encoded, {
-          challenge: claim.jti,
+          challenge: encode(claim.jti),
           origin: url.host,
         });
 
@@ -315,7 +319,7 @@ const router = Router<[Env, ExecutionContext]>()
             challengeId: claim.jti,
             registration: parsed,
             userId: claim.sub,
-            code: data.code,
+            code,
           }
         );
 
@@ -329,22 +333,22 @@ const router = Router<[Env, ExecutionContext]>()
       }
     }
   )
-  .post("/client/signin-device", [public_], async ({ app, url }, env) => {
+  .post("/client/signin-device", [client_], async ({ app, url }, env) => {
     const id = uuidv7();
 
     const claim = {
       jti: id,
       sub: "discoverable",
-      exp: minute5(),
+      exp: jwtTime(minute5()),
       aud: app,
     };
 
     const token = await encodeJwt(env.SECRET_FOR_SIGNIN, claim);
 
     await env.D1.prepare(
-      "INSERT INTO challenge (id, expiry, origin) VALUES (?, ?, ?)"
+      "INSERT INTO challenge (id, expired_at, origin) VALUES (?, ?, ?)"
     )
-      .bind(claim.jti, claim.exp, url.host)
+      .bind(claim.jti, minute5().toISOString(), url.host)
       .run();
 
     return ok(200, { token });
@@ -425,28 +429,30 @@ const createUser = async (
     app,
     aliases,
     userId,
-    challenge: { id, code, expiry },
+    challenge: { id, code, expiredAt },
   }: {
     app: string;
     aliases: string[];
     userId: string;
-    challenge: { id: string; code: string; expiry: number };
+    challenge: { id: string; code: string; expiredAt: Date };
   }
 ) => {
-  const insertUser = db.prepare("INSERT INTO user (id) VALUES (?)");
+  const insertUser = db.prepare(
+    "INSERT INTO user (id, created_at) VALUES (?, ?)"
+  );
   const insertAlias = db.prepare(
-    "INSERT INTO alias (name, app_id, user_id) VALUES (?, ?, ?)"
+    "INSERT INTO alias (name, created_at, app_id, user_id) VALUES (?, ?, ?, ?)"
   );
   const insertChallenge = db.prepare(
-    "INSERT INTO challenge (id, expiry, code) VALUES (?, ?, ?)"
+    "INSERT INTO challenge (id, expired_at, code) VALUES (?, ?, ?)"
   );
 
   const statements = [
-    insertUser.bind(userId),
-    insertChallenge.bind(id, expiry, await hmac(secret, code)),
+    insertUser.bind(userId, now()),
+    insertChallenge.bind(id, expiredAt.toISOString(), await hmac(secret, code)),
   ];
   for (const alias of aliases) {
-    statements.push(insertAlias.bind(alias, app, userId));
+    statements.push(insertAlias.bind(alias, now(), app, userId));
   }
 
   try {
@@ -463,15 +469,15 @@ const createUser = async (
 const beginRegister = async (
   db: D1Database,
   secret: string,
-  { id, code, expiry }: { id: string; code: string; expiry: number }
+  { id, code, expiredAt }: { id: string; code: string; expiredAt: Date }
 ) => {
   const insertChallenge = db.prepare(
-    "INSERT INTO challenge (id, expiry, code) VALUES (?, ?, ?)"
+    "INSERT INTO challenge (id, expired_at, code) VALUES (?, ?, ?)"
   );
 
   try {
     const result = await insertChallenge
-      .bind(id, expiry, await hmac(secret, code))
+      .bind(id, expiredAt.toISOString(), await hmac(secret, code))
       .run();
     if (result.success) {
       return { success: true };
@@ -503,14 +509,14 @@ const completeSignin = async (
       return { success: false } as const;
     }
 
-    const registration = await db
+    const device = await db
       .prepare(
-        "SELECT (credential, user_id as userId) FROM registration where id = ? AND app_id = ?"
+        "SELECT (credential, user_id as userId) FROM device where id = ? AND app_id = ?"
       )
       .bind(credentialId, app)
       .first<{ credential: string; userId: string }>();
 
-    const { credential, userId } = registration ?? {};
+    const { credential, userId } = device ?? {};
     if (credential === undefined || userId === undefined) {
       return { success: false } as const;
     }
@@ -554,10 +560,11 @@ const completeRegister = async (
     const results = await db.batch([
       db
         .prepare(
-          "INSERT INTO registration (id, app_id, user_id, credential) VALUES (?, ?, ?, ?)"
+          "INSERT INTO device (id, created_at, app_id, user_id, credential) VALUES (?, ?, ?, ?, ?)"
         )
         .bind(
           registration.credential.id,
+          now(),
           app,
           userId,
           JSON.stringify(registration)
@@ -583,8 +590,8 @@ const aliasedUserId = async (db: D1Database, app: string, alias: string) => {
   return { success: false } as const;
 };
 
-const minute10 = () => jwtTime(fromNow(1000 * 60 * 10));
-const minute5 = () => jwtTime(fromNow(1000 * 60 * 5));
+const minute10 = () => fromNow(1000 * 60 * 10);
+const minute5 = () => fromNow(1000 * 60 * 5);
 
 const fromNow = (ms: number) => {
   return new Date(new Date().getTime() + ms);
@@ -620,6 +627,8 @@ const CHARACTERS =
 
 const generateRegisterChallenge = () => ({
   id: uuidv7(),
-  expiry: minute10(),
+  expiredAt: minute10(),
   code: generateCode(8),
 });
+
+const now = () => new Date().toISOString();

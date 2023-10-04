@@ -1,18 +1,11 @@
-type JwtClaim = {
-  jti: string;
-  sub: string;
-  iat: number;
-  key: "public" | "private";
-};
-
 const encoder = new TextEncoder();
 
 export const encodeHeader = async (
   salt: string,
-  key: "public" | "private",
+  key: "client" | "server",
   id: string
 ) => {
-  const value = `${encode(id)}:${key}`;
+  const value = `${id}:${key}`;
 
   const hash = await hmac(salt, value);
   return `${value}:${encode(hash)}`;
@@ -20,7 +13,7 @@ export const encodeHeader = async (
 
 export const decodeHeader = async (
   salt: string,
-  key: "public" | "private",
+  key: "client" | "server",
   header: string
 ) => {
   const [app, k, encodedHash] = header.split(":");
