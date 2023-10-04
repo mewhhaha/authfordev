@@ -1,5 +1,5 @@
 {
-  "name": "@internal/jwt",
+  "name": "@internal/keys",
   "private": true,
   "version": "1.0.0",
   "description": "",

@@ -1,0 +1,25 @@
+{
+  "name": "@mewhhaha/authfordev-client",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "prepublish": "pnpm -w build",
+    "build": "esbuild src/index.ts --bundle --target=esnext --format=esm --outfile=dist/index.js --target=esnext && tsc -p tsconfig.json"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "sideEffects": false,
+  "devDependencies": {
+    "@internal/jwt": "workspace:^",
+    "@mewhhaha/authfordev-api": "workspace:^",
+    "@mewhhaha/little-fetcher": "^0.0.26",
+    "@passwordless-id/webauthn": "^1.2.6",
+    "esbuild": "^0.19.4",
+    "typescript": "^5.2.2"
+  }
+}
