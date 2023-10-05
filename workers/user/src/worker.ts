@@ -201,7 +201,7 @@ const router = Router<[Env, ExecutionContext]>()
     async ({ app, data }, env) => {
       try {
         const { results } = await env.D1.prepare(
-          "SELECT credential, created_at as createdAt, last_used_at as lastUsedAt, country FROM registration WHERE app_id = ? AND user_id = ?"
+          "SELECT credential, created_at AS createdAt, last_used_at AS lastUsedAt, country FROM device WHERE app_id = ? AND user_id = ?"
         )
           .bind(app, data.userId)
           .all<{
@@ -228,7 +228,7 @@ const router = Router<[Env, ExecutionContext]>()
     async ({ app, data }, env) => {
       try {
         await env.D1.prepare(
-          "DELETE FROM registration WHERE app_id = ? AND user_id = ? AND id = ?"
+          "DELETE FROM device WHERE app_id = ? AND user_id = ? AND id = ?"
         )
           .bind(app, data.userId, data.credentialId)
           .run();
