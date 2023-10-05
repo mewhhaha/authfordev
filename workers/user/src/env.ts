@@ -1,5 +1,4 @@
 export interface Env {
-  API_URL_PASSWORDLESS: string;
   API_URL_MAILCHANNELS: string;
   SECRET_FOR_SERVER: string;
   SECRET_FOR_CLIENT: string;

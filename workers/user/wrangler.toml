@@ -3,7 +3,6 @@ main = "src/worker.ts"
 compatibility_date = "2023-09-04"
 
 [vars]
-API_URL_PASSWORDLESS = "https://v4.passwordless.dev"
 API_URL_MAILCHANNELS = "https://api.mailchannels.net/tx/v1"
 
 [[durable_objects.bindings]]

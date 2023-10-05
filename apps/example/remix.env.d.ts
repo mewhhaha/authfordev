@@ -7,10 +7,8 @@ declare module "@remix-run/cloudflare" {
   interface AppLoadContext {
     env: {
       SECRET_FOR_AUTH: string;
-      AUTHFORDEV_AUTHORIZATION: string;
-      PASSWORDLESS_PUBLIC_KEY: string;
-      PASSWORDLESS_PRIVATE_KEY: string;
-      PASSWORDLESS_API_URL: string;
+      AUTH_SERVER_KEY: string;
+      AUTH_CLIENT_KEY: string;
     };
   }
 }

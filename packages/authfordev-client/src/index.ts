@@ -4,11 +4,11 @@ import { client } from "@passwordless-id/webauthn";
 import { encode, decode } from "@internal/jwt";
 
 export const Client = ({
-  apiUrl,
-  publicKey,
+  apiUrl = "https://user.authfor.dev",
+  clientKey,
 }: {
-  apiUrl: string;
-  publicKey: string;
+  apiUrl?: string;
+  clientKey: string;
 }) => {
   let controller: AbortController;
   const api = fetcher<Routes>("fetch", { base: apiUrl });
@@ -19,7 +19,7 @@ export const Client = ({
 
     try {
       const response = await api.post("/client/signin-device", {
-        headers: { Authorization: publicKey },
+        headers: { Authorization: clientKey },
         signal: controller.signal,
       });
 
@@ -53,14 +53,13 @@ export const Client = ({
   };
 
   const register = async (token: string, code: string, username: string) => {
-    controller?.abort();
-    controller = new AbortController();
-
     try {
       const [_header, payload] = token.split(".");
       const { jti }: { jti: string } = JSON.parse(decode(payload));
 
-      const registration = await client.register(username, encode(jti));
+      const registration = await client.register(username, encode(jti), {
+        discoverable: "required",
+      });
 
       const registrationToken = `${token}#${encode(
         JSON.stringify(registration)

@@ -10,34 +10,29 @@ import { Button } from "~/components/Button";
 import { InputText } from "~/components/InputText";
 import type { FocusEvent, FormEvent } from "react";
 import { useRef, useState } from "react";
-import { Client } from "@passwordlessdev/passwordless-client";
+import { Client } from "@mewhhaha/authfordev-client";
 
-export async function loader({ params, context: { env } }: DataFunctionArgs) {
-  const username = params.username;
-  const slip = params.slip;
+export async function loader({
+  params,
+  request,
+  context: { env },
+}: DataFunctionArgs) {
+  const username = decodeURIComponent(params.username as string);
+  const challenge = new URL(request.url).searchParams.get("challenge");
 
-  if (!username || !slip) {
-    throw new Response("Missing username or slip", { status: 422 });
+  if (!challenge || !username) {
+    throw new Response("Missing token or username", { status: 422 });
   }
 
   return {
-    username: decodeURIComponent(username),
-    slip,
-    clientArgs: {
-      apiKey: env.PASSWORDLESS_PUBLIC_KEY,
-      apiUrl: env.PASSWORDLESS_API_URL,
-    },
+    username,
+    challenge,
+    clientKey: env.AUTH_CLIENT_KEY,
   };
 }
 
-type ActionDataRegister = { success: boolean; token?: string };
-
 export default function SignIn() {
-  const {
-    username,
-    slip,
-    clientArgs: { apiKey, apiUrl },
-  } = useLoaderData<typeof loader>();
+  const { challenge, username, clientKey } = useLoaderData<typeof loader>();
 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [status, setStatus] = useState<"idle" | "failed" | "loading">("idle");
@@ -45,34 +40,32 @@ export default function SignIn() {
   const navigation = useNavigation();
 
   const registerDevice = (event: FormEvent<HTMLFormElement>) => {
+    console.log("STARTED FROM THE BOTTOM");
     event.preventDefault();
-    const form = event.currentTarget;
+    const form = new FormData(event.currentTarget);
 
     const tryRegister = async () => {
       setStatus("loading");
       const f = async () => {
-        const response = await fetch("/auth/api?act=register-device", {
-          method: "POST",
-          body: new FormData(form),
-        });
+        const client = Client({ clientKey });
+        const code = form.get("code") as string;
+        const { token, reason } = await client.register(
+          challenge,
+          code,
+          username
+        );
 
-        const { token: rtoken } = await response.json<ActionDataRegister>();
-
-        if (!rtoken) {
+        if (reason) {
           return "failed";
         }
 
-        const client = new Client({ apiKey, apiUrl });
-        const { error, ...token } = await client.register(rtoken, username);
-
-        if (error || !token.token) {
-          return "failed";
-        }
-
-        submit(token, {
-          action: "/auth/api?act=sign-in",
-          method: "POST",
-        });
+        submit(
+          { token },
+          {
+            action: "/auth/api?act=register-device",
+            method: "POST",
+          }
+        );
       };
 
       const result = await f();
@@ -85,10 +78,8 @@ export default function SignIn() {
   };
 
   const submitWhenFilled = (event: FormEvent<HTMLInputElement>) => {
-    const codeLength = 6;
-    event.currentTarget.value = event.currentTarget.value
-      .replace(/[^\d]+/g, "")
-      .slice(0, codeLength);
+    const codeLength = 8;
+    event.currentTarget.value = event.currentTarget.value.slice(0, codeLength);
 
     if (event.currentTarget.value.length === codeLength) {
       buttonRef.current?.click();
@@ -105,7 +96,6 @@ export default function SignIn() {
         </div>
         <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
           <Form className="flex flex-col gap-4" onSubmit={registerDevice}>
-            <input type="hidden" name="slip" defaultValue={slip} />
             <input type="hidden" name="username" defaultValue={username} />
             <div>
               <InputText
@@ -114,7 +104,6 @@ export default function SignIn() {
                 readOnly={
                   status === "loading" || navigation.state === "submitting"
                 }
-                inputMode="numeric"
                 autoComplete="one-time-code"
                 placeholder="000000"
                 className="w-full text-center"

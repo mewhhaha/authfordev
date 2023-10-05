@@ -4,5 +4,3 @@ compatibility_date = "2023-09-04"
 
 [vars]
 SECRET_FOR_AUTH = "secret"
-PASSWORDLESS_API_URL = "https://v4.passwordless.dev"
-PASSWORDLESS_PUBLIC_KEY = "testauthfor:public:e4e761ee3efe4235a77dbcc4f2dd5b9d"

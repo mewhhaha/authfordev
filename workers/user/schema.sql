@@ -22,10 +22,14 @@ CREATE TABLE
         FOREIGN KEY (app_id) REFERENCES app (id) ON DELETE CASCADE
     );
 
+DROP TABLE IF EXISTS device;
+
 CREATE TABLE
     IF NOT EXISTS device (
         id TEXT NOT NULL,
         created_at TEXT NOT NULL,
+        last_used_at TEXT NOT NULL,
+        country TEXT,
         app_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         credential TEXT NOT NULL,

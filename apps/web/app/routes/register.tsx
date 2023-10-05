@@ -55,7 +55,7 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
 
   try {
     await env.D1.prepare(`INSERT INTO app (id, created_at) VALUES (?, ?)`)
-      .bind(data.slug, Date.now())
+      .bind(data.slug, new Date().toISOString())
       .run();
 
     return { status: 200, serverKey, clientKey } as const;
@@ -78,7 +78,7 @@ const form = {
 export default function Page() {
   const result = useActionData<typeof action>();
 
-  const [suggestion] = useState(() => generate(5).join("-"));
+  const [suggestion] = useState(() => generate(4).join("-"));
 
   return (
     <main className="mx-auto w-full max-w-2xl pt-10">

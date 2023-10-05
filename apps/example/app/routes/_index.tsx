@@ -1,5 +1,5 @@
 import {
-  type V2_MetaFunction,
+  type MetaFunction,
   type DataFunctionArgs,
   redirect,
   defer,
@@ -11,7 +11,7 @@ import { authenticate } from "~/auth/session";
 import { Button } from "~/components/Button";
 import { cn } from "~/css/cn";
 
-export const meta: V2_MetaFunction = () => {
+export const meta: MetaFunction = () => {
   return [
     { title: "Example auth for app" },
     { name: "description", content: "Welcome to Remix!" },
@@ -26,12 +26,12 @@ export async function loader({ request, context: { env } }: DataFunctionArgs) {
 
   const api = authfordev("https://user.authfor.dev");
   const credentials = async () => {
-    const response = await api.post("/list-credentials", {
+    const response = await api.post("/server/list-credentials", {
       headers: {
         "Content-Type": "application/json",
-        Authorization: env.AUTHFORDEV_AUTHORIZATION,
+        Authorization: env.AUTH_SERVER_KEY,
       },
-      body: JSON.stringify({ username: session.id }),
+      body: JSON.stringify({ userId: session.id }),
     });
 
     if (!response.ok) {
@@ -58,12 +58,12 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   }
 
   const api = authfordev("https://user.authfor.dev");
-  const response = await api.post("/delete-credential", {
+  const response = await api.post("/server/delete-credential", {
     headers: {
       "Content-Type": "application/json",
-      Authorization: env.AUTHFORDEV_AUTHORIZATION,
+      Authorization: env.AUTH_SERVER_KEY,
     },
-    body: JSON.stringify({ credentialId: id }),
+    body: JSON.stringify({ credentialId: id, userId: session.id }),
   });
 
   if (!response.ok) {
@@ -98,71 +98,77 @@ export default function Index() {
         <ul className="grid grid-cols-1 gap-4 p-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <Await resolve={credentialsPromise}>
             {(credentials) => {
-              return credentials.map((c) => {
-                const strippedCredentialId = session.credentialId
-                  .replace(/\//g, "_")
-                  .replace(/=$/, "")
-                  .replace(/\+/g, "-");
+              return credentials.map(
+                ({
+                  registration: { credential, authenticator },
+                  createdAt,
+                  lastUsedAt,
+                  country,
+                }) => {
+                  const isCurrentCredential =
+                    session.credentialId === credential.id;
+                  const isDeletingCredential =
+                    item.formData?.get("id") === credential.id;
+                  const isDeleteCredentialFailure =
+                    item.data?.id === credential.id;
 
-                const isCurrentCredential =
-                  strippedCredentialId === c.descriptor.id;
-                const isDeletingCredential =
-                  item.formData?.get("id") === c.descriptor.id;
-                const isDeleteCredentialFailure =
-                  item.data?.id === c.descriptor.id;
+                  return (
+                    <li
+                      key={credential.id}
+                      className={cn("rounded-lg bg-white p-6 shadow", {
+                        "opacity-50": isDeletingCredential,
+                        "ring-1 ring-blue-600": isCurrentCredential,
+                        "ring-1 ring-red-300": isDeleteCredentialFailure,
+                      })}
+                    >
+                      <h3 className="text-lg font-medium leading-6 text-gray-900">
+                        {isCurrentCredential && (
+                          <span className="text-base text-gray-700">
+                            (You){" "}
+                          </span>
+                        )}
+                        {authenticator.name}
+                      </h3>
+                      <dl className="space-y-4">
+                        <div>
+                          <dt className="text-sm">Last used at</dt>
+                          <dd>
+                            <Time dateTime={lastUsedAt} />
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-sm">Created at</dt>
+                          <dd>
+                            <Time dateTime={createdAt} />
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-sm">Country</dt>
+                          <dd>
+                            <Time dateTime={country} />
+                          </dd>
+                        </div>
+                      </dl>
 
-                return (
-                  <li
-                    key={c.descriptor.id}
-                    className={cn("rounded-lg bg-white p-6 shadow", {
-                      "opacity-50": isDeletingCredential,
-                      "ring-1 ring-blue-600": isCurrentCredential,
-                      "ring-1 ring-red-300": isDeleteCredentialFailure,
-                    })}
-                  >
-                    <h3 className="text-lg font-medium leading-6 text-gray-900">
-                      {isCurrentCredential && (
-                        <span className="text-base text-gray-700">(You) </span>
-                      )}
-                      {c.device}
-                    </h3>
-                    <dl className="space-y-4">
-                      <div>
-                        <dt className="text-sm">Last used at</dt>
-                        <dd>
-                          <Time dateTime={c.lastUsedAt} />
-                        </dd>
+                      <div className="pt-4">
+                        <item.Form method="POST">
+                          <input
+                            type="hidden"
+                            name="id"
+                            value={credential.id}
+                          />
+                          <Button
+                            secondary
+                            disabled={item.state === "submitting"}
+                          >
+                            Delete
+                          </Button>
+                        </item.Form>
                       </div>
-                      <div>
-                        <dt className="text-sm">Created at</dt>
-                        <dd>
-                          <Time dateTime={c.createdAt} />
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-sm">Country</dt>
-                        <dd>{c.country}</dd>
-                      </div>
-                    </dl>
-
-                    <div className="pt-4">
-                      <item.Form method="POST">
-                        <input
-                          type="hidden"
-                          name="id"
-                          value={c.descriptor.id}
-                        />
-                        <Button
-                          secondary
-                          disabled={item.state === "submitting"}
-                        >
-                          Delete
-                        </Button>
-                      </item.Form>
-                    </div>
-                  </li>
-                );
-              });
+                    </li>
+                  );
+                }
+              );
             }}
           </Await>
         </ul>

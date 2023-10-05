@@ -1,31 +1,28 @@
-import { Client } from "@passwordlessdev/passwordless-client";
+import { Client } from "@mewhhaha/authfordev-client";
 import { type DataFunctionArgs } from "@remix-run/cloudflare";
-import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
+import { Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { useState } from "react";
 import { Button } from "~/components/Button";
+import { ButtonLink } from "~/components/ButtonLink";
 
 export async function loader({ context: { env } }: DataFunctionArgs) {
   return {
-    clientArgs: {
-      apiKey: env.PASSWORDLESS_PUBLIC_KEY,
-      apiUrl: env.PASSWORDLESS_API_URL,
-    },
+    clientKey: env.AUTH_CLIENT_KEY,
   };
 }
 
 export default function SignIn() {
-  const data = useLoaderData<typeof loader>();
-  const navigate = useNavigate();
+  const data = useLoaderData<{ clientKey: string }>();
 
   const [failure, setFailure] = useState(false);
   const signIn = useFetcher<{ success: boolean }>();
 
   const handleSignIn = async () => {
     setFailure(false);
-    const client = new Client(data.clientArgs);
-    const { token, error } = await client.signinWithDiscoverable();
-    if (error) {
-      console.error(error);
+    const client = Client(data);
+    const { token, reason } = await client.signin();
+    if (reason) {
+      console.error(reason);
       setFailure(true);
     } else {
       signIn.submit(
@@ -54,9 +51,9 @@ export default function SignIn() {
               Sign in
             </Button>
             <div>or</div>
-            <Button secondary onClick={() => navigate("/auth/register")}>
+            <ButtonLink to="/auth/register" secondary>
               Register
-            </Button>
+            </ButtonLink>
           </div>
           {failure && signIn.state === "idle" && (
             <p className="mt-4 w-full text-sm text-red-600">

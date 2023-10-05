@@ -6,15 +6,11 @@ import { authenticate, makeSession, removeSession } from "~/auth/session";
 
 const urlSignIn = "/auth/sign-in";
 const urlSignInSuccess = "/";
-const urlInputCode = (username: string, slip: string) =>
-  `/auth/input-code/${encodeURIComponent(username)}/${slip}`;
 const authfordev = fetcher<Routes>("fetch", {
   base: "https://user.authfor.dev",
 });
 
 export async function action({ request, context: { env } }: DataFunctionArgs) {
-  const authorization = env.AUTHFORDEV_AUTHORIZATION;
-
   const formData = await request.formData();
   const url = new URL(request.url);
   const act = url.searchParams.get("act");
@@ -24,7 +20,6 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     email: formData.get("username")?.toString(),
     username: formData.get("username")?.toString(),
     token: formData.get("token")?.toString(),
-    slip: formData.get("slip")?.toString(),
     code: formData.get("code")?.toString(),
   };
 
@@ -43,7 +38,7 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
       if (!form.token) {
         throw new Response("Missing form data for sign-in", { status: 422 });
       }
-      const { data } = await signIn(authorization, { token: form.token });
+      const { data } = await signIn(env.AUTH_SERVER_KEY, { token: form.token });
       if (data) {
         const headers = await makeSession(request, env, {
           id: data.userId,
@@ -58,21 +53,20 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
       if (!form.email || !form.username) {
         throw new Response("Missing form data for new-user", { status: 422 });
       }
-      const data = await newUser(authorization, {
+      const data = await newUser(env.AUTH_SERVER_KEY, {
         email: form.email,
-        username: form.username,
+        aliases: [form.username],
       });
-      if (data.slip !== undefined) {
-        throw redirect(urlInputCode(form.username, data.slip));
-      } else {
-        return {
-          success: false,
-          reason:
-            data.status === 429
-              ? "Too many attempts, try again later"
-              : "User already exists",
-        } as const;
+
+      if (data.token === undefined) {
+        return { success: false, reason: "user_taken" } as const;
       }
+
+      throw redirect(
+        `/auth/input-code/${encodeURIComponent(form.username)}?challenge=${
+          data.token
+        }`
+      );
     }
     case "new-device": {
       if (!form.username) {
@@ -80,33 +74,41 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
           status: 422,
         });
       }
-      const data = await newDevice(authorization, { username: form.username });
-      if (data.slip !== undefined) {
-        throw redirect(urlInputCode(form.username, data.slip));
-      } else {
-        return {
-          success: false,
-          reason:
-            data.status === 429
-              ? "Too many attempts, try again later"
-              : "User is missing",
-        } as const;
+      const data = await newDevice(env.AUTH_SERVER_KEY, {
+        alias: form.username,
+      });
+
+      if (data.token === undefined) {
+        return { success: false, reason: "user_missing" } as const;
       }
+
+      console.log(
+        `/auth/input-code/${encodeURIComponent(form.username)}?challenge=${
+          data.token
+        }`
+      );
+      throw redirect(
+        `/auth/input-code/${encodeURIComponent(form.username)}?challenge=${
+          data.token
+        }`
+      );
     }
     case "register-device": {
-      if (!form.code || !form.slip || !form.username) {
+      if (!form.token) {
         throw new Response("Missing form data for register-device", {
           status: 422,
         });
       }
-      const data = await registerDevice(authorization, {
-        username: form.username,
-        code: form.code,
-        slip: form.slip,
+      const data = await registerDevice(env.AUTH_SERVER_KEY, {
+        token: form.token,
       });
 
-      if (data) {
-        return { success: true, token: data.token } as const;
+      if (data?.userId) {
+        const headers = await makeSession(request, env, {
+          id: data.userId,
+          credentialId: data.credentialId,
+        });
+        throw redirect(urlSignInSuccess, { headers });
       } else {
         return { success: false } as const;
       }
@@ -116,10 +118,10 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   throw new Response("Not found", { status: 404 });
 }
 
-const signIn = async (authorization: string, { token }: { token: string }) => {
-  const response = await authfordev.post("/sign-in", {
+const signIn = async (serverKey: string, { token }: { token: string }) => {
+  const response = await authfordev.post("/server/verify-signin", {
     headers: {
-      Authorization: authorization,
+      Authorization: serverKey,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ token }),
@@ -133,57 +135,54 @@ const signIn = async (authorization: string, { token }: { token: string }) => {
 };
 
 const newUser = async (
-  authorization: string,
-  { username, email }: { username: string; email: string }
+  serverKey: string,
+  { aliases, email }: { aliases: string[]; email: string }
 ) => {
-  const response = await authfordev.post("/new-user", {
+  const response = await authfordev.post("/server/new-user", {
     headers: {
-      Authorization: authorization,
+      Authorization: serverKey,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ username, email }),
+    body: JSON.stringify({ aliases, email }),
   });
 
   if (!response.ok) {
-    return { slip: undefined, status: response.status } as const;
+    return { token: undefined, status: response.status } as const;
   }
 
   return await response.json();
 };
 
-const newDevice = async (
-  authorization: string,
-  { username }: { username: string }
-) => {
-  const response = await authfordev.post("/new-device", {
+const newDevice = async (serverKey: string, { alias }: { alias: string }) => {
+  const response = await authfordev.post("/server/new-device", {
     headers: {
-      Authorization: authorization,
+      Authorization: serverKey,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ username }),
+    body: JSON.stringify({ alias }),
   });
 
   if (!response.ok) {
-    return { slip: undefined, status: response.status } as const;
+    return { token: undefined, status: response.status } as const;
   }
 
   return await response.json();
 };
 
 const registerDevice = async (
-  authorization: string,
-  { username, code, slip }: { username: string; code: string; slip: string }
+  serverKey: string,
+  { token }: { token: string }
 ) => {
-  const response = await authfordev.post("/verify-device", {
+  const response = await authfordev.post("/server/register-device", {
     headers: {
       "Content-Type": "application/json",
-      Authorization: authorization,
+      Authorization: serverKey,
     },
-    body: JSON.stringify({ username, code, slip }),
+    body: JSON.stringify({ token }),
   });
 
   if (!response.ok) {
-    return { token: undefined } as const;
+    return { userId: undefined } as const;
   }
 
   return await response.json();

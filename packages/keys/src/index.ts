@@ -26,7 +26,7 @@ export const decodeHeader = async (
     return undefined;
   }
 
-  return decode(app);
+  return app;
 };
 
 const hmac = async (

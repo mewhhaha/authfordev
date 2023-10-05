@@ -5,17 +5,14 @@ import { InputText } from "~/components/InputText";
 
 export async function loader({ context: { env } }: DataFunctionArgs) {
   return {
-    clientArgs: {
-      apiKey: env.PASSWORDLESS_PUBLIC_KEY,
-      apiUrl: env.PASSWORDLESS_API_URL,
-    },
+    clientKey: env.AUTH_CLIENT_KEY,
   };
 }
 
 type ActionDataRequestCode = {
   success: boolean;
   slip?: string;
-  reason?: "user taken" | "user missing" | "too many attempts";
+  reason?: "user_taken" | "user_missing";
   username?: string;
 };
 
@@ -47,7 +44,9 @@ export default function SignIn() {
               />
               {register.data?.success === false && (
                 <p className="mt-1 text-sm text-red-600">
-                  {register.data.reason}
+                  {register.data.reason === "user_taken" &&
+                    "Username already taken"}
+                  {register.data.reason === "user_missing" && "User not found"}
                 </p>
               )}
             </div>

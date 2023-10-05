@@ -71,7 +71,7 @@ const client_ = (async (
 
 const router = Router<[Env, ExecutionContext]>()
   .post(
-    "/new-user",
+    "/server/new-user",
     [
       server_,
       data_(
@@ -87,7 +87,7 @@ const router = Router<[Env, ExecutionContext]>()
 
       const challenge = generateRegisterChallenge();
 
-      const { success: userCreated } = await createUser(
+      const { success: userCreated } = await insertUser(
         env.D1,
         env.SECRET_FOR_REGISTER,
         {
@@ -132,7 +132,7 @@ const router = Router<[Env, ExecutionContext]>()
     }
   )
   .post(
-    "/new-device",
+    "/server/new-device",
     [
       server_,
       data_(
@@ -151,7 +151,8 @@ const router = Router<[Env, ExecutionContext]>()
         return error(404, { message: "user_missing" });
       }
 
-      const user = $user(env.DO_USER, userId);
+      const jurisdiction = env.DO_USER.jurisdiction("eu");
+      const user = $user(jurisdiction, userId);
 
       const response = await user.get("/meta", {
         headers: { Authorization: app },
@@ -195,19 +196,25 @@ const router = Router<[Env, ExecutionContext]>()
   )
 
   .post(
-    "/list-credentials",
+    "/server/list-credentials",
     [server_, data_(type({ userId: "string" }))],
     async ({ app, data }, env) => {
       try {
         const { results } = await env.D1.prepare(
-          "SELECT credential FROM registration WHERE app_id = ? AND user_id = ?"
+          "SELECT credential, created_at as createdAt, last_used_at as lastUsedAt, country FROM registration WHERE app_id = ? AND user_id = ?"
         )
           .bind(app, data.userId)
-          .all<{ credential: string }>();
+          .all<{
+            credential: string;
+            createdAt: string;
+            lastUsedAt: string;
+            country: string;
+          }>();
 
-        const credentials: RegistrationParsed[] = results.map((r) =>
-          JSON.parse(r.credential)
-        );
+        const credentials = results.map(({ credential, ...r }) => ({
+          registration: JSON.parse(credential) as RegistrationParsed,
+          ...r,
+        }));
 
         return ok(200, { credentials });
       } catch {
@@ -216,7 +223,7 @@ const router = Router<[Env, ExecutionContext]>()
     }
   )
   .post(
-    "/delete-credential",
+    "/server/delete-credential",
     [server_, data_(type({ userId: "string", credentialId: "string" }))],
     async ({ app, data }, env) => {
       try {
@@ -233,7 +240,7 @@ const router = Router<[Env, ExecutionContext]>()
     }
   )
   .post(
-    "/verify-signin",
+    "/server/verify-signin",
     [server_, data_(type({ token: "string" }))],
     async ({ app, data, url }, env) => {
       const [tokenRaw, signinRaw] = data.token.split("#");
@@ -256,7 +263,7 @@ const router = Router<[Env, ExecutionContext]>()
       const { success, expected, userId } = await completeSignin(env.D1, {
         challengeId: claim.jti,
         credentialId: authentication.credentialId,
-        origin: url.host,
+        origin: url.origin,
         app,
       });
       if (!success) {
@@ -264,28 +271,33 @@ const router = Router<[Env, ExecutionContext]>()
       }
 
       try {
-        const result = server.verifyAuthentication(
+        const result = await server.verifyAuthentication(
           authentication,
           expected.credential,
           {
             challenge: encode(claim.jti),
-            origin: url.host,
+            origin: url.origin,
             counter: expected.authenticator.counter,
             userVerified: true,
           }
         );
 
-        return ok(200, { authentication: result, userId });
+        return ok(200, {
+          authentication: result,
+          userId,
+          credentialId: authentication.credentialId,
+        });
       } catch {
         return error(403, { message: "credential_invalid" });
       }
     }
   )
   .post(
-    "/client/register-device",
-    [client_, data_(type({ token: "string" }))],
+    "/server/register-device",
+    [server_, data_(type({ token: "string" }))],
 
-    async ({ app, url, data }, env) => {
+    async ({ app, request, url, data }, env) => {
+      const country = request.headers.get("cf-ipcountry") ?? "AQ";
       const [tokenRaw, registrationRaw, codeRaw] = data.token.split("#");
       const { claim, message } = await parseClaim(
         env.SECRET_FOR_REGISTER,
@@ -308,7 +320,7 @@ const router = Router<[Env, ExecutionContext]>()
       try {
         const parsed = await server.verifyRegistration(encoded, {
           challenge: encode(claim.jti),
-          origin: url.host,
+          origin: url.origin,
         });
 
         const { success } = await completeRegister(
@@ -319,6 +331,7 @@ const router = Router<[Env, ExecutionContext]>()
             challengeId: claim.jti,
             registration: parsed,
             userId: claim.sub,
+            country,
             code,
           }
         );
@@ -327,8 +340,14 @@ const router = Router<[Env, ExecutionContext]>()
           return error(410, { message: "challenge_expired" });
         }
 
-        return ok(200);
-      } catch {
+        return ok(200, {
+          userId: claim.sub,
+          credentialId: parsed.credential.id,
+        });
+      } catch (e) {
+        if (e instanceof Error) console.log(e.message);
+        console.log(encoded.clientData);
+        console.log(url.origin);
         return error(403, { message: "credential_invalid" });
       }
     }
@@ -348,7 +367,7 @@ const router = Router<[Env, ExecutionContext]>()
     await env.D1.prepare(
       "INSERT INTO challenge (id, expired_at, origin) VALUES (?, ?, ?)"
     )
-      .bind(claim.jti, minute5().toISOString(), url.host)
+      .bind(claim.jti, minute5().toISOString(), url.origin)
       .run();
 
     return ok(200, { token });
@@ -422,7 +441,7 @@ const defaultEmail = ({ code }: { code: string }) =>
     value: emailSendCode.html.replace("{{123456}}", code),
   } as const);
 
-const createUser = async (
+const insertUser = async (
   db: D1Database,
   secret: string,
   {
@@ -440,16 +459,20 @@ const createUser = async (
   const insertUser = db.prepare(
     "INSERT INTO user (id, created_at) VALUES (?, ?)"
   );
-  const insertAlias = db.prepare(
-    "INSERT INTO alias (name, created_at, app_id, user_id) VALUES (?, ?, ?, ?)"
-  );
   const insertChallenge = db.prepare(
     "INSERT INTO challenge (id, expired_at, code) VALUES (?, ?, ?)"
+  );
+  const insertAlias = db.prepare(
+    "INSERT INTO alias (name, created_at, app_id, user_id) VALUES (?, ?, ?, ?)"
   );
 
   const statements = [
     insertUser.bind(userId, now()),
-    insertChallenge.bind(id, expiredAt.toISOString(), await hmac(secret, code)),
+    insertChallenge.bind(
+      id,
+      expiredAt.toISOString(),
+      encode(await hmac(secret, code))
+    ),
   ];
   for (const alias of aliases) {
     statements.push(insertAlias.bind(alias, now(), app, userId));
@@ -460,8 +483,9 @@ const createUser = async (
     if (results.every((r) => r.success)) {
       return { success: true };
     }
+
     return { success: false };
-  } catch {
+  } catch (e) {
     return { success: false };
   }
 };
@@ -477,13 +501,17 @@ const beginRegister = async (
 
   try {
     const result = await insertChallenge
-      .bind(id, expiredAt.toISOString(), await hmac(secret, code))
+      .bind(id, expiredAt.toISOString(), encode(await hmac(secret, code)))
       .run();
     if (result.success) {
       return { success: true };
     }
+
+    console.log(id, code, expiredAt);
     return { success: false };
-  } catch {
+  } catch (e) {
+    if (e instanceof Error) console.log(e.message);
+    console.log(id, code, expiredAt);
     return { success: false };
   }
 };
@@ -509,14 +537,18 @@ const completeSignin = async (
       return { success: false } as const;
     }
 
-    const device = await db
-      .prepare(
-        "SELECT (credential, user_id as userId) FROM device where id = ? AND app_id = ?"
-      )
-      .bind(credentialId, app)
-      .first<{ credential: string; userId: string }>();
+    const batch = await db.batch<{ credential: string; userId: string }>([
+      db
+        .prepare(
+          "SELECT (credential, user_id as userId) FROM device where id = ? AND app_id = ?"
+        )
+        .bind(credentialId, app),
+      db
+        .prepare("UPDATE device SET created_at = ? WHERE id = ? AND app_id = ?")
+        .bind(now(), credentialId, app),
+    ]);
 
-    const { credential, userId } = device ?? {};
+    const { credential, userId } = batch[0]?.results[0] ?? {};
     if (credential === undefined || userId === undefined) {
       return { success: false } as const;
     }
@@ -536,6 +568,7 @@ const completeRegister = async (
     challengeId,
     code,
     userId,
+    country,
     registration,
     app,
   }: {
@@ -543,6 +576,7 @@ const completeRegister = async (
     userId: string;
     code: string;
     registration: RegistrationParsed;
+    country: string;
     app: string;
   }
 ) => {
@@ -551,7 +585,7 @@ const completeRegister = async (
       .prepare(
         "DELETE FROM challenge WHERE id = ? AND code = ? AND origin = NULL RETURNING *"
       )
-      .bind(challengeId, await hmac(secret, code))
+      .bind(challengeId, encode(await hmac(secret, code)))
       .first();
 
     if (!consumed) {
@@ -560,11 +594,13 @@ const completeRegister = async (
     const results = await db.batch([
       db
         .prepare(
-          "INSERT INTO device (id, created_at, app_id, user_id, credential) VALUES (?, ?, ?, ?, ?)"
+          "INSERT INTO device (id, created_at, last_used_at, country, app_id, user_id, credential) VALUES (?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(
           registration.credential.id,
           now(),
+          now(),
+          country,
           app,
           userId,
           JSON.stringify(registration)
@@ -579,15 +615,21 @@ const completeRegister = async (
 };
 
 const aliasedUserId = async (db: D1Database, app: string, alias: string) => {
-  const result = await db
-    .prepare(`SELECT user_id FROM alias WHERE application_id = ? AND name = ?`)
-    .bind(app, alias)
-    .first<string>();
+  try {
+    const result = await db
+      .prepare(
+        `SELECT user_id AS userId FROM alias WHERE app_id = ? AND name = ?`
+      )
+      .bind(app, alias)
+      .first<{ userId: string }>();
 
-  if (result) {
-    return { success: true, userId: result } as const;
+    if (result) {
+      return { success: true, userId: result.userId } as const;
+    }
+    return { success: false } as const;
+  } catch {
+    return { success: false } as const;
   }
-  return { success: false } as const;
 };
 
 const minute10 = () => fromNow(1000 * 60 * 10);
