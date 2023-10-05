@@ -143,7 +143,7 @@ export default function Index() {
                         <div>
                           <dt className="text-sm">Country</dt>
                           <dd>
-                            <Time dateTime={country} />
+                            <Region value={country} />
                           </dd>
                         </div>
                       </dl>
@@ -183,7 +183,6 @@ const Time = (props: Omit<JSX.IntrinsicElements["time"], "children">) => {
 
   return (
     <time
-      dateTime={props.dateTime}
       {...props}
       className={cn(
         "transition-opacity",
@@ -195,5 +194,31 @@ const Time = (props: Omit<JSX.IntrinsicElements["time"], "children">) => {
         ? props.dateTime && new Date(props.dateTime).toLocaleDateString()
         : props.dateTime}
     </time>
+  );
+};
+
+const Region = (
+  props: Omit<JSX.IntrinsicElements["data"], "children" | "value"> & {
+    value: string;
+  }
+) => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const formatter = new Intl.DisplayNames(undefined, { type: "region" });
+
+  return (
+    <data
+      {...props}
+      className={cn(
+        "transition-opacity",
+        mounted ? "opacity-100" : "opacity-0",
+        props.className
+      )}
+    >
+      {mounted ? props.value && formatter.of(props.value) : props.value}
+    </data>
   );
 };
