@@ -290,7 +290,7 @@ const router = Router<[Env, ExecutionContext]>()
     [server_, data_(type({ token: "string", origin: "string" }))],
     async ({ app, request, data }, env) => {
       const { registrationEncoded, code, claim, message } =
-        await parseRegistrationToken(app, data.token, env.SECRET_FOR_SIGNIN);
+        await parseRegistrationToken(app, data.token, env.SECRET_FOR_REGISTER);
       if (message === "token_invalid") {
         return error(401, "token_invalid");
       } else if (message) {
