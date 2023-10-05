@@ -22,8 +22,6 @@ CREATE TABLE
         FOREIGN KEY (app_id) REFERENCES app (id) ON DELETE CASCADE
     );
 
-DROP TABLE IF EXISTS device;
-
 CREATE TABLE
     IF NOT EXISTS device (
         id TEXT NOT NULL,
@@ -42,6 +40,5 @@ CREATE TABLE
     IF NOT EXISTS challenge (
         id TEXT NOT NULL PRIMARY KEY,
         expired_at TEXT NOT NULL,
-        origin TEXT,
         code TEXT
     );

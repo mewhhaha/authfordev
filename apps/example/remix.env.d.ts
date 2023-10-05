@@ -9,6 +9,7 @@ declare module "@remix-run/cloudflare" {
       SECRET_FOR_AUTH: string;
       AUTH_SERVER_KEY: string;
       AUTH_CLIENT_KEY: string;
+      ORIGIN: string;
     };
   }
 }

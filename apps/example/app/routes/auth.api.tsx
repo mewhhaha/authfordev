@@ -1,14 +1,10 @@
-import type { Routes } from "@mewhhaha/authfordev-api";
-import { fetcher } from "@mewhhaha/little-fetcher";
 import type { DataFunctionArgs } from "@remix-run/cloudflare";
 import { redirect } from "@remix-run/cloudflare";
+import { authfordev } from "~/api/authfordev";
 import { authenticate, makeSession, removeSession } from "~/auth/session";
 
 const urlSignIn = "/auth/sign-in";
 const urlSignInSuccess = "/";
-const authfordev = fetcher<Routes>("fetch", {
-  base: "https://user.authfor.dev",
-});
 
 export async function action({ request, context: { env } }: DataFunctionArgs) {
   const formData = await request.formData();
@@ -38,7 +34,10 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
       if (!form.token) {
         throw new Response("Missing form data for sign-in", { status: 422 });
       }
-      const { data } = await signIn(env.AUTH_SERVER_KEY, { token: form.token });
+      const { data } = await signIn(env.AUTH_SERVER_KEY, {
+        token: form.token,
+        origin: env.ORIGIN,
+      });
       if (data) {
         const headers = await makeSession(request, env, {
           id: data.userId,
@@ -82,11 +81,6 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
         return { success: false, reason: "user_missing" } as const;
       }
 
-      console.log(
-        `/auth/input-code/${encodeURIComponent(form.username)}?challenge=${
-          data.token
-        }`
-      );
       throw redirect(
         `/auth/input-code/${encodeURIComponent(form.username)}?challenge=${
           data.token
@@ -99,8 +93,9 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
           status: 422,
         });
       }
-      const data = await registerDevice(env.AUTH_SERVER_KEY, {
+      const data = await registerCredential(env.AUTH_SERVER_KEY, {
         token: form.token,
+        origin: env.ORIGIN,
       });
 
       if (data?.userId) {
@@ -118,13 +113,16 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   throw new Response("Not found", { status: 404 });
 }
 
-const signIn = async (serverKey: string, { token }: { token: string }) => {
+const signIn = async (
+  serverKey: string,
+  { token, origin }: { token: string; origin: string }
+) => {
   const response = await authfordev.post("/server/verify-signin", {
     headers: {
       Authorization: serverKey,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ token }),
+    body: JSON.stringify({ token, origin }),
   });
 
   if (!response.ok) {
@@ -169,16 +167,16 @@ const newDevice = async (serverKey: string, { alias }: { alias: string }) => {
   return await response.json();
 };
 
-const registerDevice = async (
+const registerCredential = async (
   serverKey: string,
-  { token }: { token: string }
+  { token, origin }: { token: string; origin: string }
 ) => {
-  const response = await authfordev.post("/server/register-device", {
+  const response = await authfordev.post("/server/register-credential", {
     headers: {
       "Content-Type": "application/json",
       Authorization: serverKey,
     },
-    body: JSON.stringify({ token }),
+    body: JSON.stringify({ token, origin }),
   });
 
   if (!response.ok) {

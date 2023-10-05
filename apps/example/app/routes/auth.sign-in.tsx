@@ -32,6 +32,8 @@ export default function SignIn() {
     }
   };
 
+  const error = signIn.data?.success === false || failure;
+
   return (
     <main>
       <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
@@ -55,7 +57,8 @@ export default function SignIn() {
               Register
             </ButtonLink>
           </div>
-          {failure && signIn.state === "idle" && (
+
+          {error && signIn.state === "idle" && (
             <p className="mt-4 w-full text-sm text-red-600">
               Failed to sign in. Is this a{" "}
               <Link

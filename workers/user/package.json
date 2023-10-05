@@ -7,6 +7,7 @@
     "upload": "wrangler deploy --name authfordev-user",
     "start": "wrangler dev",
     "build": "tsc -p tsconfig.build.json",
+    "logs": "wrangler tail authfordev-user",
     "d1-local": "wrangler d1 execute d1-authfordev --local --file=./schema.sql",
     "d1-remote": "wrangler d1 execute d1-authfordev --file=./schema.sql"
   },

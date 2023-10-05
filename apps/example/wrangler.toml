@@ -4,3 +4,4 @@ compatibility_date = "2023-09-04"
 
 [vars]
 SECRET_FOR_AUTH = "secret"
+ORIGIN = "http://localhost:8788"

@@ -24,9 +24,8 @@ export async function loader({ request, context: { env } }: DataFunctionArgs) {
     throw redirect("/auth/sign-in");
   }
 
-  const api = authfordev("https://user.authfor.dev");
   const credentials = async () => {
-    const response = await api.post("/server/list-credentials", {
+    const response = await authfordev.post("/server/list-credentials", {
       headers: {
         "Content-Type": "application/json",
         Authorization: env.AUTH_SERVER_KEY,
@@ -57,8 +56,7 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     return { success: false, id: "" };
   }
 
-  const api = authfordev("https://user.authfor.dev");
-  const response = await api.post("/server/delete-credential", {
+  const response = await authfordev.post("/server/delete-credential", {
     headers: {
       "Content-Type": "application/json",
       Authorization: env.AUTH_SERVER_KEY,

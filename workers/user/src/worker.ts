@@ -241,29 +241,22 @@ const router = Router<[Env, ExecutionContext]>()
   )
   .post(
     "/server/verify-signin",
-    [server_, data_(type({ token: "string" }))],
-    async ({ app, data, url }, env) => {
-      const [tokenRaw, signinRaw] = data.token.split("#");
-      const { claim, message } = await parseClaim(
-        env.SECRET_FOR_SIGNIN,
+    [server_, data_(type({ token: "string", origin: "string" }))],
+    async ({ app, data }, env) => {
+      const { signinEncoded, claim, message } = await parseSigninToken(
         app,
-        tokenRaw
+        data.token,
+        env.SECRET_FOR_SIGNIN
       );
-      if (!claim) {
-        return error(403, { message });
-      }
-
-      const { data: authentication, problems } = parseSigninEncoded(
-        JSON.parse(decode(signinRaw))
-      );
-      if (problems) {
-        return error(401, { message: "token_invalid" });
+      if (message === "token_invalid") {
+        return error(401, "token_invalid");
+      } else if (message) {
+        return error(403, message);
       }
 
       const { success, expected, userId } = await completeSignin(env.D1, {
         challengeId: claim.jti,
-        credentialId: authentication.credentialId,
-        origin: url.origin,
+        credentialId: signinEncoded.credentialId,
         app,
       });
       if (!success) {
@@ -272,11 +265,11 @@ const router = Router<[Env, ExecutionContext]>()
 
       try {
         const result = await server.verifyAuthentication(
-          authentication,
+          signinEncoded,
           expected.credential,
           {
             challenge: encode(claim.jti),
-            origin: url.origin,
+            origin: data.origin,
             counter: expected.authenticator.counter,
             userVerified: true,
           }
@@ -285,7 +278,7 @@ const router = Router<[Env, ExecutionContext]>()
         return ok(200, {
           authentication: result,
           userId,
-          credentialId: authentication.credentialId,
+          credentialId: signinEncoded.credentialId,
         });
       } catch {
         return error(403, { message: "credential_invalid" });
@@ -293,46 +286,38 @@ const router = Router<[Env, ExecutionContext]>()
     }
   )
   .post(
-    "/server/register-device",
-    [server_, data_(type({ token: "string" }))],
+    "/server/register-credential",
+    [server_, data_(type({ token: "string", origin: "string" }))],
+    async ({ app, request, data }, env) => {
+      const { registrationEncoded, code, claim, message } =
+        await parseRegistrationToken(app, data.token, env.SECRET_FOR_SIGNIN);
+      if (message === "token_invalid") {
+        return error(401, "token_invalid");
+      } else if (message) {
+        return error(403, message);
+      }
 
-    async ({ app, request, url, data }, env) => {
       const country = request.headers.get("cf-ipcountry") ?? "AQ";
-      const [tokenRaw, registrationRaw, codeRaw] = data.token.split("#");
-      const { claim, message } = await parseClaim(
-        env.SECRET_FOR_REGISTER,
-        app,
-        tokenRaw
-      );
-      if (!claim) {
-        return error(403, { message });
-      }
-
-      const code = decode(codeRaw);
-
-      const { data: encoded, problems } = parseRegistrationEncoded(
-        JSON.parse(decode(registrationRaw))
-      );
-      if (problems) {
-        return error(401, { message: "token_invalid" });
-      }
 
       try {
-        const parsed = await server.verifyRegistration(encoded, {
-          challenge: encode(claim.jti),
-          origin: url.origin,
-        });
+        const registrationParsed = await server.verifyRegistration(
+          registrationEncoded,
+          {
+            challenge: encode(claim.jti),
+            origin: data.origin,
+          }
+        );
 
         const { success } = await completeRegister(
           env.D1,
           env.SECRET_FOR_REGISTER,
           {
             app,
-            challengeId: claim.jti,
-            registration: parsed,
-            userId: claim.sub,
             country,
             code,
+            challengeId: claim.jti,
+            userId: claim.sub,
+            registration: registrationParsed,
           }
         );
 
@@ -342,35 +327,32 @@ const router = Router<[Env, ExecutionContext]>()
 
         return ok(200, {
           userId: claim.sub,
-          credentialId: parsed.credential.id,
+          credentialId: registrationParsed.credential.id,
         });
       } catch (e) {
-        if (e instanceof Error) console.log(e.message);
-        console.log(encoded.clientData);
-        console.log(url.origin);
         return error(403, { message: "credential_invalid" });
       }
     }
   )
-  .post("/client/signin-device", [client_], async ({ app, url }, env) => {
-    const id = uuidv7();
+  .options("/client/signin-device", [], ({ request }) => {
+    return new Response(undefined, {
+      status: 204,
+      headers: cors(request),
+    });
+  })
+  .post("/client/signin-device", [client_], async ({ app, request }, env) => {
+    const { token } = await beginSignin(env.D1, {
+      secret: env.SECRET_FOR_SIGNIN,
+      app,
+    });
 
-    const claim = {
-      jti: id,
-      sub: "discoverable",
-      exp: jwtTime(minute5()),
-      aud: app,
-    };
-
-    const token = await encodeJwt(env.SECRET_FOR_SIGNIN, claim);
-
-    await env.D1.prepare(
-      "INSERT INTO challenge (id, expired_at, origin) VALUES (?, ?, ?)"
-    )
-      .bind(claim.jti, minute5().toISOString(), url.origin)
-      .run();
-
-    return ok(200, { token });
+    return ok(
+      200,
+      { token },
+      {
+        headers: cors(request),
+      }
+    );
   })
   .all("/*", [], () => {
     return new Response("Not found", { status: 404 });
@@ -379,6 +361,72 @@ const router = Router<[Env, ExecutionContext]>()
 const routes = router.infer;
 /** @public */
 export type Routes = typeof routes;
+
+const handler: ExportedHandler<Env> = {
+  fetch: router.handle,
+  scheduled: async (_, env, ctx) => {
+    ctx.waitUntil(
+      env.D1.prepare("DELETE FROM challenge WHERE expired_at < ?")
+        .bind(now())
+        .run()
+    );
+  },
+};
+
+export default handler;
+
+/**
+ * --------------------------------------------------------------------
+ * Helper functions
+ * --------------------------------------------------------------------
+ */
+
+const parseSigninToken = async (app: string, token: string, secret: string) => {
+  const [tokenRaw, signinRaw] = token.split("#");
+  const { claim, message } = await parseClaim(secret, app, tokenRaw);
+  if (!claim) {
+    return { message };
+  }
+
+  const { data: signinEncoded, problems } = parseSigninEncoded(
+    JSON.parse(decode(signinRaw))
+  );
+  if (problems) {
+    return { message: "token_invalid" } as const;
+  }
+
+  return { signinEncoded, claim };
+};
+
+const parseRegistrationToken = async (
+  app: string,
+  token: string,
+  secret: string
+) => {
+  const [tokenRaw, registrationRaw, codeRaw] = token.split("#");
+  const { claim, message } = await parseClaim(secret, app, tokenRaw);
+  if (!claim) {
+    return { message } as const;
+  }
+
+  const code = decode(codeRaw);
+
+  const { data: registrationEncoded, problems } = parseRegistrationEncoded(
+    JSON.parse(decode(registrationRaw))
+  );
+  if (problems) {
+    return { message: "token_invalid" } as const;
+  }
+
+  return { registrationEncoded, code, claim };
+};
+
+const cors = (request: Request) => ({
+  "Access-Control-Allow-Origin": request.headers.get("Origin") ?? "",
+  "Access-Control-Allow-Method": "POST",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Max-Age": "86400",
+});
 
 const sendEmail = async (apiUrl: string, body: BodySend) => {
   const api = mailChannels(apiUrl);
@@ -391,18 +439,6 @@ const sendEmail = async (apiUrl: string, body: BodySend) => {
     console.error(new Error(await response.text()));
   }
 };
-
-const handler: ExportedHandler<Env> = {
-  fetch: router.handle,
-};
-
-export default handler;
-
-/**
- * --------------------------------------------------------------------
- * Helper functions
- * --------------------------------------------------------------------
- */
 
 const createBody = ({
   email,
@@ -507,13 +543,37 @@ const beginRegister = async (
       return { success: true };
     }
 
-    console.log(id, code, expiredAt);
     return { success: false };
   } catch (e) {
-    if (e instanceof Error) console.log(e.message);
-    console.log(id, code, expiredAt);
     return { success: false };
   }
+};
+
+const beginSignin = async (
+  db: D1Database,
+  { secret, app }: { secret: string; app: string }
+) => {
+  const id = uuidv7();
+
+  const claim = {
+    jti: id,
+    sub: "discoverable",
+    exp: jwtTime(minute5()),
+    aud: app,
+  };
+
+  const token = await encodeJwt(secret, claim);
+
+  const result = await db
+    .prepare("INSERT INTO challenge (id, expired_at) VALUES (?, ?)")
+    .bind(claim.jti, minute5().toISOString())
+    .run();
+
+  if (!result.success) {
+    console.error(result.error);
+  }
+
+  return { token };
 };
 
 const completeSignin = async (
@@ -521,16 +581,13 @@ const completeSignin = async (
   {
     challengeId,
     credentialId,
-    origin,
     app,
-  }: { challengeId: string; credentialId: string; origin: string; app: string }
+  }: { challengeId: string; credentialId: string; app: string }
 ) => {
   try {
     const consumed = await db
-      .prepare(
-        "DELETE FROM challenge WHERE id = ? AND code = NULL AND origin = ? RETURNING COUNT(*)"
-      )
-      .bind(challengeId, origin)
+      .prepare("DELETE FROM challenge WHERE id = ? RETURNING *")
+      .bind(challengeId)
       .first();
 
     if (!consumed) {
@@ -540,11 +597,13 @@ const completeSignin = async (
     const batch = await db.batch<{ credential: string; userId: string }>([
       db
         .prepare(
-          "SELECT (credential, user_id as userId) FROM device where id = ? AND app_id = ?"
+          "SELECT credential, user_id AS userId FROM device where id = ? AND app_id = ?"
         )
         .bind(credentialId, app),
       db
-        .prepare("UPDATE device SET created_at = ? WHERE id = ? AND app_id = ?")
+        .prepare(
+          "UPDATE device SET last_used_at = ? WHERE id = ? AND app_id = ?"
+        )
         .bind(now(), credentialId, app),
     ]);
 
@@ -556,7 +615,8 @@ const completeSignin = async (
     const expected: RegistrationParsed = JSON.parse(credential);
 
     return { success: true, expected, userId } as const;
-  } catch {
+  } catch (e) {
+    if (e instanceof Error) console.log(e.message);
     return { success: false } as const;
   }
 };
@@ -582,9 +642,7 @@ const completeRegister = async (
 ) => {
   try {
     const consumed = await db
-      .prepare(
-        "DELETE FROM challenge WHERE id = ? AND code = ? AND origin = NULL RETURNING *"
-      )
+      .prepare("DELETE FROM challenge WHERE id = ? AND code = ? RETURNING *")
       .bind(challengeId, encode(await hmac(secret, code)))
       .first();
 
@@ -609,7 +667,8 @@ const completeRegister = async (
     ]);
 
     return { success: results.every((r) => r.success) };
-  } catch {
+  } catch (e) {
+    if (e instanceof Error) console.log(e.message);
     return { success: false };
   }
 };
@@ -627,7 +686,8 @@ const aliasedUserId = async (db: D1Database, app: string, alias: string) => {
       return { success: true, userId: result.userId } as const;
     }
     return { success: false } as const;
-  } catch {
+  } catch (e) {
+    if (e instanceof Error) console.log(e.message);
     return { success: false } as const;
   }
 };
