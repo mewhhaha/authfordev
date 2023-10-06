@@ -127,7 +127,7 @@ export default function SignIn() {
               ref={buttonRef}
               primary
             >
-              Verify code
+              Register device
             </Button>
           </Form>
           <Link
