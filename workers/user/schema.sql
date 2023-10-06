@@ -31,6 +31,7 @@ CREATE TABLE
         app_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         credential TEXT NOT NULL,
+        counter INTEGER NOT NULL DEFAULT -1,
         PRIMARY KEY (id),
         FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
         FOREIGN KEY (app_id) REFERENCES app (id) ON DELETE CASCADE

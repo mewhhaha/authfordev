@@ -97,12 +97,7 @@ export default function Index() {
           <Await resolve={credentialsPromise}>
             {(credentials) => {
               return credentials.map(
-                ({
-                  registration: { credential, authenticator },
-                  createdAt,
-                  lastUsedAt,
-                  country,
-                }) => {
+                ({ credential, createdAt, lastUsedAt, country }) => {
                   const isCurrentCredential =
                     session.credentialId === credential.id;
                   const isDeletingCredential =
@@ -113,19 +108,25 @@ export default function Index() {
                   return (
                     <li
                       key={credential.id}
-                      className={cn("rounded-lg bg-white p-6 shadow", {
-                        "opacity-50": isDeletingCredential,
-                        "ring-1 ring-blue-600": isCurrentCredential,
-                        "ring-1 ring-red-300": isDeleteCredentialFailure,
-                      })}
+                      className={cn(
+                        "text-ellipsis rounded-lg bg-white p-6 shadow",
+                        {
+                          "opacity-50": isDeletingCredential,
+                          "ring-1 ring-blue-600": isCurrentCredential,
+                          "ring-1 ring-red-300": isDeleteCredentialFailure,
+                        }
+                      )}
                     >
-                      <h3 className="text-lg font-medium leading-6 text-gray-900">
+                      <h3
+                        className="mb-4 truncate text-lg font-medium leading-6 text-gray-900"
+                        title={credential.id}
+                      >
                         {isCurrentCredential && (
                           <span className="text-base text-gray-700">
                             (You){" "}
                           </span>
                         )}
-                        {authenticator.name}
+                        {credential.id}
                       </h3>
                       <dl className="space-y-4">
                         <div>

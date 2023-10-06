@@ -11,6 +11,7 @@ import { decode, decodeJwt, encode, encodeJwt, jwtTime } from "@internal/jwt";
 import { uuidv7 } from "uuidv7";
 import { server } from "@passwordless-id/webauthn";
 import {
+  Credential,
   RegistrationParsed,
   parseRegistrationEncoded,
   parseSigninEncoded,
@@ -212,7 +213,7 @@ const router = Router<[Env, ExecutionContext]>()
           }>();
 
         const credentials = results.map(({ credential, ...r }) => ({
-          registration: JSON.parse(decode(credential)) as RegistrationParsed,
+          credential: JSON.parse(credential) as Credential,
           ...r,
         }));
 
@@ -254,33 +255,39 @@ const router = Router<[Env, ExecutionContext]>()
         return error(403, message);
       }
 
-      const { success, expected, userId } = await completeSignin(env.D1, {
-        challengeId: claim.jti,
-        credentialId: signinEncoded.credentialId,
-        app,
-      });
+      const { success, credential, counter, userId } = await completeSignin(
+        env.D1,
+        {
+          challengeId: claim.jti,
+          credentialId: signinEncoded.credentialId,
+          app,
+        }
+      );
       if (!success) {
         return error(410, { message: "challenge_expired" });
       }
 
       try {
-        const result = await server.verifyAuthentication(
+        const signinParsed = await server.verifyAuthentication(
           signinEncoded,
-          expected.credential,
+          credential,
           {
             challenge: encode(claim.jti),
             origin: data.origin,
-            counter:
-              expected.authenticator.counter === 0
-                ? -1
-                : expected.authenticator.counter,
+            counter,
             userVerified: true,
           }
         );
 
+        await postSignin(env.D1, {
+          counter: signinParsed.authenticator.counter,
+          credentialId: credential.id,
+          app,
+        });
+
         return ok(200, {
           userId,
-          credentialId: signinEncoded.credentialId,
+          credentialId: credential.id,
         });
       } catch (e) {
         if (e instanceof Error) console.log(e);
@@ -597,31 +604,52 @@ const completeSignin = async (
       return { success: false } as const;
     }
 
-    const batch = await db.batch<{ credential: string; userId: string }>([
-      db
-        .prepare(
-          "SELECT credential, user_id AS userId FROM device where id = ? AND app_id = ?"
-        )
-        .bind(encode(credentialId), app),
-      db
-        .prepare(
-          "UPDATE device SET last_used_at = ? WHERE id = ? AND app_id = ?"
-        )
-        .bind(now(), encode(credentialId), app),
-    ]);
+    const result = await db
+      .prepare(
+        "SELECT credential, user_id AS userId, counter FROM device where id = ? AND app_id = ?"
+      )
+      .bind(credentialId, app)
+      .first<{
+        credential: string;
+        userId: string;
+        counter: number;
+      }>();
 
-    const { credential, userId } = batch[0]?.results[0] ?? {};
-    if (credential === undefined || userId === undefined) {
+    const { credential, userId, counter } = result ?? {};
+    if (
+      credential === undefined ||
+      userId === undefined ||
+      counter === undefined
+    ) {
       return { success: false } as const;
     }
 
-    const expected: RegistrationParsed = JSON.parse(decode(credential));
-
-    return { success: true, expected, userId } as const;
+    return {
+      success: true,
+      credential: JSON.parse(credential) as Credential,
+      userId,
+      counter,
+    } as const;
   } catch (e) {
     if (e instanceof Error) console.log(e.message);
     return { success: false } as const;
   }
+};
+
+const postSignin = async (
+  db: D1Database,
+  {
+    counter,
+    credentialId,
+    app,
+  }: { counter: number; credentialId: string; app: string }
+) => {
+  await db
+    .prepare(
+      "UPDATE device SET last_used_at = ?, counter = ? WHERE id = ? AND app_id = ?"
+    )
+    .bind(now(), counter === 0 ? -1 : counter, credentialId, app)
+    .run();
 };
 
 const completeRegister = async (
@@ -658,13 +686,13 @@ const completeRegister = async (
           "INSERT INTO device (id, created_at, last_used_at, country, app_id, user_id, credential) VALUES (?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(
-          encode(registration.credential.id),
+          registration.credential.id,
           now(),
           now(),
           country,
           app,
           userId,
-          encode(JSON.stringify(registration))
+          JSON.stringify(registration.credential)
         ),
       db.prepare("UPDATE user SET verified = 1 WHERE id = ?").bind(userId),
     ]);
