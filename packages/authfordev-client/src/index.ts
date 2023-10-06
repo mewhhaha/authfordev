@@ -36,7 +36,9 @@ export const Client = ({
 
       const { jti }: { jti: string } = JSON.parse(decode(payload));
 
-      const authentication = await client.authenticate([], encode(jti));
+      const authentication = await client.authenticate([], encode(jti), {
+        userVerification: "required",
+      });
 
       const signinToken = `${token}#${encode(JSON.stringify(authentication))}`;
 
@@ -58,7 +60,9 @@ export const Client = ({
       const { jti }: { jti: string } = JSON.parse(decode(payload));
 
       const registration = await client.register(username, encode(jti), {
+        userVerification: "required",
         discoverable: "required",
+        userHandle: crypto.randomUUID(),
       });
 
       const registrationToken = `${token}#${encode(

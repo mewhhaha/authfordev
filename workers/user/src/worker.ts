@@ -212,7 +212,7 @@ const router = Router<[Env, ExecutionContext]>()
           }>();
 
         const credentials = results.map(({ credential, ...r }) => ({
-          registration: JSON.parse(credential) as RegistrationParsed,
+          registration: JSON.parse(decode(credential)) as RegistrationParsed,
           ...r,
         }));
 
@@ -270,17 +270,20 @@ const router = Router<[Env, ExecutionContext]>()
           {
             challenge: encode(claim.jti),
             origin: data.origin,
-            counter: expected.authenticator.counter,
+            counter:
+              expected.authenticator.counter === 0
+                ? -1
+                : expected.authenticator.counter,
             userVerified: true,
           }
         );
 
         return ok(200, {
-          authentication: result,
           userId,
           credentialId: signinEncoded.credentialId,
         });
-      } catch {
+      } catch (e) {
+        if (e instanceof Error) console.log(e);
         return error(403, { message: "credential_invalid" });
       }
     }
@@ -599,12 +602,12 @@ const completeSignin = async (
         .prepare(
           "SELECT credential, user_id AS userId FROM device where id = ? AND app_id = ?"
         )
-        .bind(credentialId, app),
+        .bind(encode(credentialId), app),
       db
         .prepare(
           "UPDATE device SET last_used_at = ? WHERE id = ? AND app_id = ?"
         )
-        .bind(now(), credentialId, app),
+        .bind(now(), encode(credentialId), app),
     ]);
 
     const { credential, userId } = batch[0]?.results[0] ?? {};
@@ -612,7 +615,7 @@ const completeSignin = async (
       return { success: false } as const;
     }
 
-    const expected: RegistrationParsed = JSON.parse(credential);
+    const expected: RegistrationParsed = JSON.parse(decode(credential));
 
     return { success: true, expected, userId } as const;
   } catch (e) {
@@ -655,13 +658,13 @@ const completeRegister = async (
           "INSERT INTO device (id, created_at, last_used_at, country, app_id, user_id, credential) VALUES (?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(
-          registration.credential.id,
+          encode(registration.credential.id),
           now(),
           now(),
           country,
           app,
           userId,
-          JSON.stringify(registration)
+          encode(JSON.stringify(registration))
         ),
       db.prepare("UPDATE user SET verified = 1 WHERE id = ?").bind(userId),
     ]);
