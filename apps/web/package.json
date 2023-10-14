@@ -18,7 +18,7 @@
     "@remix-run/cloudflare-pages": "^2.0.1",
     "@remix-run/css-bundle": "^2.0.1",
     "@remix-run/react": "^2.0.1",
-    "arktype": "1.0.21-alpha",
+    "arktype": "1.0.23-alpha",
     "clsx": "^2.0.0",
     "isbot": "^3.7.0",
     "react": "^18.2.0",
@@ -26,18 +26,18 @@
     "tailwind-merge": "^1.14.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20231002.0",
+    "@cloudflare/workers-types": "^4.20231010.0",
     "@remix-run/dev": "^2.0.1",
     "@remix-run/eslint-config": "^2.0.1",
     "@tailwindcss/forms": "^0.5.6",
-    "@types/react": "^18.2.25",
-    "@types/react-dom": "^18.2.10",
-    "eslint": "^8.50.0",
+    "@types/react": "^18.2.28",
+    "@types/react-dom": "^18.2.13",
+    "eslint": "^8.51.0",
     "eslint-plugin-tailwindcss": "^3.13.0",
     "random-words": "^2.0.0",
     "tailwindcss": "^3.3.3",
     "typescript": "^5.2.2",
-    "wrangler": "^3.10.1"
+    "wrangler": "^3.13.1"
   },
   "engines": {
     "node": ">=16.13.0"

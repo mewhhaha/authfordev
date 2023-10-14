@@ -46,10 +46,7 @@ export const Client = ({
     } catch (e) {
       return {
         success: false,
-        reason:
-          e instanceof Error && e.name === "AbortError"
-            ? "signin_aborted"
-            : "error_unknown",
+        reason: "signin_aborted",
       } as const;
     }
   };
@@ -73,10 +70,7 @@ export const Client = ({
     } catch (e) {
       return {
         success: false,
-        reason:
-          e instanceof Error && e.name === "AbortError"
-            ? "signin_aborted"
-            : "error_unknown",
+        reason: "register_aborted",
       } as const;
     }
   };

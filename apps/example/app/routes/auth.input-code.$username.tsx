@@ -1,16 +1,12 @@
 import { type DataFunctionArgs } from "@remix-run/cloudflare";
-import {
-  Form,
-  Link,
-  useLoaderData,
-  useNavigation,
-  useSubmit,
-} from "@remix-run/react";
+import { Link, useLoaderData } from "@remix-run/react";
 import { Button } from "~/components/Button";
 import { InputText } from "~/components/InputText";
 import type { FocusEvent, FormEvent } from "react";
-import { useRef, useState } from "react";
-import { Client } from "@mewhhaha/authfordev-client";
+import { useRef } from "react";
+import { useRegisterDevice } from "~/hooks/useRegisterDevice";
+import { Dialog } from "~/components/Dialog";
+import { AlertError } from "~/components/AlertError";
 
 export async function loader({
   params,
@@ -34,48 +30,9 @@ export async function loader({
 export default function SignIn() {
   const { challenge, username, clientKey } = useLoaderData<typeof loader>();
 
+  const { submit, state, error } = useRegisterDevice(clientKey);
+
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const [status, setStatus] = useState<"idle" | "failed" | "loading">("idle");
-  const submit = useSubmit();
-  const navigation = useNavigation();
-
-  const registerDevice = (event: FormEvent<HTMLFormElement>) => {
-    console.log("STARTED FROM THE BOTTOM");
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-
-    const tryRegister = async () => {
-      setStatus("loading");
-      const f = async () => {
-        const client = Client({ clientKey });
-        const code = form.get("code") as string;
-        const { token, reason } = await client.register(
-          challenge,
-          code,
-          username
-        );
-
-        if (reason) {
-          return "failed";
-        }
-
-        submit(
-          { token },
-          {
-            action: "/auth/api?act=register-device",
-            method: "POST",
-          }
-        );
-      };
-
-      const result = await f();
-      if (result === "failed") {
-        setStatus("failed");
-      }
-    };
-
-    tryRegister();
-  };
 
   const submitWhenFilled = (event: FormEvent<HTMLInputElement>) => {
     const codeLength = 8;
@@ -87,57 +44,51 @@ export default function SignIn() {
   };
 
   return (
-    <main>
-      <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-          <h2 className="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
-            Input the code sent to <br />
-            <span className="truncate" title={username}>
-              {username}
-            </span>
-          </h2>
-        </div>
-        <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-          <Form className="flex flex-col gap-4" onSubmit={registerDevice}>
-            <input type="hidden" name="username" defaultValue={username} />
-            <div>
-              <InputText
-                name="code"
-                type="text"
-                readOnly={
-                  status === "loading" || navigation.state === "submitting"
-                }
-                autoComplete="one-time-code"
-                placeholder="000000"
-                className="w-full text-center"
-                onFocus={selectAllText}
-                onInput={submitWhenFilled}
-              />
-              {status === "failed" && (
-                <p className="mt-1 text-sm text-red-600">
-                  Registration was aborted or invalid
-                </p>
-              )}
-            </div>
+    <main className="flex h-full w-full">
+      <Dialog>
+        <h2 className="mb-2 min-w-0 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
+          Input code sent to{" "}
+          <div className="truncate" title={username}>
+            {username}
+          </div>
+        </h2>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submit(new FormData(event.currentTarget));
+          }}
+        >
+          <input type="hidden" name="challenge" defaultValue={challenge} />
+          <input type="hidden" name="username" defaultValue={username} />
+          <InputText
+            name="code"
+            type="text"
+            readOnly={state === "submitting"}
+            autoComplete="one-time-code"
+            placeholder="ABCD0123"
+            className="w-full text-center"
+            onFocus={selectAllText}
+            onInput={submitWhenFilled}
+          />
 
-            <Button
-              loading={
-                status === "loading" || navigation.state === "submitting"
-              }
-              ref={buttonRef}
-              primary
-            >
-              Register device
-            </Button>
-          </Form>
+          <Button loading={state === "submitting"} ref={buttonRef} primary>
+            Register device
+          </Button>
+          <AlertError label="Breaking news!" show={error !== undefined}>
+            Registration failed or was aborted
+          </AlertError>
+        </form>
+        <p className="text-sm">
+          Code never arrived?{" "}
           <Link
-            className="mt-10 block text-sm font-medium text-indigo-600 hover:underline"
-            to="/auth/register"
+            to={`/auth/new-device?username=${encodeURIComponent(username)}`}
+            className="font-semibold text-amber-600 hover:text-amber-500 hover:underline"
           >
-            Back to register
+            Send code again.
           </Link>
-        </div>
-      </div>
+        </p>
+      </Dialog>
     </main>
   );
 }

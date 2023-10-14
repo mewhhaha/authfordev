@@ -1,5 +1,4 @@
 import type { DataFunctionArgs } from "@remix-run/cloudflare";
-import { redirect } from "@remix-run/cloudflare";
 import { authfordev } from "~/api/authfordev";
 import { authenticate, makeSession, removeSession } from "~/auth/session";
 
@@ -13,7 +12,7 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
 
   const form = {
     // In this example the username is synonymous with the email, but you could make these be different
-    email: formData.get("username")?.toString(),
+    email: formData.get("email")?.toString(),
     username: formData.get("username")?.toString(),
     token: formData.get("token")?.toString(),
     code: formData.get("code")?.toString(),
@@ -23,16 +22,24 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     case "sign-out": {
       const session = await authenticate(request, env);
       if (!session) {
-        throw redirect(urlSignIn);
+        return new Response(null, {
+          headers: { Location: urlSignIn },
+          status: 303,
+        });
       }
 
-      throw redirect(urlSignIn, {
-        headers: await removeSession(request, env),
+      const sessionHeaders = await removeSession(request, env);
+      return new Response(null, {
+        headers: {
+          ...sessionHeaders,
+          Location: urlSignIn,
+        },
+        status: 303,
       });
     }
     case "sign-in": {
       if (!form.token) {
-        throw new Response("Missing form data for sign-in", { status: 422 });
+        return new Response("Missing form data for sign-in", { status: 422 });
       }
       const { data } = await signIn(env.AUTH_SERVER_KEY, {
         token: form.token,
@@ -43,14 +50,17 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
           id: data.userId,
           credentialId: data.credentialId,
         });
-        throw redirect(urlSignInSuccess, { headers });
+        return new Response(null, {
+          status: 200,
+          headers: { ...headers, Location: urlSignInSuccess },
+        });
       } else {
-        return { success: false } as const;
+        return new Response("Sign in failed", { status: 401 });
       }
     }
     case "new-user": {
       if (!form.email || !form.username) {
-        throw new Response("Missing form data for new-user", { status: 422 });
+        return new Response("Missing form data for new-user", { status: 422 });
       }
       const data = await newUser(env.AUTH_SERVER_KEY, {
         email: form.email,
@@ -58,18 +68,20 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
       });
 
       if (data.token === undefined) {
-        return { success: false, reason: "user_taken" } as const;
+        return new Response("User already exists", {
+          status: 409,
+        });
       }
 
-      throw redirect(
-        `/auth/input-code/${encodeURIComponent(form.username)}?challenge=${
-          data.token
-        }`
-      );
+      const to = `/auth/input-code/${encodeURIComponent(
+        form.username
+      )}?challenge=${data.token}`;
+
+      return new Response(null, { status: 200, headers: { Location: to } });
     }
     case "new-device": {
       if (!form.username) {
-        throw new Response("Missing form data for new-device", {
+        return new Response("Missing form data for new-device", {
           status: 422,
         });
       }
@@ -81,15 +93,15 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
         return { success: false, reason: "user_missing" } as const;
       }
 
-      throw redirect(
-        `/auth/input-code/${encodeURIComponent(form.username)}?challenge=${
-          data.token
-        }`
-      );
+      const to = `/auth/input-code/${encodeURIComponent(
+        form.username
+      )}?challenge=${data.token}`;
+
+      return new Response(null, { headers: { Location: to }, status: 200 });
     }
     case "register-device": {
       if (!form.token) {
-        throw new Response("Missing form data for register-device", {
+        return new Response("Missing form data for register-device", {
           status: 422,
         });
       }
@@ -99,18 +111,21 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
       });
 
       if (data?.userId) {
-        const headers = await makeSession(request, env, {
+        const sessionHeaders = await makeSession(request, env, {
           id: data.userId,
           credentialId: data.credentialId,
         });
-        throw redirect(urlSignInSuccess, { headers });
+        return new Response(null, {
+          status: 200,
+          headers: { ...sessionHeaders, Location: urlSignInSuccess },
+        });
       } else {
-        return { success: false } as const;
+        return new Response("Register device failed", { status: 401 });
       }
     }
   }
 
-  throw new Response("Not found", { status: 404 });
+  return new Response("Not found", { status: 404 });
 }
 
 const signIn = async (

@@ -1,9 +1,9 @@
-import { Client } from "@mewhhaha/authfordev-client";
 import { type DataFunctionArgs } from "@remix-run/cloudflare";
-import { Link, useFetcher, useLoaderData } from "@remix-run/react";
-import { useState } from "react";
+import { Link, useLoaderData } from "@remix-run/react";
 import { Button } from "~/components/Button";
-import { ButtonLink } from "~/components/ButtonLink";
+import { AlertError } from "~/components/AlertError";
+import { useSignIn } from "~/hooks/useSignin";
+import { Dialog } from "~/components/Dialog";
 
 export async function loader({ context: { env } }: DataFunctionArgs) {
   return {
@@ -13,64 +13,70 @@ export async function loader({ context: { env } }: DataFunctionArgs) {
 
 export default function SignIn() {
   const data = useLoaderData<{ clientKey: string }>();
+  let { submit, state, error } = useSignIn(data.clientKey);
 
-  const [failure, setFailure] = useState(false);
-  const signIn = useFetcher<{ success: boolean }>();
-
-  const handleSignIn = async () => {
-    setFailure(false);
-    const client = Client(data);
-    const { token, reason } = await client.signin();
-    if (reason) {
-      console.error(reason);
-      setFailure(true);
-    } else {
-      signIn.submit(
-        { token },
-        { method: "POST", action: "/auth/api?act=sign-in" }
-      );
+  const formatError = (code: typeof error) => {
+    switch (code) {
+      case "error_unknown":
+        return "There was an unknown error when trying to sign in. Please try again and see if it works.";
+      case "signin_aborted":
+        return "The sign in process was aborted. Please try again and see if it works.";
+      case "signin_failed":
+        return (
+          <>
+            The sign in process failed. Perhaps you need to{" "}
+            <Link
+              className="whitespace-nowrap font-medium text-indigo-600 hover:underline"
+              to={"/auth/register"}
+            >
+              register this device?
+            </Link>
+          </>
+        );
     }
+
+    return "Something has gone terribly wrong!";
   };
 
-  const error = signIn.data?.success === false || failure;
-
   return (
-    <main>
-      <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-          <h2 className="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
-            Sign in to your account
-          </h2>
-        </div>
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-sm">
-          <div className="flex items-center gap-4">
-            <Button
-              loading={signIn.state === "submitting"}
-              primary
-              className="flex-1 whitespace-nowrap"
-              onClick={handleSignIn}
-            >
-              Sign in
-            </Button>
-            <div>or</div>
-            <ButtonLink to="/auth/register" secondary>
-              Register
-            </ButtonLink>
-          </div>
+    <main className="flex h-full w-full">
+      <Dialog>
+        <h2 className="mb-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
+          Sign in to your account
+        </h2>
+        <Button
+          autoFocus
+          loading={state === "submitting"}
+          primary
+          className="w-full"
+          onClick={submit}
+        >
+          Sign in
+        </Button>
 
-          {error && signIn.state === "idle" && (
-            <p className="mt-4 w-full text-sm text-red-600">
-              Failed to sign in. Is this a{" "}
-              <Link
-                className="whitespace-nowrap font-medium text-indigo-600 hover:underline"
-                to={"/auth/register"}
-              >
-                new device?
-              </Link>
-            </p>
-          )}
+        <AlertError show={error !== undefined} label="Breaking news!">
+          {formatError(error)}
+        </AlertError>
+
+        <div className="relative my-4 flex flex-none items-center">
+          <div aria-hidden className="h-px flex-1 bg-gray-300" />
+          <div className="px-4">or</div>
+          <div aria-hidden className="h-px flex-1 bg-gray-300" />
         </div>
-      </div>
+
+        <Button as={Link} to="/auth/new-user" secondary className="mb-4">
+          New user
+        </Button>
+        <p className="text-sm">
+          Can't sign in?{" "}
+          <Link
+            to="/auth/new-device"
+            className="font-semibold text-amber-600 hover:text-amber-500 hover:underline"
+          >
+            Register this device.
+          </Link>
+        </p>
+      </Dialog>
     </main>
   );
 }
