@@ -46,14 +46,13 @@ export default function SignIn() {
   return (
     <main className="flex h-full w-full">
       <Dialog>
-        <h2 className="mb-2 min-w-0 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
+        <h2 className="mb-10 min-w-0 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
           Input code sent to{" "}
           <div className="truncate" title={username}>
             {username}
           </div>
         </h2>
         <form
-          className="flex flex-col gap-4"
           onSubmit={(event) => {
             event.preventDefault();
             submit(new FormData(event.currentTarget));
@@ -67,12 +66,16 @@ export default function SignIn() {
             readOnly={state === "submitting"}
             autoComplete="one-time-code"
             placeholder="ABCD0123"
-            className="w-full text-center"
+            className="mb-4 w-full text-center"
             onFocus={selectAllText}
             onInput={submitWhenFilled}
           />
-
-          <Button loading={state === "submitting"} ref={buttonRef} primary>
+          <Button
+            loading={state === "submitting"}
+            ref={buttonRef}
+            primary
+            className="w-full"
+          >
             Register device
           </Button>
           <AlertError label="Breaking news!" show={error !== undefined}>

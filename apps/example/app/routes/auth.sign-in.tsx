@@ -45,7 +45,6 @@ export default function SignIn() {
           Sign in to your account
         </h2>
         <Button
-          autoFocus
           loading={state === "submitting"}
           primary
           className="w-full"

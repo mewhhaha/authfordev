@@ -55,9 +55,8 @@ export default function SignIn() {
             event.preventDefault();
             submit(new FormData(event.currentTarget));
           }}
-          className="mb-4 flex flex-col gap-4"
         >
-          <div className="flex flex-col-reverse">
+          <div className="mb-4 flex flex-col-reverse">
             <InputText
               name="username"
               type="text"

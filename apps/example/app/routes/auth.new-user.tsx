@@ -41,7 +41,6 @@ export default function SignIn() {
             event.preventDefault();
             submit(new FormData(event.currentTarget));
           }}
-          className="mb-4"
         >
           <div className="mb-4 flex flex-col-reverse">
             <InputText
@@ -59,7 +58,7 @@ export default function SignIn() {
               id="email"
               className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
             >
-              Email for recovery
+              Email
             </label>
           </div>
           <div className="mb-4 flex flex-col-reverse">
