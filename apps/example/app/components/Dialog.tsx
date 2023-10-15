@@ -11,7 +11,7 @@ export const Dialog = forwardRef<
       open
       {...props}
       className={cn(
-        "relative m-auto w-full max-w-sm rounded-md border-black bg-white p-10 ring-amber-200 sm:border-4 sm:ring-4",
+        "relative mx-auto mt-10 w-full max-w-sm rounded-md border-black bg-white ring-amber-200 sm:mt-20 sm:border-4 sm:ring-4",
         props.className
       )}
     />

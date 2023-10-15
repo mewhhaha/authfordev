@@ -6,6 +6,7 @@ type ButtonProps<
   T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button"
 > = {
   as?: T;
+  icon?: React.ReactNode;
   loading?: boolean;
 } & (
   | { primary: boolean; secondary?: boolean }
@@ -18,6 +19,7 @@ type ButtonProps<
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
+      icon,
       primary,
       as: Component = "button",
       secondary,
@@ -50,6 +52,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         )}
       >
         <div className="flex items-center">
+          {!loading && icon}
           {loading && <Spin className="mr-2 h-4 w-4 border-4" />}
           {children}
         </div>

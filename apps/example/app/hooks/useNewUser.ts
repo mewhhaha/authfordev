@@ -9,7 +9,11 @@ type State = {
     | "error_unknown";
 };
 
-export const useNewUser = () => {
+export const useNewUser = ({
+  navigate,
+}: {
+  navigate?: (url: string) => void;
+} = {}) => {
   const [state, setState] = useState<State>({
     state: "idle",
     error: undefined,
@@ -34,7 +38,8 @@ export const useNewUser = () => {
       const redirect = response.headers.get("Location");
 
       if (redirect) {
-        window.location.href = redirect;
+        if (navigate) navigate(redirect);
+        else window.location.href = redirect;
       } else {
         setState({
           state: "idle",

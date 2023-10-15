@@ -1,11 +1,43 @@
-import type { DataFunctionArgs } from "@remix-run/cloudflare";
+import {
+  createCookieSessionStorage,
+  type DataFunctionArgs,
+} from "@remix-run/cloudflare";
 import { authfordev } from "~/api/authfordev";
-import { authenticate, makeSession, removeSession } from "~/auth/session";
-
-const urlSignIn = "/auth/sign-in";
-const urlSignInSuccess = "/";
 
 export async function action({ request, context: { env } }: DataFunctionArgs) {
+  return endpoint({
+    request,
+    secrets: env.SECRET_FOR_AUTH,
+    origin: env.ORIGIN,
+    serverKey: env.AUTH_SERVER_KEY,
+    redirect: {
+      success: () => "/",
+      signin: () => "/auth/sign-in",
+      challenge: (username, token) =>
+        `/auth/sign-in?tab=verify-device&username=${encodeURIComponent(
+          username
+        )}&challenge=${token}`,
+    },
+  });
+}
+
+const endpoint = async ({
+  request,
+  secrets,
+  serverKey,
+  origin,
+  redirect,
+}: {
+  request: Request;
+  secrets: string | string[];
+  serverKey: string;
+  origin: string;
+  redirect: {
+    success: (user: { id: string }) => string;
+    signin: () => string;
+    challenge: (username: string, token: string) => string;
+  };
+}) => {
   const formData = await request.formData();
   const url = new URL(request.url);
   const act = url.searchParams.get("act");
@@ -20,19 +52,19 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
 
   switch (act) {
     case "sign-out": {
-      const session = await authenticate(request, env);
+      const session = await authenticate(request, secrets);
       if (!session) {
         return new Response(null, {
-          headers: { Location: urlSignIn },
+          headers: { Location: redirect.signin() },
           status: 303,
         });
       }
 
-      const sessionHeaders = await removeSession(request, env);
+      const sessionHeaders = await removeSession(request, secrets);
       return new Response(null, {
         headers: {
           ...sessionHeaders,
-          Location: urlSignIn,
+          Location: redirect.signin(),
         },
         status: 303,
       });
@@ -41,18 +73,21 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
       if (!form.token) {
         return new Response("Missing form data for sign-in", { status: 422 });
       }
-      const { data } = await signIn(env.AUTH_SERVER_KEY, {
+      const { data } = await signIn(serverKey, {
         token: form.token,
-        origin: env.ORIGIN,
+        origin: origin,
       });
       if (data) {
-        const headers = await makeSession(request, env, {
+        const headers = await makeSession(request, secrets, {
           id: data.userId,
           credentialId: data.credentialId,
         });
         return new Response(null, {
           status: 200,
-          headers: { ...headers, Location: urlSignInSuccess },
+          headers: {
+            ...headers,
+            Location: redirect.success({ id: data.userId }),
+          },
         });
       } else {
         return new Response("Sign in failed", { status: 401 });
@@ -60,9 +95,11 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     }
     case "new-user": {
       if (!form.email || !form.username) {
-        return new Response("Missing form data for new-user", { status: 422 });
+        return new Response("Missing form data for new-user", {
+          status: 422,
+        });
       }
-      const data = await newUser(env.AUTH_SERVER_KEY, {
+      const data = await newUser(serverKey, {
         email: form.email,
         aliases: [form.username],
       });
@@ -85,7 +122,7 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
           status: 422,
         });
       }
-      const data = await newDevice(env.AUTH_SERVER_KEY, {
+      const data = await newDevice(serverKey, {
         alias: form.username,
       });
 
@@ -93,11 +130,12 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
         return { success: false, reason: "user_missing" } as const;
       }
 
-      const to = `/auth/input-code/${encodeURIComponent(
-        form.username
-      )}?challenge=${data.token}`;
+      const to = redirect.challenge(form.username, data.token);
 
-      return new Response(null, { headers: { Location: to }, status: 200 });
+      return new Response(data.token, {
+        headers: { Location: to },
+        status: 200,
+      });
     }
     case "register-device": {
       if (!form.token) {
@@ -105,19 +143,22 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
           status: 422,
         });
       }
-      const data = await registerCredential(env.AUTH_SERVER_KEY, {
+      const data = await registerCredential(serverKey, {
         token: form.token,
-        origin: env.ORIGIN,
+        origin: origin,
       });
 
       if (data?.userId) {
-        const sessionHeaders = await makeSession(request, env, {
+        const sessionHeaders = await makeSession(request, secrets, {
           id: data.userId,
           credentialId: data.credentialId,
         });
         return new Response(null, {
           status: 200,
-          headers: { ...sessionHeaders, Location: urlSignInSuccess },
+          headers: {
+            ...sessionHeaders,
+            Location: redirect.success({ id: data.userId }),
+          },
         });
       } else {
         return new Response("Register device failed", { status: 401 });
@@ -126,7 +167,7 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   }
 
   return new Response("Not found", { status: 404 });
-}
+};
 
 const signIn = async (
   serverKey: string,
@@ -199,4 +240,70 @@ const registerCredential = async (
   }
 
   return await response.json();
+};
+
+export type SessionData = {
+  id: string;
+  credentialId: string;
+};
+
+export const createAppCookieSessionStorage = (secrets: string | string[]) => {
+  return createCookieSessionStorage<SessionData>({
+    cookie: {
+      name: "__session",
+      httpOnly: true,
+      path: "/",
+
+      sameSite: "lax",
+      secrets: typeof secrets === "string" ? [secrets] : secrets,
+      secure: true,
+    },
+  });
+};
+
+export const authenticate = async (
+  request: Request,
+  secrets: string | string[]
+): Promise<SessionData | undefined> => {
+  const { getSession } = createAppCookieSessionStorage(secrets);
+  const session = await getSession(request.headers.get("Cookie"));
+  const id = session.get("id");
+  const credentialId = session.get("credentialId");
+  if (id === undefined || credentialId === undefined) {
+    return undefined;
+  }
+
+  return { id, credentialId: credentialId };
+};
+
+export const revalidateSession = async (request: Request, secrets: string) => {
+  const { getSession, commitSession } = createAppCookieSessionStorage(secrets);
+  const session = await getSession(request.headers.get("Cookie"));
+  return { "Set-Cookie": await commitSession(session) };
+};
+
+export const makeSession = async (
+  request: Request,
+  secrets: string | string[],
+  { id, credentialId }: SessionData
+) => {
+  const { getSession, commitSession } = createAppCookieSessionStorage(secrets);
+  const session = await getSession(request.headers.get("Cookie"));
+  session.set("id", id);
+  session.set("credentialId", credentialId);
+  return {
+    "Set-Cookie": await commitSession(session, {
+      expires: new Date(Date.now() + 1000 * 60 * 24),
+    }),
+  };
+};
+
+export const removeSession = async (
+  request: Request,
+  secrets: string | string[]
+) => {
+  const { getSession, destroySession } = createAppCookieSessionStorage(secrets);
+  const session = await getSession(request.headers.get("Cookie"));
+
+  return { "Set-Cookie": await destroySession(session) };
 };
