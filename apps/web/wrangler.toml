@@ -5,3 +5,7 @@ compatibility_date = "2023-09-04"
 binding = "D1"
 database_name = "d1-authfordev"
 database_id = "d39b2703-c5e8-4173-9eb9-9acacfd19223"
+
+[vars]
+SECRET_FOR_SERVER = "secret"
+SECRET_FOR_CLIENT = "client"

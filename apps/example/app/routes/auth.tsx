@@ -562,9 +562,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         )}
       >
         <div className="flex items-center gap-1">
-          {loading && <div className="animate-pulse">...</div>}
           {icon && <div>{icon}</div>}
           {children}
+          {loading && <div className="animate-pulse">...</div>}
         </div>
       </Component>
     );
@@ -586,7 +586,7 @@ const Dialog = forwardRef<HTMLDialogElement, JSX.IntrinsicElements["dialog"]>(
         open
         {...props}
         className={cn(
-          "relative mx-auto my-10 w-full max-w-sm rounded-md border-black bg-white ring-amber-200 sm:mt-20 sm:border-4 sm:ring-4",
+          "relative mx-auto my-10 w-full max-w-sm bg-white sm:border sm:px-4 sm:py-10 sm:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]",
           props.className
         )}
       />
