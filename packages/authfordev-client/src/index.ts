@@ -80,3 +80,5 @@ export const Client = ({
     register,
   };
 };
+
+export type AuthforDevClient = ReturnType<typeof Client>;

@@ -102,8 +102,8 @@ importers:
         specifier: ^2.0.1
         version: 2.0.1(react-dom@18.2.0)(react@18.2.0)(typescript@5.2.2)
       arktype:
-        specifier: 1.0.23-alpha
-        version: 1.0.23-alpha
+        specifier: 1.0.24-alpha
+        version: 1.0.24-alpha
       clsx:
         specifier: ^2.0.0
         version: 2.0.0
@@ -284,10 +284,10 @@ importers:
         version: 0.0.26
       '@mewhhaha/little-router-plugin-data':
         specifier: ^0.0.26
-        version: 0.0.26(@mewhhaha/little-router@0.0.26)(arktype@1.0.23-alpha)
+        version: 0.0.26(@mewhhaha/little-router@0.0.26)(arktype@1.0.24-alpha)
       '@mewhhaha/little-router-plugin-query':
         specifier: ^0.0.26
-        version: 0.0.26(@mewhhaha/little-router@0.0.26)(arktype@1.0.23-alpha)
+        version: 0.0.26(@mewhhaha/little-router@0.0.26)(arktype@1.0.24-alpha)
       '@mewhhaha/typed-response':
         specifier: ^0.0.26
         version: 0.0.26
@@ -298,8 +298,8 @@ importers:
         specifier: ^2.2.35
         version: 2.2.35
       arktype:
-        specifier: 1.0.23-alpha
-        version: 1.0.23-alpha
+        specifier: 1.0.24-alpha
+        version: 1.0.24-alpha
       invariant:
         specifier: ^2.2.4
         version: 2.2.4
@@ -1990,7 +1990,7 @@ packages:
   /@mewhhaha/little-fetcher@0.0.26:
     resolution: {integrity: sha512-+gdZw/Tkr6xkuySaszucVxk/dN57+WAyxfVwht6LcpS0xcIy8KjlzxfWzImTh/vpcBeBCXszFIfwGFHoAFlZwQ==}
 
-  /@mewhhaha/little-router-plugin-data@0.0.26(@mewhhaha/little-router@0.0.26)(arktype@1.0.23-alpha):
+  /@mewhhaha/little-router-plugin-data@0.0.26(@mewhhaha/little-router@0.0.26)(arktype@1.0.24-alpha):
     resolution: {integrity: sha512-rxMdZ6EfKCP3uNXxG76RGnsLIIWpLAvoJre7zJ25QxS8Is8eJFcGkVwhalBVAr2rKyGJbBATWsQrQRL8ed0vCg==}
     peerDependencies:
       '@mewhhaha/little-router': ^0.0.26
@@ -1998,17 +1998,17 @@ packages:
     dependencies:
       '@mewhhaha/json-string': 0.0.26
       '@mewhhaha/little-router': 0.0.26
-      arktype: 1.0.23-alpha
+      arktype: 1.0.24-alpha
     dev: true
 
-  /@mewhhaha/little-router-plugin-query@0.0.26(@mewhhaha/little-router@0.0.26)(arktype@1.0.23-alpha):
+  /@mewhhaha/little-router-plugin-query@0.0.26(@mewhhaha/little-router@0.0.26)(arktype@1.0.24-alpha):
     resolution: {integrity: sha512-HJw7i6VsLjW04ZI7aosXO/slv39dsKG00GR1PX06iFekgAGUoM/WYVnghgkTrwk5mS5PMuksNQYeXVm8sXf36g==}
     peerDependencies:
       '@mewhhaha/little-router': ^0.0.26
       arktype: '*'
     dependencies:
       '@mewhhaha/little-router': 0.0.26
-      arktype: 1.0.23-alpha
+      arktype: 1.0.24-alpha
     dev: true
 
   /@mewhhaha/little-router@0.0.26:
@@ -3489,8 +3489,8 @@ packages:
       dequal: 2.0.3
     dev: true
 
-  /arktype@1.0.23-alpha:
-    resolution: {integrity: sha512-daqSVou8f8XqQAeLBD6+hO3hAR8MKun2C+2zNYf7Dc/3nf6N5eQxVZN/XgAMgQc9L2mtKczCjGQFJeaTxCR4OQ==}
+  /arktype@1.0.24-alpha:
+    resolution: {integrity: sha512-b3dWyAO3RO+CC8oZLjhR29Rr4oD4aAisSz58DzHIm7cMcxe8MIrYH2Rh8g/gzTOU8bZznQh9t48vDrxQeUSnaA==}
 
   /array-buffer-byte-length@1.0.0:
     resolution: {integrity: sha512-LPuwb2P+NrQw3XhxGc36+XSvuBPopovXYTR9Ew++Du9Yb/bx5AzBfrIsBoj0EZUifjQU+sHL21sseZ3jerWO/A==}

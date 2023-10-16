@@ -1,21 +1,15 @@
 import { type DataFunctionArgs } from "@remix-run/cloudflare";
-import {
-  Link,
-  useLoaderData,
-  useNavigate,
-  useSearchParams,
-} from "@remix-run/react";
-import { Button } from "~/components/Button";
-import { AlertError } from "~/components/AlertError";
-import { useSignIn } from "~/hooks/useSignin";
-import { Dialog } from "~/components/Dialog";
-import type { FocusEvent, FormEvent } from "react";
-import { useId, useRef } from "react";
+import { Form, Link, useLoaderData, useSearchParams } from "@remix-run/react";
+import type {
+  ComponentProps,
+  FocusEvent,
+  FormEvent,
+  JSXElementConstructor,
+} from "react";
+import { forwardRef, useId, useRef } from "react";
 import { cn } from "~/css/cn";
-import { useNewUser } from "~/hooks/useNewUser";
-import { InputText } from "~/components/InputText";
-import { useNewDevice } from "~/hooks/useNewDevice";
-import { useRegisterDevice } from "~/hooks/useRegisterDevice";
+import { endpoint } from "~/auth/endpoint.server";
+import { useWebAuthn } from "~/auth/useWebAuthn";
 
 export async function loader({ request, context: { env } }: DataFunctionArgs) {
   const url = new URL(request.url);
@@ -33,10 +27,42 @@ export async function loader({ request, context: { env } }: DataFunctionArgs) {
   };
 }
 
+export async function action({ request, context: { env } }: DataFunctionArgs) {
+  return endpoint({
+    request,
+    secrets: env.SECRET_FOR_AUTH,
+    origin: env.ORIGIN,
+    serverKey: env.AUTH_SERVER_KEY,
+    redirects: {
+      success: () => "/",
+      signin: () => "/auth",
+      signout: () => "/",
+      challenge: (username, token) =>
+        `/auth?tab=verify-device&username=${encodeURIComponent(
+          username
+        )}&challenge=${token}`,
+    },
+  });
+}
+
 export default function SignIn() {
   const { challenge, defaultTab, defaultUsername, clientKey } =
     useLoaderData<typeof loader>();
-  const [, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const persistTabInSearchParams = (event: FormEvent<HTMLFieldSetElement>) => {
+    const tabs =
+      event.currentTarget.querySelectorAll<HTMLInputElement>("input[name=tab]");
+
+    for (const tab of tabs) {
+      if (tab.checked) {
+        if (searchParams.get("tab") === tab.value) break;
+        searchParams.set("tab", tab.value);
+        setSearchParams(searchParams, { replace: true });
+        break;
+      }
+    }
+  };
 
   return (
     <main className="flex h-full w-full">
@@ -44,25 +70,7 @@ export default function SignIn() {
         <fieldset
           defaultValue="signin"
           className="space-y-4 p-2"
-          onChange={(event) => {
-            const tabs =
-              event.currentTarget.querySelectorAll<HTMLInputElement>(
-                "input[name=tab]"
-              );
-
-            for (const tab of tabs) {
-              if (tab.checked) {
-                setSearchParams(
-                  (prev) => {
-                    prev.set("tab", tab.value);
-                    return prev;
-                  },
-                  { replace: true }
-                );
-                break;
-              }
-            }
-          }}
+          onChange={persistTabInSearchParams}
         >
           {challenge && (
             <Tab label="Input code" value="input-code" defaultChecked>
@@ -86,7 +94,10 @@ export default function SignIn() {
             value="new-user"
             defaultChecked={defaultTab === "new-user"}
           >
-            <CreateUser className="pb-4 pl-12 pr-4 pt-2" />
+            <CreateUser
+              clientKey={clientKey}
+              className="pb-4 pl-12 pr-4 pt-2"
+            />
           </Tab>
           <Tab
             label="Register device"
@@ -94,6 +105,7 @@ export default function SignIn() {
             defaultChecked={defaultTab === "new-device"}
           >
             <RegisterDevice
+              clientKey={clientKey}
               defaultUsername={defaultUsername}
               className="pb-4 pl-12 pr-4 pt-2"
             />
@@ -110,46 +122,31 @@ export default function SignIn() {
 type SigninProps = { clientKey: string } & JSX.IntrinsicElements["section"];
 
 const Signin = ({ clientKey, ...props }: SigninProps) => {
-  const navigate = useNavigate();
-  let { submit, state, error } = useSignIn(clientKey, { navigate });
-
-  const formatError = (code: typeof error) => {
-    switch (code) {
-      case "error_unknown":
-        return "There was an unknown error when trying to sign in. Please try again and see if it works.";
-      case "signin_aborted":
-        return "The sign in process was aborted. Please try again and see if it works.";
-      case "signin_failed":
-        return (
-          <>
-            The sign in process failed. Perhaps you need to{" "}
-            <Link
-              className="whitespace-nowrap font-medium text-indigo-600 hover:underline"
-              to={"/auth/register"}
-            >
-              register this device?
-            </Link>
-          </>
-        );
-    }
-
-    return "Something has gone terribly wrong!";
-  };
+  let {
+    signin: { submit, state, error },
+  } = useWebAuthn(clientKey);
 
   return (
     <section {...props}>
-      <Button
-        loading={state === "submitting"}
-        primary
-        icon={<FingerPrintIcon />}
-        className="w-full"
-        onClick={submit}
-      >
-        Authenticate
-      </Button>
+      <Form method="POST" onSubmit={submit}>
+        <Button
+          loading={state === "submitting"}
+          primary
+          icon={<FingerPrintIcon />}
+          className="w-full"
+        >
+          Authenticate
+        </Button>
+      </Form>
 
-      <AlertError show={error !== undefined} label="Breaking news!">
-        {formatError(error)}
+      <AlertError show={error}>
+        The sign in process failed. Perhaps you need to{" "}
+        <Link
+          className="whitespace-nowrap font-medium text-indigo-600 hover:underline"
+          to={"/auth?tab=new-device"}
+        >
+          register this device?
+        </Link>
       </AlertError>
 
       <DividerText>or</DividerText>
@@ -157,7 +154,7 @@ const Signin = ({ clientKey, ...props }: SigninProps) => {
       <p className="text-sm">
         Can't sign in?{" "}
         <Link
-          to="/auth/sign-in?tab=new-device"
+          to="/auth?tab=new-device"
           replace
           reloadDocument
           className="font-semibold text-amber-600 hover:text-amber-500 hover:underline"
@@ -169,20 +166,12 @@ const Signin = ({ clientKey, ...props }: SigninProps) => {
   );
 };
 
-const CreateUser = (props: JSX.IntrinsicElements["section"]) => {
-  const navigate = useNavigate();
-  const { submit, state, error } = useNewUser({ navigate });
+type CreateUserProps = { clientKey: string } & JSX.IntrinsicElements["section"];
 
-  function formatError(code: typeof error): React.ReactNode {
-    switch (code) {
-      case "error_unknown":
-        return "There was an unknown error when trying to sign in. Please try again and see if it works.";
-      case "new_user_failed":
-        return "Most likely the user already exists. Please try a different username or email.";
-    }
-
-    return "Something has gone terribly wrong!";
-  }
+const CreateUser = ({ clientKey, ...props }: CreateUserProps) => {
+  const {
+    create: { submit, state, error },
+  } = useWebAuthn(clientKey);
 
   return (
     <section {...props}>
@@ -190,17 +179,12 @@ const CreateUser = (props: JSX.IntrinsicElements["section"]) => {
         After creating the user we will send you a verification code to your
         email to verify this device.
       </p>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          submit(new FormData(event.currentTarget));
-        }}
-      >
+      <Form method="POST" onSubmit={submit}>
         <div className="mb-4 flex flex-col-reverse">
           <InputText
             autoFocus
-            aria-labelledby="email"
-            name="username"
+            aria-labelledby="create.email"
+            name="email"
             type="email"
             autoComplete="email"
             readOnly={state !== "idle"}
@@ -209,7 +193,7 @@ const CreateUser = (props: JSX.IntrinsicElements["section"]) => {
             required
           />
           <label
-            id="email"
+            id="create.email"
             className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
           >
             Email
@@ -217,7 +201,7 @@ const CreateUser = (props: JSX.IntrinsicElements["section"]) => {
         </div>
         <div className="mb-4 flex flex-col-reverse">
           <InputText
-            aria-labelledby="username"
+            aria-labelledby="create.username"
             name="username"
             type="text"
             autoComplete="username"
@@ -227,7 +211,7 @@ const CreateUser = (props: JSX.IntrinsicElements["section"]) => {
             required
           />
           <label
-            id="username"
+            id="create.username"
             className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
           >
             Username
@@ -236,15 +220,16 @@ const CreateUser = (props: JSX.IntrinsicElements["section"]) => {
         <Button primary loading={state !== "idle"} className="w-full">
           Create new user
         </Button>
-        <AlertError show={error !== undefined} label="Breaking news!">
-          {formatError(error)}
+        <AlertError show={error}>
+          Most likely the user already exists. Please try a different username
+          or email.
         </AlertError>
-      </form>
+      </Form>
       <DividerText>or</DividerText>
       <p className="text-sm">
         Already have an account?{" "}
         <Link
-          to="/auth/sign-in?tab=sign-in"
+          to="/auth?tab=sign-in"
           replace
           reloadDocument
           className="font-semibold text-amber-600 hover:text-amber-500 hover:underline"
@@ -257,23 +242,18 @@ const CreateUser = (props: JSX.IntrinsicElements["section"]) => {
 };
 
 type RegisterDeviceProps = {
+  clientKey: string;
   defaultUsername: string;
 } & JSX.IntrinsicElements["section"];
 
-const RegisterDevice = ({ defaultUsername, ...props }: RegisterDeviceProps) => {
-  const navigate = useNavigate();
-  const { state, submit, error } = useNewDevice({ navigate });
-
-  function formatError(code: typeof error): React.ReactNode {
-    switch (code) {
-      case "error_unknown":
-        return "There was an unknown error when trying to sign in. Please try again and see if it works.";
-      case "new_device_failed":
-        return "Most likely the user doesn't exist. Please check that the username is written correctly.";
-    }
-
-    return "Something has gone terribly wrong!";
-  }
+const RegisterDevice = ({
+  clientKey,
+  defaultUsername,
+  ...props
+}: RegisterDeviceProps) => {
+  const {
+    register: { state, submit, error },
+  } = useWebAuthn(clientKey);
 
   return (
     <section {...props}>
@@ -281,24 +261,21 @@ const RegisterDevice = ({ defaultUsername, ...props }: RegisterDeviceProps) => {
         We will send you a verification code to your email to verify this
         device.
       </p>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          submit(new FormData(event.currentTarget));
-        }}
-      >
+      <Form method="POST" onSubmit={submit}>
         <div className="mb-4 flex flex-col-reverse">
           <InputText
             name="username"
+            aria-labelledby="register.username"
             type="text"
             autoComplete="username"
             readOnly={state !== "idle"}
             placeholder="username"
             defaultValue={defaultUsername}
             required
+            className="peer"
           />
           <label
-            id="username"
+            id="register.username"
             className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
           >
             Username
@@ -307,15 +284,16 @@ const RegisterDevice = ({ defaultUsername, ...props }: RegisterDeviceProps) => {
         <Button primary loading={state !== "idle"} className="w-full">
           Send verification code
         </Button>
-        <AlertError show={error !== undefined} label="Breaking news!">
-          {formatError(error)}
+        <AlertError show={error}>
+          Most likely the user doesn't exist. Please check that the username is
+          written correctly.
         </AlertError>
-      </form>
+      </Form>
       <DividerText>or</DividerText>
       <p className="text-sm">
         Already registered this device?{" "}
         <Link
-          to="/auth/sign-in?tab=sign-in"
+          to="/auth?tab=sign-in"
           replace
           reloadDocument
           className="font-semibold text-amber-600 hover:text-amber-500 hover:underline"
@@ -339,8 +317,9 @@ const VerifyDevice = ({
   clientKey,
   ...props
 }: VerifyDeviceProps) => {
-  const navigate = useNavigate();
-  const { submit, state, error } = useRegisterDevice(clientKey, { navigate });
+  const {
+    verify: { submit, state, error },
+  } = useWebAuthn(clientKey);
 
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -357,28 +336,33 @@ const VerifyDevice = ({
     <section {...props}>
       <p className="mb-4 min-w-0 text-sm">
         An input code was sent to the email of{" "}
-        <div className="truncate" title={username}>
+        <span className="truncate font-bold" title={username}>
           {username}
-        </div>
+        </span>
       </p>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          submit(new FormData(event.currentTarget));
-        }}
-      >
+      <Form method="POST" onSubmit={submit}>
         <input type="hidden" name="challenge" defaultValue={challenge} />
         <input type="hidden" name="username" defaultValue={username} />
-        <InputText
-          name="code"
-          type="text"
-          readOnly={state === "submitting"}
-          autoComplete="one-time-code"
-          placeholder="ABCD0123"
-          className="mb-4 w-full text-center"
-          onFocus={selectAllText}
-          onInput={submitWhenFilled}
-        />
+        <div className="mb-4 flex flex-col-reverse">
+          <InputText
+            id="one-time-code"
+            name="code"
+            type="text"
+            readOnly={state === "submitting"}
+            autoComplete="one-time-code"
+            placeholder="ABCD0123"
+            className="mb-4 w-full text-center"
+            onFocus={selectAllText}
+            onInput={submitWhenFilled}
+          />
+          <label
+            id="one-time-code"
+            className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
+          >
+            One time code
+          </label>
+        </div>
+
         <Button
           loading={state === "submitting"}
           ref={buttonRef}
@@ -387,17 +371,13 @@ const VerifyDevice = ({
         >
           Register device
         </Button>
-        <AlertError label="Breaking news!" show={error !== undefined}>
-          Registration failed or was aborted
-        </AlertError>
-      </form>
+        <AlertError show={error}>Registration failed or was aborted</AlertError>
+      </Form>
       <DividerText>or</DividerText>
       <p className="text-sm">
         Code never arrived?{" "}
         <Link
-          to={`/auth/sign-in?tab=new-device&username=${encodeURIComponent(
-            username
-          )}`}
+          to={`/auth?tab=new-device&username=${encodeURIComponent(username)}`}
           className="font-semibold text-amber-600 hover:text-amber-500 hover:underline"
         >
           Send code again.
@@ -482,5 +462,151 @@ const Tab = ({ children, label, value, defaultChecked }: TabProps) => {
         {children}
       </div>
     </div>
+  );
+};
+
+/** AlertError Component */
+
+type AlertErrorProps = {
+  show?: boolean;
+  children: React.ReactNode;
+};
+
+const AlertError = ({ show, children }: AlertErrorProps) => {
+  return (
+    <div
+      aira-live="polite"
+      className={cn(
+        "flex bg-red-200/50 px-4 py-2 text-sm text-red-600 ring ring-inset ring-red-50",
+        "transition-opacity",
+        show ? "visible h-auto opacity-100" : "hidden h-0 opacity-0"
+      )}
+    >
+      <div className="flex items-center pr-2">
+        <ExclamationTriangleIcon />
+      </div>
+      <div className="flex-1">{children}</div>
+    </div>
+  );
+};
+
+const ExclamationTriangleIcon = () => {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className="h-6 w-6"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+      />
+    </svg>
+  );
+};
+
+/** Button component */
+
+type ButtonProps<
+  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button"
+> = {
+  as?: T;
+  icon?: React.ReactNode;
+  loading?: boolean;
+} & (
+  | { primary: boolean; secondary?: boolean }
+  | { primary?: boolean; secondary: boolean }
+) &
+  (T extends keyof JSX.IntrinsicElements
+    ? JSX.IntrinsicElements[T]
+    : ComponentProps<T>);
+
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  (
+    {
+      icon,
+      primary,
+      as: Component = "button",
+      secondary,
+      loading,
+      children,
+      ...props
+    },
+    ref
+  ) => {
+    return (
+      <Component
+        ref={ref}
+        {...props}
+        aria-disabled={loading}
+        onClick={loading ? undefined : props.onClick}
+        className={cn(
+          {
+            "bg-amber-400 hover:bg-amber-500 focus-visible:bg-amber-500":
+              primary,
+            "bg-white hover:bg-gray-100 focus-visible:bg-gray-100": secondary,
+          },
+          "my-2 flex items-center justify-center rounded-lg border-2 border-black px-3 py-1.5 text-sm font-bold leading-6 text-gray-900",
+          "shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-[transform,box-shadow]",
+          "hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
+          "focus-visible:translate-x-[2px] focus-visible:translate-y-[2px] focus-visible:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
+          "active:translate-x-[3px] active:translate-y-[3px] active:bg-black active:text-white active:shadow-none",
+          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500",
+          "disabled:bg-gray-100 disabled:text-black disabled:hover:bg-gray-100",
+          props.className
+        )}
+      >
+        <div className="flex items-center gap-1">
+          {loading && <div className="animate-pulse">...</div>}
+          {icon && <div>{icon}</div>}
+          {children}
+        </div>
+      </Component>
+    );
+  }
+) as (<
+  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button"
+>(
+  props: ButtonProps<T>
+) => JSX.Element) & { displayName?: string };
+
+Button.displayName = "Button";
+
+/** Dialog component  */
+const Dialog = forwardRef<HTMLDialogElement, JSX.IntrinsicElements["dialog"]>(
+  (props, ref) => {
+    return (
+      <dialog
+        ref={ref}
+        open
+        {...props}
+        className={cn(
+          "relative mx-auto mt-10 w-full max-w-sm rounded-md border-black bg-white ring-amber-200 sm:mt-20 sm:border-4 sm:ring-4",
+          props.className
+        )}
+      />
+    );
+  }
+);
+
+Dialog.displayName = "Dialog";
+
+/** Input Text component */
+
+const InputText = (props: JSX.IntrinsicElements["input"]) => {
+  return (
+    <input
+      {...props}
+      className={cn(
+        "block w-full rounded-md border-2 border-black font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] placeholder:font-bold focus:border-2 focus:border-black",
+        "transition-[transform,box-shadow] focus-visible:translate-x-[4px] focus-visible:translate-y-[4px] focus-visible:shadow-none",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500",
+        props.className
+      )}
+    />
   );
 };

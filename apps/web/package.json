@@ -18,7 +18,7 @@
     "@remix-run/cloudflare-pages": "^2.0.1",
     "@remix-run/css-bundle": "^2.0.1",
     "@remix-run/react": "^2.0.1",
-    "arktype": "1.0.23-alpha",
+    "arktype": "1.0.24-alpha",
     "clsx": "^2.0.0",
     "isbot": "^3.7.0",
     "react": "^18.2.0",
