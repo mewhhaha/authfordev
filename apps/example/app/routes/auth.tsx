@@ -6,7 +6,7 @@ import type {
   FormEvent,
   JSXElementConstructor,
 } from "react";
-import { forwardRef, useId, useRef, useState } from "react";
+import { forwardRef, useId, useRef } from "react";
 import { cn } from "~/css/cn";
 import { endpoint } from "~/auth/endpoint.server";
 import { useWebAuthn } from "~/auth/useWebAuthn";
