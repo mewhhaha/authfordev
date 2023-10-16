@@ -1,4 +1,8 @@
-import { createCookieSessionStorage, redirect } from "@remix-run/cloudflare";
+import {
+  createCookieSessionStorage,
+  json,
+  redirect,
+} from "@remix-run/cloudflare";
 import { authfordev } from "~/api/authfordev";
 import {
   authenticate,
@@ -51,7 +55,7 @@ export const endpoint = async ({
     }
     case "sign-in": {
       if (!form.token) {
-        return new Response("Missing form data for sign-in", { status: 422 });
+        return json({ message: "Missing form data for sign-in", status: 422 });
       }
       const { data } = await signIn(serverKey, {
         token: form.token,
@@ -67,14 +71,12 @@ export const endpoint = async ({
           headers: sessionHeaders,
         });
       } else {
-        return new Response("Sign in failed", { status: 401 });
+        return json({ message: "Signing in failed", status: 401 });
       }
     }
     case "new-user": {
       if (!form.email || !form.username) {
-        return new Response("Missing form data for new-user", {
-          status: 422,
-        });
+        return json({ message: "Missing form data for new-user", status: 422 });
       }
       const data = await newUser(serverKey, {
         email: form.email,
@@ -84,11 +86,12 @@ export const endpoint = async ({
       if (data.token === undefined) {
         switch (data.status) {
           case 409:
-            return new Response("User already exists", {
-              status: 409,
-            });
+            return json({ message: "User already exists", status: 409 });
           default:
-            return new Response("New user failed", { status: data.status });
+            return json({
+              message: "Creating new user failed",
+              status: data.status,
+            });
         }
       }
 
@@ -97,7 +100,8 @@ export const endpoint = async ({
     }
     case "new-device": {
       if (!form.username) {
-        return new Response("Missing form data for new-device", {
+        return json({
+          message: "Missing form data for new-device",
           status: 422,
         });
       }
@@ -108,11 +112,12 @@ export const endpoint = async ({
       if (data.token === undefined) {
         switch (data.status) {
           case 404:
-            return new Response("User is missing", {
-              status: 404,
-            });
+            return json({ message: "User is missing", status: 404 });
           default:
-            return new Response("New device failed", { status: data.status });
+            return json({
+              message: "Creating challenge for user failed",
+              status: data.status,
+            });
         }
       }
 
@@ -121,7 +126,8 @@ export const endpoint = async ({
     }
     case "verify-device": {
       if (!form.token) {
-        return new Response("Missing form data for verify-device", {
+        return json({
+          message: "Missing form data for verify-device",
           status: 422,
         });
       }
@@ -141,7 +147,7 @@ export const endpoint = async ({
           headers: sessionHeaders,
         });
       } else {
-        return new Response("Register device failed", { status: 401 });
+        return json({ message: "Registering device failed", status: 401 });
       }
     }
   }

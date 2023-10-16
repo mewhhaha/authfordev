@@ -17,7 +17,7 @@ export const useWebAuthn = (clientKey: string) => {
 };
 
 export const useSignOut = () => {
-  const fetcher = useFetcher<string>();
+  const fetcher = useFetcher<{ message: string; status: number }>();
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -31,7 +31,7 @@ export const useSignOut = () => {
 };
 
 export const useSignIn = (client: AuthforDevClient) => {
-  const fetcher = useFetcher<string>();
+  const fetcher = useFetcher<{ message: string; status: number }>();
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     if (fetcher.state !== "idle") {
@@ -52,11 +52,11 @@ export const useSignIn = (client: AuthforDevClient) => {
     fetcher.submit(formData, options);
   };
 
-  return { submit, state: fetcher.state, error: fetcher.data === "error" };
+  return { submit, state: fetcher.state, error: fetcher.data !== undefined };
 };
 
 export const useCreateUser = () => {
-  const fetcher = useFetcher<string>();
+  const fetcher = useFetcher<{ message: string; status: number }>();
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -69,13 +69,13 @@ export const useCreateUser = () => {
   return {
     submit,
     state: fetcher.state,
-    error: typeof fetcher.data === "string",
+    error: fetcher.data !== undefined,
     form: { username: { name: "username" }, email: { name: "email" } },
   };
 };
 
 export const useRegisterDevice = () => {
-  const fetcher = useFetcher<string>();
+  const fetcher = useFetcher<{ message: string; status: number }>();
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -90,13 +90,13 @@ export const useRegisterDevice = () => {
   return {
     submit,
     state: fetcher.state,
-    error: typeof fetcher.data === "string",
+    error: fetcher.data !== undefined,
     form: { username: { name: "username" } },
   };
 };
 
 export const useVerifyDevice = (client: AuthforDevClient) => {
-  const fetcher = useFetcher<string>();
+  const fetcher = useFetcher<{ message: string; status: number }>();
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     if (fetcher.state !== "idle") {
@@ -135,7 +135,7 @@ export const useVerifyDevice = (client: AuthforDevClient) => {
   return {
     submit,
     state: fetcher.state,
-    error: typeof fetcher.data === "string",
+    error: fetcher.data !== undefined,
     form: { username: { name: "username" }, email: { name: "email" } },
   };
 };
