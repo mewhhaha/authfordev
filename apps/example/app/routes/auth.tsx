@@ -6,7 +6,7 @@ import type {
   FormEvent,
   JSXElementConstructor,
 } from "react";
-import { forwardRef, useId, useRef } from "react";
+import { forwardRef, useId, useRef, useState } from "react";
 import { cn } from "~/css/cn";
 import { endpoint } from "~/auth/endpoint.server";
 import { useWebAuthn } from "~/auth/useWebAuthn";
@@ -65,11 +65,11 @@ export default function SignIn() {
   };
 
   return (
-    <main className="flex h-full w-full">
+    <main className="flex h-full w-full items-center sm:items-start">
       <Dialog>
         <fieldset
           defaultValue="signin"
-          className="space-y-4 p-2"
+          className="flex flex-col gap-4 p-2"
           onChange={persistTabInSearchParams}
         >
           {challenge && (
@@ -435,6 +435,7 @@ type TabProps = {
 
 const Tab = ({ children, label, value, defaultChecked }: TabProps) => {
   const id = useId();
+
   return (
     <div className="relative isolate flex flex-wrap items-center overflow-hidden border-black">
       <input
@@ -458,7 +459,7 @@ const Tab = ({ children, label, value, defaultChecked }: TabProps) => {
         {label}
       </label>
       <br />
-      <div className="invisible -z-10 max-h-0 w-full transition-all duration-300 ease-in-out peer-checked:visible peer-checked:max-h-[500px] peer-checked:translate-y-0">
+      <div className="invisible -z-10 max-h-0 w-full transition-all duration-300 ease-in-out peer-checked:visible peer-checked:max-h-[500px]">
         {children}
       </div>
     </div>
@@ -585,7 +586,7 @@ const Dialog = forwardRef<HTMLDialogElement, JSX.IntrinsicElements["dialog"]>(
         open
         {...props}
         className={cn(
-          "relative mx-auto mt-10 w-full max-w-sm rounded-md border-black bg-white ring-amber-200 sm:mt-20 sm:border-4 sm:ring-4",
+          "relative mx-auto my-10 w-full max-w-sm rounded-md border-black bg-white ring-amber-200 sm:mt-20 sm:border-4 sm:ring-4",
           props.className
         )}
       />
