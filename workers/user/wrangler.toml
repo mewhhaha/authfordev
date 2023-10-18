@@ -9,14 +9,23 @@ API_URL_MAILCHANNELS = "https://api.mailchannels.net/tx/v1"
 name = "DO_USER"
 class_name = "DurableObjectUser"
 
+[[durable_objects.bindings]]
+name = "DO_CHALLENGE"
+class_name = "DurableObjectChallenge"
+
 [[migrations]]
 tag = "v1"
-new_classes = ["DurableObjectUser"]
+new_classes = ["DurableObjectUser", "DurableObjectChallenge"]
 
 [[d1_databases]]
 binding = "D1"
 database_name = "d1-authfordev"
 database_id = "d39b2703-c5e8-4173-9eb9-9acacfd19223"
+
+kv_namespaces = [
+    { binding = "KV_PASSKEY", id = "59db77f9ca1e441190dede2e35df6c87" },
+    { binding = "KV_ALIAS", id = "a85e733ee8ea47bcb55473639248cab6" },
+]
 
 [triggers]
 crons = ["0 0 * * *"]

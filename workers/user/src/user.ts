@@ -10,7 +10,7 @@ import { error, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { storageLoader, storageSaver } from "./helpers";
 
-const auth_ = ((
+const created_ = ((
   {
     request,
   }: PluginContext<{
@@ -37,11 +37,15 @@ const auth_ = ((
 type Meta = {
   app: string;
   aliases: string[];
-  email: string;
+};
+
+type Recovery = {
+  email?: { address: string; verified: boolean };
 };
 
 export class DurableObjectUser implements DurableObject {
   meta?: Meta;
+  recovery: Recovery = {};
 
   storage: DurableObjectStorage;
 
@@ -52,18 +56,21 @@ export class DurableObjectUser implements DurableObject {
     this.storage = state.storage;
 
     state.blockConcurrencyWhile(async () => {
-      await this.load("meta");
+      await this.load("meta", "recovery");
     });
   }
 
-  occupy({ email, aliases, app }: Meta) {
-    this.save("meta", { email, aliases, app });
+  occupy({ email, aliases, app }: Meta & { email?: string }) {
+    this.save("meta", { aliases, app });
+    if (email) {
+      this.save("recovery", { email: { address: email, verified: false } });
+    }
   }
 
   static router = Router<[DurableObjectUser]>()
     .post(
       "/occupy",
-      [data_(type({ email: "email", app: "string", aliases: "string[]" }))],
+      [data_(type({ "email?": "email", app: "string", aliases: "string[]" }))],
       async ({ data }, self) => {
         if (self.meta) {
           return error(403, "user_exists");
@@ -72,8 +79,11 @@ export class DurableObjectUser implements DurableObject {
         return ok(200);
       }
     )
-    .get("/meta", [auth_], async ({ meta }) => {
+    .get("/meta", [created_], async ({ meta }) => {
       return ok(200, meta);
+    })
+    .get("/recovery", [created_], async (_, self) => {
+      return ok(200, self.recovery);
     })
     .all("/*", [], () => {
       return new Response("Not found", { status: 404 });

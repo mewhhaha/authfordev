@@ -4,12 +4,15 @@ CREATE TABLE
         created_at TEXT NOT NULL
     );
 
+DROP TABLE IF EXISTS user;
+
 CREATE TABLE
     IF NOT EXISTS user (
         id TEXT NOT NULL PRIMARY KEY,
         created_at TEXT NOT NULL,
-        verified INTEGER NOT NULL DEFAULT 0
     );
+
+DROP TABLE IF EXISTS alias;
 
 CREATE TABLE
     IF NOT EXISTS alias (
@@ -22,24 +25,4 @@ CREATE TABLE
         FOREIGN KEY (app_id) REFERENCES app (id) ON DELETE CASCADE
     );
 
-CREATE TABLE
-    IF NOT EXISTS device (
-        id TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        last_used_at TEXT NOT NULL,
-        country TEXT,
-        app_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        credential TEXT NOT NULL,
-        counter INTEGER NOT NULL DEFAULT -1,
-        PRIMARY KEY (id),
-        FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
-        FOREIGN KEY (app_id) REFERENCES app (id) ON DELETE CASCADE
-    );
-
-CREATE TABLE
-    IF NOT EXISTS challenge (
-        id TEXT NOT NULL PRIMARY KEY,
-        expired_at TEXT NOT NULL,
-        code TEXT
-    );
+DROP TABLE IF EXISTS passkey;

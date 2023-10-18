@@ -6,5 +6,8 @@ export interface Env {
   SECRET_FOR_REGISTER: string;
   D1: D1Database;
   DO_USER: DurableObjectNamespace;
+  DO_CHALLENGE: DurableObjectNamespace;
+  KV_ALIAS: KVNamespace;
+  KV_PASSKEY: KVNamespace;
   DKIM_PRIVATE_KEY: string;
 }

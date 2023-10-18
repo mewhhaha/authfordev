@@ -11,12 +11,14 @@ export const storageLoader =
     t: { storage: DurableObjectStorage } & THIS
   ) =>
   async <KEY extends KeyofValues<THIS>>(...keys: KEY[]) => {
-    const promises = keys.map(async (key) => {
-      const value = await t.storage.get<(typeof t)[typeof key]>(key as string);
-      if (value) t[key] = value;
-    });
+    const promises = async () => {
+      const map = await t.storage.get<THIS[keyof THIS]>(keys as string[]);
+      for (const [key, value] of map.entries()) {
+        if (value) t[key as keyof THIS] = value;
+      }
+    };
 
-    return Promise.all(promises);
+    return promises();
   };
 
 export const storageSaver =

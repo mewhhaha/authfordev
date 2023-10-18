@@ -1,14 +1,12 @@
-import {
-  createCookieSessionStorage,
-  json,
-  redirect,
-} from "@remix-run/cloudflare";
+import { json, redirect } from "@remix-run/cloudflare";
 import { authfordev } from "~/api/authfordev";
+import type { SessionData } from "./authenticate.server";
 import {
   authenticate,
   removeSession,
   makeSession,
 } from "./authenticate.server";
+import { Intent } from "./intent";
 
 export const endpoint = async ({
   request,
@@ -16,6 +14,7 @@ export const endpoint = async ({
   serverKey,
   origin,
   redirects,
+  sessionData = (session) => session,
 }: {
   request: Request;
   secrets: string | string[];
@@ -27,6 +26,10 @@ export const endpoint = async ({
     signout: () => string;
     challenge: (username: string, token: string) => string;
   };
+  sessionData?: (user: {
+    id: string;
+    credentialId: string;
+  }) => Required<SessionData>;
 }) => {
   const formData = await request.formData();
 
@@ -39,7 +42,7 @@ export const endpoint = async ({
   };
 
   switch (form.intent) {
-    case "sign-out": {
+    case Intent.SignOut: {
       const session = await authenticate(request, secrets);
       if (!session) {
         return redirect(redirects.signout(), {
@@ -53,19 +56,26 @@ export const endpoint = async ({
         headers: sessionHeaders,
       });
     }
-    case "sign-in": {
+    case Intent.SignIn: {
       if (!form.token) {
-        return json({ message: "Missing form data for sign-in", status: 422 });
+        return json({
+          message: `Missing form data for ${form.intent}`,
+          status: 422,
+        });
       }
       const { data } = await signIn(serverKey, {
         token: form.token,
         origin: origin,
       });
       if (data) {
-        const sessionHeaders = await makeSession(request, secrets, {
-          id: data.userId,
-          credentialId: data.credentialId,
-        });
+        const sessionHeaders = await makeSession(
+          request,
+          secrets,
+          sessionData({
+            id: data.userId,
+            credentialId: data.credentialId,
+          })
+        );
         return redirect(redirects.success({ id: data.userId }), {
           status: 303,
           headers: sessionHeaders,
@@ -74,11 +84,14 @@ export const endpoint = async ({
         return json({ message: "Signing in failed", status: 401 });
       }
     }
-    case "new-user": {
+    case Intent.SignUp: {
       if (!form.email || !form.username) {
-        return json({ message: "Missing form data for new-user", status: 422 });
+        return json({
+          message: `Missing form data for ${form.intent}`,
+          status: 422,
+        });
       }
-      const data = await newUser(serverKey, {
+      const data = await signUp(serverKey, {
         email: form.email,
         aliases: [form.username],
       });
@@ -98,14 +111,14 @@ export const endpoint = async ({
       const to = redirects.challenge(form.username, data.token);
       return redirect(to, { status: 303 });
     }
-    case "new-device": {
+    case Intent.RequestCode: {
       if (!form.username) {
         return json({
-          message: "Missing form data for new-device",
+          message: `Missing form data for ${form.intent}`,
           status: 422,
         });
       }
-      const data = await newDevice(serverKey, {
+      const data = await requestCode(serverKey, {
         alias: form.username,
       });
 
@@ -124,14 +137,14 @@ export const endpoint = async ({
       const to = redirects.challenge(form.username, data.token);
       return redirect(to, { status: 303 });
     }
-    case "verify-device": {
+    case Intent.CreatePasskey: {
       if (!form.token) {
         return json({
-          message: "Missing form data for verify-device",
+          message: `Missing form data for ${form.intent}`,
           status: 422,
         });
       }
-      const data = await registerCredential(serverKey, {
+      const data = await createPasskey(serverKey, {
         token: form.token,
         origin: origin,
       });
@@ -174,7 +187,7 @@ const signIn = async (
   return { data: await response.json() };
 };
 
-const newUser = async (
+const signUp = async (
   serverKey: string,
   { aliases, email }: { aliases: string[]; email: string }
 ) => {
@@ -193,7 +206,7 @@ const newUser = async (
   return await response.json();
 };
 
-const newDevice = async (serverKey: string, { alias }: { alias: string }) => {
+const requestCode = async (serverKey: string, { alias }: { alias: string }) => {
   const response = await authfordev.post("/server/new-device", {
     headers: {
       Authorization: serverKey,
@@ -209,7 +222,7 @@ const newDevice = async (serverKey: string, { alias }: { alias: string }) => {
   return await response.json();
 };
 
-const registerCredential = async (
+const createPasskey = async (
   serverKey: string,
   { token, origin }: { token: string; origin: string }
 ) => {
@@ -226,23 +239,4 @@ const registerCredential = async (
   }
 
   return await response.json();
-};
-
-export type SessionData = {
-  id: string;
-  credentialId: string;
-};
-
-export const createAppCookieSessionStorage = (secrets: string | string[]) => {
-  return createCookieSessionStorage<SessionData>({
-    cookie: {
-      name: "__session",
-      httpOnly: true,
-      path: "/",
-
-      sameSite: "lax",
-      secrets: typeof secrets === "string" ? [secrets] : secrets,
-      secure: true,
-    },
-  });
 };

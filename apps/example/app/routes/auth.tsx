@@ -27,6 +27,13 @@ export async function loader({ request, context: { env } }: DataFunctionArgs) {
   };
 }
 
+enum TabValue {
+  SignIn = "sign-in",
+  CreateUser = "create-user",
+  RecoverPasskey = "recover-passkey",
+  InputCode = "input-code",
+}
+
 export async function action({ request, context: { env } }: DataFunctionArgs) {
   return endpoint({
     request,
@@ -38,7 +45,7 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
       signin: () => "/auth",
       signout: () => "/",
       challenge: (username, token) =>
-        `/auth?tab=verify-device&username=${encodeURIComponent(
+        `/auth?tab=${TabValue.InputCode}e&username=${encodeURIComponent(
           username
         )}&challenge=${token}`,
     },
@@ -73,8 +80,8 @@ export default function SignIn() {
           onChange={persistTabInSearchParams}
         >
           {challenge && (
-            <Tab label="Input code" value="input-code" defaultChecked>
-              <VerifyDevice
+            <Tab label="Input code" value={TabValue.InputCode} defaultChecked>
+              <InputCode
                 challenge={challenge}
                 clientKey={clientKey}
                 username={defaultUsername}
@@ -84,15 +91,15 @@ export default function SignIn() {
           )}
           <Tab
             label="Sign in"
-            value="sign-in"
-            defaultChecked={defaultTab === "sign-in"}
+            value={TabValue.SignIn}
+            defaultChecked={defaultTab === TabValue.SignIn}
           >
             <Signin clientKey={clientKey} className="pb-4 pl-12 pr-4 pt-2" />
           </Tab>
           <Tab
             label="Create user"
-            value="new-user"
-            defaultChecked={defaultTab === "new-user"}
+            value={TabValue.CreateUser}
+            defaultChecked={defaultTab === TabValue.CreateUser}
           >
             <CreateUser
               clientKey={clientKey}
@@ -100,11 +107,11 @@ export default function SignIn() {
             />
           </Tab>
           <Tab
-            label="Register device"
-            value="new-device"
-            defaultChecked={defaultTab === "new-device"}
+            label="Recover passkey"
+            value={TabValue.RecoverPasskey}
+            defaultChecked={defaultTab === TabValue.RecoverPasskey}
           >
-            <RegisterDevice
+            <RecoverPasskey
               clientKey={clientKey}
               defaultUsername={defaultUsername}
               className="pb-4 pl-12 pr-4 pt-2"
@@ -132,10 +139,10 @@ const Signin = ({ clientKey, ...props }: SigninProps) => {
         <Button
           loading={state === "submitting"}
           primary
-          icon={<FingerPrintIcon />}
+          icon={<KeyIcon />}
           className="w-full"
         >
-          Authenticate
+          Use passkey
         </Button>
       </Form>
 
@@ -143,9 +150,9 @@ const Signin = ({ clientKey, ...props }: SigninProps) => {
         The sign in process failed. Perhaps you need to{" "}
         <Link
           className="whitespace-nowrap font-medium text-indigo-600 hover:underline"
-          to={"/auth?tab=new-device"}
+          to={`/auth?tab=${TabValue.RecoverPasskey}`}
         >
-          register this device?
+          recover your passkey?
         </Link>
       </AlertError>
 
@@ -154,24 +161,28 @@ const Signin = ({ clientKey, ...props }: SigninProps) => {
       <p className="text-sm">
         Can't sign in?{" "}
         <Link
-          to="/auth?tab=new-device"
+          to={`/auth?tab=${TabValue.RecoverPasskey}`}
           replace
           reloadDocument
           className="font-semibold text-amber-600 hover:text-amber-500 hover:underline"
         >
-          Register this device.
+          Recover your passkey.
         </Link>
       </p>
     </section>
   );
 };
 
-type CreateUserProps = { clientKey: string } & JSX.IntrinsicElements["section"];
+type CreateUserProps = {
+  clientKey: string;
+} & JSX.IntrinsicElements["section"];
 
 const CreateUser = ({ clientKey, ...props }: CreateUserProps) => {
   const {
     create: { submit, state, error },
   } = useWebAuthn(clientKey);
+
+  const id = useId();
 
   return (
     <section {...props}>
@@ -183,7 +194,7 @@ const CreateUser = ({ clientKey, ...props }: CreateUserProps) => {
         <div className="mb-4 flex flex-col-reverse">
           <InputText
             autoFocus
-            aria-labelledby="create.email"
+            aria-labelledby={`${id}-email`}
             name="email"
             type="email"
             autoComplete="email"
@@ -193,7 +204,7 @@ const CreateUser = ({ clientKey, ...props }: CreateUserProps) => {
             required
           />
           <label
-            id="create.email"
+            id={`${id}-email`}
             className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
           >
             Email
@@ -201,7 +212,7 @@ const CreateUser = ({ clientKey, ...props }: CreateUserProps) => {
         </div>
         <div className="mb-4 flex flex-col-reverse">
           <InputText
-            aria-labelledby="create.username"
+            aria-labelledby={`${id}-username`}
             name="username"
             type="text"
             autoComplete="username"
@@ -211,7 +222,7 @@ const CreateUser = ({ clientKey, ...props }: CreateUserProps) => {
             required
           />
           <label
-            id="create.username"
+            id={`${id}-username`}
             className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
           >
             Username
@@ -227,9 +238,9 @@ const CreateUser = ({ clientKey, ...props }: CreateUserProps) => {
       </Form>
       <DividerText>or</DividerText>
       <p className="text-sm">
-        Already have an account?{" "}
+        Already have a user?{" "}
         <Link
-          to="/auth?tab=sign-in"
+          to={`/auth?tab=${TabValue.SignIn}`}
           replace
           reloadDocument
           className="font-semibold text-amber-600 hover:text-amber-500 hover:underline"
@@ -241,19 +252,21 @@ const CreateUser = ({ clientKey, ...props }: CreateUserProps) => {
   );
 };
 
-type RegisterDeviceProps = {
+type RecoverPasskeyProps = {
   clientKey: string;
   defaultUsername: string;
 } & JSX.IntrinsicElements["section"];
 
-const RegisterDevice = ({
+const RecoverPasskey = ({
   clientKey,
   defaultUsername,
   ...props
-}: RegisterDeviceProps) => {
+}: RecoverPasskeyProps) => {
   const {
     register: { state, submit, error },
   } = useWebAuthn(clientKey);
+
+  const id = useId();
 
   return (
     <section {...props}>
@@ -265,7 +278,7 @@ const RegisterDevice = ({
         <div className="mb-4 flex flex-col-reverse">
           <InputText
             name="username"
-            aria-labelledby="register.username"
+            aria-labelledby={`${id}-username`}
             type="text"
             autoComplete="username"
             readOnly={state !== "idle"}
@@ -275,14 +288,14 @@ const RegisterDevice = ({
             className="peer"
           />
           <label
-            id="register.username"
+            id={`${id}-username`}
             className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
           >
             Username
           </label>
         </div>
         <Button primary loading={state !== "idle"} className="w-full">
-          Send verification code
+          Send one time code
         </Button>
         <AlertError show={error}>
           Most likely the user doesn't exist. Please check that the username is
@@ -291,9 +304,9 @@ const RegisterDevice = ({
       </Form>
       <DividerText>or</DividerText>
       <p className="text-sm">
-        Already registered this device?{" "}
+        Already got a passkey?{" "}
         <Link
-          to="/auth?tab=sign-in"
+          to={`/auth?tab=${TabValue.SignIn}`}
           replace
           reloadDocument
           className="font-semibold text-amber-600 hover:text-amber-500 hover:underline"
@@ -305,18 +318,18 @@ const RegisterDevice = ({
   );
 };
 
-type VerifyDeviceProps = {
+type InputCodeProps = {
   challenge: string;
   username: string;
   clientKey: string;
 } & JSX.IntrinsicElements["section"];
 
-const VerifyDevice = ({
+const InputCode = ({
   challenge,
   username,
   clientKey,
   ...props
-}: VerifyDeviceProps) => {
+}: InputCodeProps) => {
   const {
     verify: { submit, state, error },
   } = useWebAuthn(clientKey);
@@ -335,10 +348,11 @@ const VerifyDevice = ({
   return (
     <section {...props}>
       <p className="mb-4 min-w-0 text-sm">
-        An input code was sent to the email of{" "}
+        A one time code was sent to the email of{" "}
         <span className="truncate font-bold" title={username}>
           {username}
         </span>
+        .
       </p>
       <Form method="POST" onSubmit={submit}>
         <input type="hidden" name="challenge" defaultValue={challenge} />
@@ -369,7 +383,7 @@ const VerifyDevice = ({
           primary
           className="w-full"
         >
-          Register device
+          Create passkey
         </Button>
         <AlertError show={error}>Registration failed or was aborted</AlertError>
       </Form>
@@ -377,7 +391,9 @@ const VerifyDevice = ({
       <p className="text-sm">
         Code never arrived?{" "}
         <Link
-          to={`/auth?tab=new-device&username=${encodeURIComponent(username)}`}
+          to={`/auth?tab=${
+            TabValue.RecoverPasskey
+          }e&username=${encodeURIComponent(username)}`}
           className="font-semibold text-amber-600 hover:text-amber-500 hover:underline"
         >
           Send code again.
@@ -403,20 +419,20 @@ const DividerText = ({ children }: DividerTextProps) => {
   );
 };
 
-const FingerPrintIcon = () => {
+const KeyIcon = () => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
-      strokeWidth={1.5}
+      stroke-width="1.5"
       stroke="currentColor"
       className="h-6 w-6"
     >
       <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
       />
     </svg>
   );
@@ -449,10 +465,11 @@ const Tab = ({ children, label, value, defaultChecked }: TabProps) => {
       <label
         htmlFor={id}
         className={cn(
-          "mb-2 mr-2 block flex-1 rounded-r-lg border-y border-r border-black py-2 pl-2 text-xl font-bold",
-          "peer-checked:bg-black peer-checked:text-white",
+          "mb-2 block flex-1 rounded-r-lg border-y border-r border-black py-2 pl-2 text-xl font-bold",
+          "mr-10 peer-checked:mr-2",
           "shadow-[4px_0px_0px_0px_rgba(0,0,0,1)] transition-[transform,box-shadow]",
           "hover:translate-x-[2px] hover:cursor-pointer hover:bg-gray-200 hover:shadow-[2px_0px_0px_0px_rgba(0,0,0,1)]",
+          "peer-checked:bg-black peer-checked:text-white",
           "focus-visible:shadow-none peer-checked:translate-x-[4px] peer-checked:shadow-none"
         )}
       >
