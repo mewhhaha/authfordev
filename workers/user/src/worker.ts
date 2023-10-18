@@ -691,7 +691,7 @@ const postUpdateAliases = async (
   return await Promise.all(
     aliases.map((alias) =>
       namespace.put(kvAlias(app, alias), userId, {
-        metadata: { userId },
+        metadata: { userId, createdAt: now() },
       })
     )
   );
