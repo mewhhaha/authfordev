@@ -2,11 +2,11 @@ export interface Env {
   API_URL_MAILCHANNELS: string;
   SECRET_FOR_SERVER: string;
   SECRET_FOR_CLIENT: string;
-  SECRET_FOR_SIGNIN: string;
-  SECRET_FOR_REGISTER: string;
+  SECRET_FOR_PASSKEY: string;
   D1: D1Database;
   DO_USER: DurableObjectNamespace;
   DO_CHALLENGE: DurableObjectNamespace;
+  DO_PASSKEY: DurableObjectNamespace;
   KV_ALIAS: KVNamespace;
   KV_PASSKEY: KVNamespace;
   DKIM_PRIVATE_KEY: string;

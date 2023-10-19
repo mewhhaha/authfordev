@@ -3,7 +3,7 @@ import { PluginContext, Router, RoutesOf } from "@mewhhaha/little-router";
 import { empty, error, ok } from "@mewhhaha/typed-response";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { type } from "arktype";
-import { storageLoader, storageSaver } from "./helpers";
+import { $any, storageLoader, storageSaver } from "./helpers";
 
 const code_ = ({}: PluginContext<{ init?: { body?: string } }>) => {
   return {};
@@ -54,6 +54,7 @@ export class DurableObjectChallenge implements DurableObject {
       if (!self.valid) return error(403, { message: "challenge_expired" });
       self.valid = false;
       self.storage.deleteAll();
+      self.storage.deleteAlarm();
 
       if (self.code && (await request.text()) !== self.code) {
         return error(403, { message: "code_mismatch" });
@@ -76,10 +77,4 @@ export class DurableObjectChallenge implements DurableObject {
   }
 }
 
-export const $challenge = (
-  namespace: DurableObjectNamespace,
-  id: string | DurableObjectId
-) =>
-  fetcher<RoutesOf<(typeof DurableObjectChallenge)["router"]>>(
-    namespace.get(typeof id === "string" ? namespace.idFromString(id) : id)
-  );
+export const $challenge = $any<typeof DurableObjectChallenge>;

@@ -1,8 +1,8 @@
 import { createCookieSessionStorage } from "@remix-run/cloudflare";
 
 export interface SessionData {
-  id: string;
-  credentialId: string;
+  userId: string;
+  passkeyId?: string;
 }
 
 export const authenticate = async (
@@ -22,6 +22,8 @@ export const authenticate = async (
       return undefined;
     }
   }
+
+  if (JSON.stringify(record) === "{}") return undefined;
 
   return record as Required<SessionData>;
 };

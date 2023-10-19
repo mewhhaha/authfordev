@@ -30,27 +30,24 @@ export async function loader({ request, context: { env } }: DataFunctionArgs) {
     ?.split(";")[0]
     .split(",") || ["en-US"];
 
-  const credentials = async () => {
-    const response = await authfordev.post("/server/list-credentials", {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: env.AUTH_SERVER_KEY,
-      },
-      body: JSON.stringify({ userId: session.id }),
-    });
+  const passkeys = async () => {
+    const response = await authfordev.get(
+      `/server/users/${session.userId}/passkeys`,
+      { headers: { Authorization: env.AUTH_SERVER_KEY } }
+    );
 
     if (!response.ok) {
       return [];
     }
 
-    const { credentials } = await response.json();
-    return credentials;
+    const { passkeys } = await response.json();
+    return passkeys;
   };
 
   return defer({
     language,
     session,
-    credentials: await credentials(),
+    passkeys: await passkeys(),
   } as const);
 }
 
@@ -66,13 +63,10 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     return { success: false, id: "" };
   }
 
-  const response = await authfordev.post("/server/delete-credential", {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: env.AUTH_SERVER_KEY,
-    },
-    body: JSON.stringify({ credentialId: id, userId: session.id }),
-  });
+  const response = await authfordev.delete(
+    `/server/users/${session.userId}/passkeys/${id}`,
+    { headers: { Authorization: env.AUTH_SERVER_KEY } }
+  );
 
   if (!response.ok) {
     return { success: false, id };
@@ -88,7 +82,7 @@ const useLanguage = () => {
 };
 
 export default function Index() {
-  const { language, credentials, session } = useLoaderData<typeof loader>();
+  const { language, passkeys, session } = useLoaderData<typeof loader>();
 
   const signout = useSignOut();
   const item = useFetcher<typeof action>();
@@ -111,15 +105,14 @@ export default function Index() {
       </header>
       <main>
         <ul className="grid grid-cols-1 gap-4 p-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {credentials.map(({ credential, createdAt, lastUsedAt, country }) => {
-            const isCurrentCredential = session.credentialId === credential.id;
-            const isDeletingCredential =
-              item.formData?.get("id") === credential.id;
-            const isDeleteCredentialFailure = item.data?.id === credential.id;
+          {passkeys.map(({ passkeyId, name, createdAt, lastUsedAt }) => {
+            const isCurrentCredential = session.passkeyId === passkeyId;
+            const isDeletingCredential = item.formData?.get("id") === passkeyId;
+            const isDeleteCredentialFailure = item.data?.id === passkeyId;
 
             return (
               <li
-                key={credential.id}
+                key={passkeyId}
                 className={cn("text-ellipsis rounded-lg bg-white p-6 shadow", {
                   "opacity-50": isDeletingCredential,
                   "ring-1 ring-blue-600": isCurrentCredential,
@@ -128,12 +121,12 @@ export default function Index() {
               >
                 <h3
                   className="mb-4 truncate text-lg font-medium leading-6 text-gray-900"
-                  title={credential.id}
+                  title={name}
                 >
                   {isCurrentCredential && (
                     <span className="text-base text-gray-700">(You) </span>
                   )}
-                  {credential.id}
+                  {name}
                 </h3>
                 <dl className="space-y-4">
                   <div>
@@ -148,17 +141,11 @@ export default function Index() {
                       <Time dateTime={createdAt} />
                     </dd>
                   </div>
-                  <div>
-                    <dt className="text-sm">Country</dt>
-                    <dd>
-                      <Region value={country} />
-                    </dd>
-                  </div>
                 </dl>
 
                 <div className="pt-4">
                   <item.Form method="POST">
-                    <input type="hidden" name="id" value={credential.id} />
+                    <input type="hidden" name="id" value={passkeyId} />
                     <Button secondary disabled={item.state === "submitting"}>
                       Delete
                     </Button>
@@ -183,17 +170,17 @@ const Time = (props: Omit<JSX.IntrinsicElements["time"], "children">) => {
   );
 };
 
-const Region = (
-  props: Omit<JSX.IntrinsicElements["data"], "children" | "value"> & {
-    value: string;
-  }
-) => {
-  const language = useLanguage();
+// const Region = (
+//   props: Omit<JSX.IntrinsicElements["data"], "children" | "value"> & {
+//     value: string;
+//   }
+// ) => {
+//   const language = useLanguage();
 
-  const formatter = new Intl.DisplayNames(language, { type: "region" });
+//   const formatter = new Intl.DisplayNames(language, { type: "region" });
 
-  return <data {...props}>{formatter.of(props.value)}</data>;
-};
+//   return <data {...props}>{formatter.of(props.value)}</data>;
+// };
 
 type ButtonProps<
   T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button"

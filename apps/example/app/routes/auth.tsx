@@ -1,37 +1,15 @@
 import { type DataFunctionArgs } from "@remix-run/cloudflare";
-import { Form, Link, useLoaderData, useSearchParams } from "@remix-run/react";
-import type {
-  ComponentProps,
-  FocusEvent,
-  FormEvent,
-  JSXElementConstructor,
-} from "react";
-import { forwardRef, useId, useRef } from "react";
+import { Form, useLoaderData } from "@remix-run/react";
+import type { ComponentProps, JSXElementConstructor } from "react";
+import { forwardRef } from "react";
 import { cn } from "~/css/cn";
 import { endpoint } from "~/auth/endpoint.server";
 import { useWebAuthn } from "~/auth/useWebAuthn";
 
-export async function loader({ request, context: { env } }: DataFunctionArgs) {
-  const url = new URL(request.url);
-  const defaultTab = url.searchParams.get("tab") ?? "sign-in";
-  const defaultUsername = decodeURIComponent(
-    url.searchParams.get("username") ?? ""
-  );
-  const challenge = url.searchParams.get("challenge");
-
+export async function loader({ context: { env } }: DataFunctionArgs) {
   return {
     clientKey: env.AUTH_CLIENT_KEY,
-    defaultTab,
-    defaultUsername,
-    challenge,
   };
-}
-
-enum TabValue {
-  SignIn = "sign-in",
-  CreateUser = "create-user",
-  RecoverPasskey = "recover-passkey",
-  InputCode = "input-code",
 }
 
 export async function action({ request, context: { env } }: DataFunctionArgs) {
@@ -40,368 +18,75 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     secrets: env.SECRET_FOR_AUTH,
     origin: env.ORIGIN,
     serverKey: env.AUTH_SERVER_KEY,
+    sessionData: (user) => user,
     redirects: {
-      success: () => "/",
-      signin: () => "/auth",
+      signup: () => "/",
+      signin: () => "/",
       signout: () => "/",
-      challenge: (username, token) =>
-        `/auth?tab=${TabValue.InputCode}e&username=${encodeURIComponent(
-          username
-        )}&challenge=${token}`,
     },
   });
 }
 
 export default function SignIn() {
-  const { challenge, defaultTab, defaultUsername, clientKey } =
-    useLoaderData<typeof loader>();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { clientKey } = useLoaderData<typeof loader>();
 
-  const persistTabInSearchParams = (event: FormEvent<HTMLFieldSetElement>) => {
-    const tabs =
-      event.currentTarget.querySelectorAll<HTMLInputElement>("input[name=tab]");
-
-    for (const tab of tabs) {
-      if (tab.checked) {
-        if (searchParams.get("tab") === tab.value) break;
-        searchParams.set("tab", tab.value);
-        setSearchParams(searchParams, { replace: true });
-        break;
-      }
-    }
-  };
+  const { signin, signup, aliases } = useWebAuthn(clientKey);
 
   return (
     <main className="flex h-full w-full items-center sm:items-start">
       <Dialog>
-        <fieldset
-          defaultValue="signin"
-          className="flex flex-col gap-4 p-2"
-          onChange={persistTabInSearchParams}
-        >
-          {challenge && (
-            <Tab label="Input code" value={TabValue.InputCode} defaultChecked>
-              <InputCode
-                challenge={challenge}
-                clientKey={clientKey}
-                username={defaultUsername}
-                className="pb-4 pl-12 pr-4 pt-2"
-              />
-            </Tab>
-          )}
-          <Tab
-            label="Sign in"
-            value={TabValue.SignIn}
-            defaultChecked={defaultTab === TabValue.SignIn}
-          >
-            <Signin clientKey={clientKey} className="pb-4 pl-12 pr-4 pt-2" />
-          </Tab>
-          <Tab
-            label="Create user"
-            value={TabValue.CreateUser}
-            defaultChecked={defaultTab === TabValue.CreateUser}
-          >
-            <CreateUser
-              clientKey={clientKey}
-              className="pb-4 pl-12 pr-4 pt-2"
+        <h1 className="mb-10 text-center text-2xl font-extrabold tracking-wider">
+          Sign up or sign in to the
+          <br /> example application!
+        </h1>
+        <Form onSubmit={signup.submit} method="POST" onChange={aliases.submit}>
+          <div className="mb-4 flex flex-col-reverse">
+            <InputText
+              aria-labelledby="username"
+              name="username"
+              type="text"
+              autoComplete="username"
+              readOnly={signup.state !== "idle"}
+              placeholder="username"
+              className="peer"
+              required
             />
-          </Tab>
-          <Tab
-            label="Recover passkey"
-            value={TabValue.RecoverPasskey}
-            defaultChecked={defaultTab === TabValue.RecoverPasskey}
+            <label
+              id="username"
+              className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
+            >
+              Username
+            </label>
+          </div>
+          {aliases.error && <p>lol taken</p>}
+          <Button
+            secondary
+            loading={
+              signup.state === "submitting" || aliases.state === "submitting"
+            }
+            className="w-full"
           >
-            <RecoverPasskey
-              clientKey={clientKey}
-              defaultUsername={defaultUsername}
-              className="pb-4 pl-12 pr-4 pt-2"
-            />
-          </Tab>
-        </fieldset>
+            Sign up
+          </Button>
+        </Form>
+        <DividerText>or</DividerText>
+        <Form onSubmit={signin.submit} method="POST">
+          <Button
+            primary
+            loading={signin.state === "submitting"}
+            className="w-full"
+          >
+            Sign in with passkey
+          </Button>
+          <AlertError>
+            Failed to sign in. Do you need to{" "}
+            <a href="#">recover your passkey?</a>
+          </AlertError>
+        </Form>
       </Dialog>
     </main>
   );
 }
-
-/**
- * This is the content of different tags
- */
-type SigninProps = { clientKey: string } & JSX.IntrinsicElements["section"];
-
-const Signin = ({ clientKey, ...props }: SigninProps) => {
-  let {
-    signin: { submit, state, error },
-  } = useWebAuthn(clientKey);
-
-  return (
-    <section {...props}>
-      <Form method="POST" onSubmit={submit}>
-        <Button
-          loading={state === "submitting"}
-          primary
-          icon={<KeyIcon />}
-          className="w-full"
-        >
-          Use passkey
-        </Button>
-      </Form>
-
-      <AlertError show={error}>
-        The sign in process failed. Perhaps you need to{" "}
-        <Link
-          className="whitespace-nowrap font-medium text-indigo-600 hover:underline"
-          to={`/auth?tab=${TabValue.RecoverPasskey}`}
-        >
-          recover your passkey?
-        </Link>
-      </AlertError>
-
-      <DividerText>or</DividerText>
-
-      <p className="text-sm">
-        Can't sign in?{" "}
-        <Link
-          to={`/auth?tab=${TabValue.RecoverPasskey}`}
-          replace
-          reloadDocument
-          className="font-semibold text-amber-600 hover:text-amber-500 hover:underline"
-        >
-          Recover your passkey.
-        </Link>
-      </p>
-    </section>
-  );
-};
-
-type CreateUserProps = {
-  clientKey: string;
-} & JSX.IntrinsicElements["section"];
-
-const CreateUser = ({ clientKey, ...props }: CreateUserProps) => {
-  const {
-    create: { submit, state, error },
-  } = useWebAuthn(clientKey);
-
-  const id = useId();
-
-  return (
-    <section {...props}>
-      <p className="mb-4 text-sm">
-        After creating the user we will send you a verification code to your
-        email to verify this device.
-      </p>
-      <Form method="POST" onSubmit={submit}>
-        <div className="mb-4 flex flex-col-reverse">
-          <InputText
-            autoFocus
-            aria-labelledby={`${id}-email`}
-            name="email"
-            type="email"
-            autoComplete="email"
-            readOnly={state !== "idle"}
-            placeholder="user@example.com"
-            className="peer"
-            required
-          />
-          <label
-            id={`${id}-email`}
-            className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
-          >
-            Email
-          </label>
-        </div>
-        <div className="mb-4 flex flex-col-reverse">
-          <InputText
-            aria-labelledby={`${id}-username`}
-            name="username"
-            type="text"
-            autoComplete="username"
-            readOnly={state !== "idle"}
-            placeholder="username"
-            className="peer"
-            required
-          />
-          <label
-            id={`${id}-username`}
-            className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
-          >
-            Username
-          </label>
-        </div>
-        <Button primary loading={state !== "idle"} className="w-full">
-          Create new user
-        </Button>
-        <AlertError show={error}>
-          Most likely the user already exists. Please try a different username
-          or email.
-        </AlertError>
-      </Form>
-      <DividerText>or</DividerText>
-      <p className="text-sm">
-        Already have a user?{" "}
-        <Link
-          to={`/auth?tab=${TabValue.SignIn}`}
-          replace
-          reloadDocument
-          className="font-semibold text-amber-600 hover:text-amber-500 hover:underline"
-        >
-          Sign in.
-        </Link>
-      </p>
-    </section>
-  );
-};
-
-type RecoverPasskeyProps = {
-  clientKey: string;
-  defaultUsername: string;
-} & JSX.IntrinsicElements["section"];
-
-const RecoverPasskey = ({
-  clientKey,
-  defaultUsername,
-  ...props
-}: RecoverPasskeyProps) => {
-  const {
-    register: { state, submit, error },
-  } = useWebAuthn(clientKey);
-
-  const id = useId();
-
-  return (
-    <section {...props}>
-      <p className="mb-4 text-sm">
-        We will send you a verification code to your email to verify this
-        device.
-      </p>
-      <Form method="POST" onSubmit={submit}>
-        <div className="mb-4 flex flex-col-reverse">
-          <InputText
-            name="username"
-            aria-labelledby={`${id}-username`}
-            type="text"
-            autoComplete="username"
-            readOnly={state !== "idle"}
-            placeholder="username"
-            defaultValue={defaultUsername}
-            required
-            className="peer"
-          />
-          <label
-            id={`${id}-username`}
-            className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
-          >
-            Username
-          </label>
-        </div>
-        <Button primary loading={state !== "idle"} className="w-full">
-          Send one time code
-        </Button>
-        <AlertError show={error}>
-          Most likely the user doesn't exist. Please check that the username is
-          written correctly.
-        </AlertError>
-      </Form>
-      <DividerText>or</DividerText>
-      <p className="text-sm">
-        Already got a passkey?{" "}
-        <Link
-          to={`/auth?tab=${TabValue.SignIn}`}
-          replace
-          reloadDocument
-          className="font-semibold text-amber-600 hover:text-amber-500 hover:underline"
-        >
-          Sign in.
-        </Link>
-      </p>
-    </section>
-  );
-};
-
-type InputCodeProps = {
-  challenge: string;
-  username: string;
-  clientKey: string;
-} & JSX.IntrinsicElements["section"];
-
-const InputCode = ({
-  challenge,
-  username,
-  clientKey,
-  ...props
-}: InputCodeProps) => {
-  const {
-    verify: { submit, state, error },
-  } = useWebAuthn(clientKey);
-
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
-  const submitWhenFilled = (event: FormEvent<HTMLInputElement>) => {
-    const codeLength = 8;
-    event.currentTarget.value = event.currentTarget.value.slice(0, codeLength);
-
-    if (event.currentTarget.value.length === codeLength) {
-      buttonRef.current?.click();
-    }
-  };
-
-  return (
-    <section {...props}>
-      <p className="mb-4 min-w-0 text-sm">
-        A one time code was sent to the email of{" "}
-        <span className="truncate font-bold" title={username}>
-          {username}
-        </span>
-        .
-      </p>
-      <Form method="POST" onSubmit={submit}>
-        <input type="hidden" name="challenge" defaultValue={challenge} />
-        <input type="hidden" name="username" defaultValue={username} />
-        <div className="mb-4 flex flex-col-reverse">
-          <InputText
-            id="one-time-code"
-            name="code"
-            type="text"
-            readOnly={state === "submitting"}
-            autoComplete="one-time-code"
-            placeholder="ABCD0123"
-            className="mb-4 w-full text-center"
-            onFocus={selectAllText}
-            onInput={submitWhenFilled}
-          />
-          <label
-            id="one-time-code"
-            className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
-          >
-            One time code
-          </label>
-        </div>
-
-        <Button
-          loading={state === "submitting"}
-          ref={buttonRef}
-          primary
-          className="w-full"
-        >
-          Create passkey
-        </Button>
-        <AlertError show={error}>Registration failed or was aborted</AlertError>
-      </Form>
-      <DividerText>or</DividerText>
-      <p className="text-sm">
-        Code never arrived?{" "}
-        <Link
-          to={`/auth?tab=${
-            TabValue.RecoverPasskey
-          }e&username=${encodeURIComponent(username)}`}
-          className="font-semibold text-amber-600 hover:text-amber-500 hover:underline"
-        >
-          Send code again.
-        </Link>
-      </p>
-    </section>
-  );
-};
 
 /**
  * These are helper components
@@ -415,70 +100,6 @@ const DividerText = ({ children }: DividerTextProps) => {
       <div aria-hidden className="h-px flex-1 bg-gray-300" />
       <div className="px-4">{children}</div>
       <div aria-hidden className="h-px flex-1 bg-gray-300" />
-    </div>
-  );
-};
-
-const KeyIcon = () => {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke-width="1.5"
-      stroke="currentColor"
-      className="h-6 w-6"
-    >
-      <path
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
-      />
-    </svg>
-  );
-};
-
-const selectAllText = (event: FocusEvent<HTMLInputElement>) => {
-  event.currentTarget.setSelectionRange(0, event.currentTarget.value.length);
-};
-
-type TabProps = {
-  children: React.ReactNode;
-  label: React.ReactNode;
-  value: string;
-  defaultChecked?: boolean;
-};
-
-const Tab = ({ children, label, value, defaultChecked }: TabProps) => {
-  const id = useId();
-
-  return (
-    <div className="relative isolate flex flex-wrap items-center overflow-hidden border-black">
-      <input
-        id={id}
-        name="tab"
-        type="radio"
-        value={value}
-        className="peer mx-2 border-black checked:bg-black hover:checked:bg-black focus:outline-black checked:focus:bg-black"
-        defaultChecked={defaultChecked}
-      />
-      <label
-        htmlFor={id}
-        className={cn(
-          "mb-2 block flex-1 rounded-r-lg border-y border-r border-black py-2 pl-2 text-xl font-bold",
-          "mr-10 peer-checked:mr-2",
-          "shadow-[4px_0px_0px_0px_rgba(0,0,0,1)] transition-[transform,box-shadow]",
-          "hover:translate-x-[2px] hover:cursor-pointer hover:bg-gray-200 hover:shadow-[2px_0px_0px_0px_rgba(0,0,0,1)]",
-          "peer-checked:bg-black peer-checked:text-white",
-          "focus-visible:shadow-none peer-checked:translate-x-[4px] peer-checked:shadow-none"
-        )}
-      >
-        {label}
-      </label>
-      <br />
-      <div className="invisible -z-10 max-h-0 w-full transition-all duration-300 ease-in-out peer-checked:visible peer-checked:max-h-[500px]">
-        {children}
-      </div>
     </div>
   );
 };
@@ -603,7 +224,7 @@ const Dialog = forwardRef<HTMLDialogElement, JSX.IntrinsicElements["dialog"]>(
         open
         {...props}
         className={cn(
-          "relative mx-auto my-10 w-full max-w-sm bg-white sm:border sm:px-4 sm:py-10 sm:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]",
+          "relative mx-auto my-10 w-full max-w-sm bg-white px-2 sm:border sm:px-4 sm:py-10 sm:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]",
           props.className
         )}
       />

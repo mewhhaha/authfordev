@@ -1,4 +1,4 @@
-import { Type, scope, type } from "arktype";
+import { type } from "arktype";
 
 export const parseCredential = type({
   id: "string",
@@ -57,7 +57,7 @@ export const parseRegistrationParsed = type(
 
 export type RegistrationParsed = typeof parseRegistrationParsed.infer;
 
-export const parseSigninEncoded = type(
+export const parseAuthenticationEncoded = type(
   {
     credentialId: "string",
     authenticatorData: "string",
@@ -67,4 +67,4 @@ export const parseSigninEncoded = type(
   { keys: "strict" }
 );
 
-export type SigninEncoded = typeof parseSigninEncoded.infer;
+export type AuthenticationEncoded = typeof parseAuthenticationEncoded.infer;

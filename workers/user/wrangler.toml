@@ -13,19 +13,31 @@ class_name = "DurableObjectUser"
 name = "DO_CHALLENGE"
 class_name = "DurableObjectChallenge"
 
-[[migrations]]
-tag = "v1"
-new_classes = ["DurableObjectUser", "DurableObjectChallenge"]
+[[durable_objects.bindings]]
+name = "DO_PASSKEY"
+class_name = "DurableObjectPasskey"
 
 [[d1_databases]]
 binding = "D1"
 database_name = "d1-authfordev"
 database_id = "d39b2703-c5e8-4173-9eb9-9acacfd19223"
 
-kv_namespaces = [
-    { binding = "KV_PASSKEY", id = "59db77f9ca1e441190dede2e35df6c87" },
-    { binding = "KV_ALIAS", id = "a85e733ee8ea47bcb55473639248cab6" },
-]
+[[kv_namespaces]]
+binding = "KV_PASSKEY"
+id = "59db77f9ca1e441190dede2e35df6c87"
 
-[triggers]
-crons = ["0 0 * * *"]
+[[kv_namespaces]]
+binding = "KV_ALIAS"
+id = "a85e733ee8ea47bcb55473639248cab6"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["DurableObjectUser"]
+
+[[migrations]]
+tag = "v2"
+new_classes = ["DurableObjectChallenge"]
+
+[[migrations]]
+tag = "v3"
+new_classes = ["DurableObjectPasskey"]

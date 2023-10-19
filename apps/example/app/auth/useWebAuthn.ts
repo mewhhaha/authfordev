@@ -4,16 +4,35 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import type { SubmitOptions } from "@remix-run/react";
 import { useFetcher } from "@remix-run/react";
+import { Intent } from "./intent";
 
 export const useWebAuthn = (clientKey: string) => {
   const [client] = useState(() => Client({ clientKey }));
   const signin = useSignIn(client);
-  const register = useRegisterDevice();
-  const create = useCreateUser();
-  const verify = useVerifyDevice(client);
+  const signup = useSignUp(client);
   const signout = useSignOut();
+  const aliases = useAliases();
 
-  return { signin, signout, register, create, verify };
+  return { signin, signout, signup, aliases };
+};
+
+export const useAliases = () => {
+  const fetcher = useFetcher<{ message: string; status: number }>();
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const options = formOptions(event.currentTarget);
+    const formData = new FormData(event.currentTarget);
+    formData.set("intent", Intent.CheckAliases);
+    fetcher.submit(formData, options);
+  };
+
+  console.log(fetcher.data);
+  return {
+    submit,
+    state: fetcher.state,
+    error: fetcher.data !== undefined && fetcher.data.status !== 200,
+  };
 };
 
 export const useSignOut = () => {
@@ -23,11 +42,11 @@ export const useSignOut = () => {
     event.preventDefault();
     const options = formOptions(event.currentTarget);
     const formData = new FormData(event.currentTarget);
-    formData.set("intent", "sign-out");
+    formData.set("intent", Intent.SignOut);
     fetcher.submit(formData, options);
   };
 
-  return { submit, state: fetcher.state, intent: "sign-out" };
+  return { submit, state: fetcher.state };
 };
 
 export const useSignIn = (client: AuthforDevClient) => {
@@ -48,42 +67,41 @@ export const useSignIn = (client: AuthforDevClient) => {
 
     const formData = new FormData();
     formData.set("token", token);
-    formData.set("intent", "sign-in");
+    formData.set("intent", Intent.SignIn);
     fetcher.submit(formData, options);
   };
 
   return { submit, state: fetcher.state, error: fetcher.data !== undefined };
 };
 
-export const useCreateUser = () => {
-  const fetcher = useFetcher<{ message: string; status: number }>();
-
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const options = formOptions(event.currentTarget);
-    const formData = new FormData(event.currentTarget);
-    formData.set("intent", "new-user");
-    fetcher.submit(formData, options);
-  };
-
-  return {
-    submit,
-    state: fetcher.state,
-    error: fetcher.data !== undefined,
-    form: { username: { name: "username" }, email: { name: "email" } },
-  };
-};
-
-export const useRegisterDevice = () => {
+export const useSignUp = (client: AuthforDevClient) => {
   const fetcher = useFetcher<{ message: string; status: number }>();
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+    if (fetcher.state !== "idle") {
+      console.warn("Tried signing in while already signing in.");
+      return;
+    }
+
     const options = formOptions(event.currentTarget);
-    console.log(options);
+    event.preventDefault();
 
     const formData = new FormData(event.currentTarget);
-    formData.set("intent", "new-device");
+
+    const username = formData.get("username")?.toString();
+    if (!username) {
+      console.error("username_missing");
+      return;
+    }
+
+    const { token, reason } = await client.register(username);
+    if (reason) {
+      console.error(reason);
+      return;
+    }
+
+    formData.set("intent", Intent.SignUp);
+    formData.set("token", token);
     fetcher.submit(formData, options);
   };
 
@@ -92,51 +110,6 @@ export const useRegisterDevice = () => {
     state: fetcher.state,
     error: fetcher.data !== undefined,
     form: { username: { name: "username" } },
-  };
-};
-
-export const useVerifyDevice = (client: AuthforDevClient) => {
-  const fetcher = useFetcher<{ message: string; status: number }>();
-
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    if (fetcher.state !== "idle") {
-      console.warn("Tried verifying in while already verifying.");
-      return;
-    }
-
-    const options = formOptions(event.currentTarget);
-    const formData = new FormData(event.currentTarget);
-
-    const challenge = formData.get("challenge")?.toString();
-    const code = formData.get("code")?.toString();
-    const username = formData.get("username")?.toString();
-
-    if (!challenge || !code || !username) {
-      console.error(
-        "Missing the following form data:",
-        challenge && "challenge",
-        code && "code",
-        username && "username"
-      );
-      return;
-    }
-
-    const { token, reason } = await client.register(challenge, code, username);
-    if (reason) {
-      console.error(reason);
-      return;
-    }
-
-    formData.set("token", token);
-    formData.set("intent", "verify-device");
-    fetcher.submit(formData, options);
-  };
-
-  return {
-    submit,
-    state: fetcher.state,
-    error: fetcher.data !== undefined,
-    form: { username: { name: "username" }, email: { name: "email" } },
   };
 };
 

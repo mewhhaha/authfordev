@@ -1,0 +1,245 @@
+import { Plugin, PluginContext, Router } from "@mewhhaha/little-router";
+import { data_ } from "@mewhhaha/little-router-plugin-data";
+import { empty, error, ok } from "@mewhhaha/typed-response";
+import { type } from "arktype";
+import { $any, now, storageLoader, storageSaver } from "./helpers";
+import { Credential, parseCredential } from "./parsers";
+import { Env } from "./env";
+
+const parseVisitor = type({
+  "city?": "string",
+  "country?": "string",
+  "continent?": "string",
+  "longitude?": "string",
+  "latitude?": "string",
+  "region?": "string",
+  "regionCode?": "string",
+  "metroCode?": "string",
+  "postalCode?": "string",
+  "timezone?": "string",
+});
+
+const parseMetadata = type({
+  passkeyId: "string",
+  credentialId: "string",
+  name: "string",
+  userId: "string",
+  app: "string",
+  createdAt: "string",
+  lastUsedAt: "string",
+  counter: "number",
+});
+
+export type Metadata = typeof parseMetadata.infer;
+
+export type Visitor = typeof parseVisitor.infer;
+
+export type Passkey = { credential: Credential; metadata: Metadata };
+
+const occupied_ = ((
+  {
+    request,
+  }: PluginContext<{
+    init: { headers: { Authorization: string } };
+  }>,
+  self
+) => {
+  const authorization = request.headers.get("Authorization");
+  if (!authorization) {
+    return error(401, "authorization_missing");
+  }
+
+  if (!self.meta) {
+    return error(404, "passkey_unoccupied");
+  }
+
+  if (authorization !== self.meta?.app) {
+    return error(403, "app_mismatch");
+  }
+
+  return { meta: self.meta } as const;
+}) satisfies Plugin<[DurableObjectPasskey]>;
+
+export class DurableObjectPasskey implements DurableObject {
+  meta?: Metadata;
+  credential?: Credential;
+
+  private kv: KVNamespace;
+  private id: DurableObjectId;
+
+  visitors: Visitor[] = [];
+
+  storage: DurableObjectStorage;
+
+  private save = storageSaver<DurableObjectPasskey>(this);
+  private load = storageLoader<DurableObjectPasskey>(this);
+
+  constructor(state: DurableObjectState, env: Env) {
+    this.storage = state.storage;
+    this.kv = env.KV_PASSKEY;
+    this.id = state.id;
+
+    state.blockConcurrencyWhile(async () => {
+      await this.load("meta", "credential", "visitors");
+    });
+  }
+
+  occupy(data: {
+    credential: Credential;
+    userId: string;
+    app: string;
+    visitor: Visitor;
+  }) {
+    const meta = {
+      userId: data.userId,
+      app: data.app,
+      passkeyId: this.id.toString(),
+      name: `passkey-${data.credential.id}`,
+      credentialId: data.credential.id,
+      counter: -1,
+
+      createdAt: now(),
+      lastUsedAt: now(),
+
+      visitors: [data.visitor],
+    };
+    this.save("meta", meta);
+    this.save("credential", data.credential);
+    this.save("visitors", [data.visitor]);
+
+    return { meta, credential: data.credential };
+  }
+
+  cache() {
+    if (!this.meta || !this.credential) {
+      throw new Error("Cannot cache empty passkey");
+    }
+
+    this.kv.put(
+      cacheKeySinglePasskey(this.meta),
+      JSON.stringify<Passkey>({
+        credential: this.credential,
+        metadata: this.meta,
+      }),
+      {
+        metadata: this.meta,
+      }
+    );
+    this.kv.put(
+      cacheKeyListPasskey(this.meta),
+      JSON.stringify<Metadata>(this.meta),
+      {
+        metadata: this.meta,
+      }
+    );
+  }
+
+  static router = Router<[DurableObjectPasskey]>()
+    .post(
+      "/occupy",
+      [
+        data_(
+          type({
+            app: "string",
+            userId: "string",
+            credential: parseCredential,
+            visitor: parseVisitor,
+          })
+        ),
+      ],
+      async ({ data }, self) => {
+        if (self.meta) {
+          return error(403, "credential_exists");
+        }
+        const { credential, meta } = self.occupy(data);
+        self.cache();
+
+        return ok(201, { credential, meta });
+      }
+    )
+    .post(
+      "/used",
+      [occupied_, data_(type({ counter: "number", visitor: parseVisitor }))],
+      async ({ meta, data }, self) => {
+        const updated = {
+          ...meta,
+          lastUsedAt: now(),
+          counter: data.counter || -1,
+        };
+        self.save("meta", updated);
+        // We only save the ten last visitors
+        self.save("visitors", [data.visitor, ...self.visitors].slice(0, 10));
+        self.cache();
+        return empty(204);
+      }
+    )
+    .post(
+      "/rename",
+      [occupied_, data_(type({ name: "string" }))],
+      async ({ meta, data }, self) => {
+        const updated = {
+          ...meta,
+          name: data.name,
+        };
+        self.save("meta", updated);
+        self.cache();
+        return empty(204);
+      }
+    )
+    .delete("/implode", [occupied_], async ({ meta }, self) => {
+      self.storage.deleteAll();
+
+      self.kv.delete(cacheKeySinglePasskey(meta));
+      self.kv.delete(cacheKeyListPasskey(meta));
+
+      self.meta = undefined;
+      self.credential = undefined;
+
+      return ok(200, { meta });
+    })
+
+    .all("/*", [], () => {
+      return new Response("Not found", { status: 404 });
+    });
+
+  fetch(
+    request: Request<unknown, CfProperties<unknown>>
+  ): Response | Promise<Response> {
+    return DurableObjectPasskey.router.handle(request, this);
+  }
+}
+
+export const $passkey = $any<typeof DurableObjectPasskey>;
+
+export const cacheKeySinglePasskey = ({
+  app,
+  credentialId,
+}: Pick<Metadata, "app" | "credentialId">) => `#app#${app}#id#${credentialId}`;
+
+export const cacheKeyListPasskey = ({
+  app,
+  userId,
+  credentialId,
+}: Pick<Metadata, "app" | "userId" | "credentialId">) =>
+  `#app#${app}#user#${userId}#id#${credentialId}`;
+
+export const cacheKeyListPasskeyPrefix = ({
+  app,
+  userId,
+}: Pick<Metadata, "app" | "userId">) => `#app#${app}#user#${userId}#id#`;
+
+export const getPasskeyFromCache = (
+  kv: KVNamespace,
+  values: Pick<Metadata, "app" | "credentialId">
+) => {
+  return kv.get<Passkey>(cacheKeySinglePasskey(values), "json");
+};
+
+export const getListPasskeyFromCache = async (
+  kv: KVNamespace,
+  values: Pick<Metadata, "app" | "userId">
+) => {
+  const result = await kv.list({ prefix: cacheKeyListPasskeyPrefix(values) });
+
+  return result.keys.map((k) => k.metadata as Metadata);
+};

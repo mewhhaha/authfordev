@@ -18,8 +18,11 @@ export const Client = ({
     controller = new AbortController();
 
     try {
-      const response = await api.post("/client/signin-device", {
-        headers: { Authorization: clientKey },
+      const response = await api.post(`/client/challenge-passkey`, {
+        body: clientKey,
+        headers: {
+          "Content-Type": "text/plain",
+        },
         signal: controller.signal,
       });
 
@@ -32,11 +35,9 @@ export const Client = ({
 
       const { token } = await response.json();
 
-      const [_header, payload] = token.split(".");
+      const challenge = getJwtChallenge(token);
 
-      const { jti }: { jti: string } = JSON.parse(decode(payload));
-
-      const authentication = await client.authenticate([], encode(jti), {
+      const authentication = await client.authenticate([], encode(challenge), {
         userVerification: "required",
       });
 
@@ -51,12 +52,31 @@ export const Client = ({
     }
   };
 
-  const register = async (token: string, code: string, username: string) => {
-    try {
-      const [_header, payload] = token.split(".");
-      const { jti }: { jti: string } = JSON.parse(decode(payload));
+  const register = async (username: string) => {
+    controller?.abort();
+    controller = new AbortController();
 
-      const registration = await client.register(username, encode(jti), {
+    try {
+      const response = await api.post(`/client/challenge-passkey`, {
+        body: clientKey,
+        headers: {
+          "Content-Type": "text/plain",
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        return {
+          success: false,
+          reason: await response.json().then((r) => r.message),
+        } as const;
+      }
+
+      const { token } = await response.json();
+
+      const challenge = getJwtChallenge(token);
+
+      const registration = await client.register(username, encode(challenge), {
         userVerification: "required",
         discoverable: "required",
         userHandle: crypto.randomUUID(),
@@ -64,7 +84,7 @@ export const Client = ({
 
       const registrationToken = `${token}#${encode(
         JSON.stringify(registration)
-      )}#${encode(code)}`;
+      )}`;
 
       return { success: true, token: registrationToken } as const;
     } catch (e) {
@@ -82,3 +102,9 @@ export const Client = ({
 };
 
 export type AuthforDevClient = ReturnType<typeof Client>;
+
+const getJwtChallenge = (token: string) => {
+  const [_header, payload] = token.split(".");
+  const { jti }: { jti: string } = JSON.parse(decode(payload));
+  return jti;
+};

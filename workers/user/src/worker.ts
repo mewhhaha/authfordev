@@ -5,29 +5,27 @@ import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { type } from "arktype";
 import { decodeHeader } from "@internal/keys";
 import emailSendCode from "@internal/emails/dist/send-code.json";
-import { $user } from "./user";
 import { Env } from "./env";
 import { decode, decodeJwt, encode, encodeJwt, jwtTime } from "@internal/jwt";
 import { server } from "@passwordless-id/webauthn";
 import {
   Credential,
   parseRegistrationEncoded,
-  parseSigninEncoded,
+  parseAuthenticationEncoded,
 } from "./parsers";
-import { hmac } from "./helpers";
 import { $challenge } from "./challenge";
+import { $user } from "./user";
+import {
+  $passkey,
+  Visitor,
+  getListPasskeyFromCache,
+  getPasskeyFromCache,
+} from "./passkey";
+import { now } from "./helpers";
 
 export { DurableObjectUser } from "./user";
 export { DurableObjectChallenge } from "./challenge";
-
-type PasskeyMetadata = {
-  userId: string;
-  createdAt: string;
-  lastUsedAt: string;
-  country: string;
-  counter: number;
-  app: string;
-};
+export { DurableObjectPasskey } from "./passkey";
 
 const server_ = (async (
   {
@@ -54,8 +52,15 @@ const server_ = (async (
   return { app };
 }) satisfies Plugin<[Env]>;
 
-const client_ = (async ({ params }: PluginContext, env: Env) => {
-  const clientKey = decodeURIComponent(params.clientKey);
+const client_ = (async (
+  {
+    request,
+  }: PluginContext<{
+    init: { body: string; headers?: { "Content-Type": "text/plain" } };
+  }>,
+  env: Env
+) => {
+  const clientKey = await request.text();
 
   if (!clientKey) {
     throw error(500);
@@ -71,163 +76,184 @@ const client_ = (async ({ params }: PluginContext, env: Env) => {
 
 const router = Router<[Env, ExecutionContext]>()
   .post(
-    "/server/new-user",
+    "/server/users",
     [
       server_,
       data_(
         type({
-          aliases: "1<(string<60)[]<4",
+          aliases: "1<=(string<60)[]<4",
           "email?": "string",
           token: "string",
+          origin: "string",
         })
       ),
     ],
-    async ({ app, data: { email, aliases } }, env, ctx) => {
-      const jurisdiction = env.DO_USER.jurisdiction("eu");
-      const userId = jurisdiction.newUniqueId().toString();
-
-      const { success } = await insertUser(env.D1, {
-        userId,
-        app,
-        aliases,
-      });
-      if (!success) {
-        return error(409, { message: "aliases_already_in_use" });
-      }
-
-      const user = $user(jurisdiction, userId);
-
-      ctx.waitUntil(postUpdateAliases(env.KV_ALIAS, { app, aliases, userId }));
-
-      const response = await user.post("/occupy", {
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, app, aliases }),
-      });
-      if (!response.ok) {
-        return error(403, { message: "user_exists" });
-      }
-
-      return ok(201, { userId });
-    }
-  )
-
-  .post(
-    "/server/challenge-user",
-    [
-      server_,
-      data_(
-        type({
-          aliases: "1<(string<60)[]<4",
-        })
-      ),
-    ],
-    async ({ app, data: { aliases } }, env, ctx) => {
-      const result = await Promise.all(
-        aliases.map((alias) => env.KV_ALIAS.get(kvAlias(app, alias)))
-      );
-      if (result.some((u) => u !== null)) {
-        return error(409, { message: "aliases_already_in_use" });
-      }
-
-      const jurisdiction = env.DO_USER.jurisdiction("eu");
-      const userId = jurisdiction.newUniqueId();
-      const id = env.DO_CHALLENGE.newUniqueId();
-
-      const hour1 = 1000 * 60 * 60;
-
-      ctx.waitUntil(
-        $challenge(env.DO_CHALLENGE, id).post(`/start?ms=${hour1}`)
-      );
-
-      const claim = {
-        jti: id.toString(),
-        sub: userId.toString(),
-        exp: jwtTime(new Date(Date.now() + hour1)),
-        aud: app,
-      };
-      const token = await encodeJwt(env.SECRET_FOR_REGISTER, claim);
-
-      return ok(200, { token });
-    }
-  )
-  .post(
-    "/server/challenge-passkey",
-    [
-      server_,
-      data_(
-        type({
-          alias: "string",
-        })
-      ),
-    ],
-    async ({ app, data: { alias } }, env, ctx) => {
-      const userId = await env.KV_ALIAS.get(kvAlias(app, alias), "text");
-      if (userId === null) {
-        return error(404, { message: "user_missing" });
-      }
-
-      const jurisdiction = env.DO_USER.jurisdiction("eu");
-      const user = $user(jurisdiction, userId);
-
-      const response = await user.get("/meta", {
-        headers: { Authorization: app },
-      });
-      if (!response.ok) {
-        return error(404, { message: "user_missing" });
-      }
-
-      const id = env.DO_CHALLENGE.newUniqueId();
-
-      const hour1 = 1000 * 60 * 60;
-
-      ctx.waitUntil(
-        $challenge(env.DO_CHALLENGE, id).post(`/start?ms=${hour1}`)
-      );
-
-      const claim = {
-        jti: id.toString(),
-        sub: userId,
-        exp: jwtTime(new Date(Date.now() + hour1)),
-        aud: app,
-      };
-      const token = await encodeJwt(env.SECRET_FOR_REGISTER, claim);
-
-      return ok(200, { token });
-    }
-  )
-  .post(
-    "/server/list-passkeys",
-    [server_, data_(type({ userId: "string" }))],
-    async ({ app, data }, env) => {
+    async ({ app, data: { email, aliases, token, origin } }, env, ctx) => {
       try {
-        const passkeys = await env.KV_PASSKEY.list<PasskeyMetadata>({
-          prefix: kvListPasskeyPrefix(app, data.userId),
+        const jurisdiction = {
+          user: env.DO_USER.jurisdiction("eu"),
+          passkey: env.DO_PASSKEY.jurisdiction("eu"),
+        };
+
+        const { registrationEncoded, claim, message } =
+          await parseRegistrationToken(app, token, env.SECRET_FOR_PASSKEY);
+        if (message) {
+          return error(403, { message });
+        }
+
+        const passed = await finishChallenge(env.DO_CHALLENGE, claim.jti);
+        if (!passed) {
+          return error(403, { message: "challenge_expired" });
+        }
+
+        try {
+          const registrationParsed = await server.verifyRegistration(
+            registrationEncoded,
+            { challenge: encode(claim.jti), origin: origin }
+          );
+
+          const userId = jurisdiction.user.newUniqueId();
+
+          const { success } = await insertUser(env.D1, {
+            userId: userId.toString(),
+            app,
+            aliases,
+          });
+          if (!success) {
+            return error(409, { message: "aliases_already_in_use" });
+          }
+
+          const user = $user(jurisdiction.user, userId);
+
+          const response = await user.post("/occupy", {
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, app, aliases }),
+          });
+          if (!response.ok) {
+            return error(403, { message: "user_exists" });
+          }
+
+          const passkeyId = jurisdiction.passkey.idFromName(
+            registrationParsed.credential.id
+          );
+
+          const postUpdate = async () => {
+            const credential = registrationEncoded.credential;
+            const credentialId = credential.id;
+
+            return Promise.all([
+              cacheAliases(env.KV_ALIAS, {
+                app,
+                userId: userId.toString(),
+                aliases,
+              }),
+              linkPasskey(jurisdiction.user, userId, {
+                app,
+                passkeyId,
+                credentialId,
+              }),
+              createPasskey(jurisdiction.passkey, passkeyId, {
+                app,
+                visitor: claim.vis,
+                userId: userId.toString(),
+                credential,
+              }),
+            ]);
+          };
+
+          ctx.waitUntil(postUpdate());
+
+          return ok(201, {
+            userId: userId.toString(),
+            passkeyId: passkeyId.toString(),
+          });
+        } catch {
+          return error(403, { message: "passkey_invalid" });
+        }
+      } catch (err) {
+        if (err instanceof Error) console.error(err.message);
+        throw err;
+      }
+    }
+  )
+  .post(
+    "/server/actions/check-aliases",
+    [
+      server_,
+      data_(
+        type({
+          aliases: "string<60[]",
+        })
+      ),
+    ],
+    async ({ app, data: { aliases } }, env) => {
+      const result = await Promise.all(
+        aliases.map((alias) =>
+          env.KV_ALIAS.get(kvAlias(app, alias)).then(
+            (result) => [alias, result !== null] as const
+          )
+        )
+      );
+      return ok(200, { aliases: result });
+    }
+  )
+  .get(
+    "/server/aliases/:name",
+    [server_],
+    async ({ app, params: { name } }, env) => {
+      const userId = await env.KV_ALIAS.get(kvAlias(app, name));
+      return ok(200, { userId: userId ?? undefined });
+    }
+  )
+  .get(
+    "/server/users/:userId/passkeys",
+    [server_],
+    async ({ app, params: { userId } }, env) => {
+      try {
+        const passkeys = await getListPasskeyFromCache(env.KV_PASSKEY, {
+          app,
+          userId,
         });
 
-        return ok(200, {
-          passkeys: passkeys.keys.map((k) => k.metadata as PasskeyMetadata),
-        });
+        return ok(200, { passkeys });
       } catch {
         return error(404, { message: "user_missing" });
       }
     }
   )
-  .post(
-    "/server/delete-passkey",
-    [server_, data_(type({ userId: "string", credentialId: "string" }))],
-    async ({ app, data }, env) => {
+  .delete(
+    "/server/users/:userId/passkeys/:passkeyId",
+    [server_],
+    async ({ app, params: { userId, passkeyId } }, env) => {
       try {
-        const passkey = await deletePasskey(env.KV_PASSKEY, { app, ...data });
-        return ok(200, { passkey });
+        const jurisdiction = {
+          passkey: env.DO_PASSKEY.jurisdiction("eu"),
+          user: env.DO_USER.jurisdiction("eu"),
+        };
+
+        const user = $user(jurisdiction.user, userId);
+        const response = await user.delete("/remove-passkey/:passkeyId", {
+          headers: { Authorization: app },
+        });
+
+        if (!response.ok) {
+          return error(404, { message: "passkey_not_found" });
+        }
+
+        const passkey = $passkey(jurisdiction.passkey, passkeyId);
+        await passkey.delete("/implode", { headers: { Authorization: app } });
+
+        return empty(204);
       } catch {
         throw error(500, { message: "internal_error" });
       }
     }
   )
   .post(
-    "/server/send-code",
+    "/server/actions/send-code",
     [server_, data_(type({ alias: "string" }))],
     async ({ data: { alias }, app }, env, ctx) => {
+      const jurisdiction = env.DO_USER.jurisdiction("eu");
       const code = generateCode(8);
 
       const userId = await env.KV_ALIAS.get(kvAlias(app, alias));
@@ -235,7 +261,7 @@ const router = Router<[Env, ExecutionContext]>()
         return error(404, { message: "user_missing" });
       }
 
-      const response = await $user(env.DO_USER, userId).get("/recovery", {
+      const response = await $user(jurisdiction, userId).get("/recovery", {
         headers: { Authorization: app },
       });
       if (!response.ok) {
@@ -271,7 +297,7 @@ const router = Router<[Env, ExecutionContext]>()
 
       ctx.waitUntil(postSend());
 
-      const claim = encodeJwt(env.SECRET_FOR_REGISTER, {
+      const claim = encodeJwt(env.SECRET_FOR_PASSKEY, {
         jti: challengeId.toString(),
         sub: userId,
         exp: jwtTime(new Date(Date.now() + minute30)),
@@ -282,11 +308,11 @@ const router = Router<[Env, ExecutionContext]>()
     }
   )
   .post(
-    "/server/verify-code",
+    "/server/actions/verify-code",
     [server_, data_(type({ token: "string", code: "string" }))],
     async ({ data: { token, code }, app }, env) => {
       const { message, claim } = await parseClaim(
-        env.SECRET_FOR_REGISTER,
+        env.SECRET_FOR_PASSKEY,
         app,
         token
       );
@@ -299,17 +325,18 @@ const router = Router<[Env, ExecutionContext]>()
         return error(403, { message: "challenge_expired" });
       }
 
-      return ok(200, { userId: claim.sub });
+      return empty(204);
     }
   )
   .post(
-    "/server/verify-passkey",
+    "/server/actions/verify-passkey",
     [server_, data_(type({ token: "string", origin: "string" }))],
     async ({ app, data }, env, ctx) => {
+      const jurisdiction = env.DO_PASSKEY.jurisdiction("eu");
       const { signinEncoded, claim, message } = await parseSigninToken(
         app,
         data.token,
-        env.SECRET_FOR_SIGNIN
+        env.SECRET_FOR_PASSKEY
       );
       if (message === "token_invalid") {
         return error(401, "token_invalid");
@@ -317,11 +344,12 @@ const router = Router<[Env, ExecutionContext]>()
         return error(403, message);
       }
 
-      const kvKeyPasskey = kvSinglePasskey(app, signinEncoded.credentialId);
-
       const [passed, passkey] = await Promise.all([
         finishChallenge(env.DO_CHALLENGE, claim.jti),
-        retrievePasskey(env.KV_PASSKEY, kvKeyPasskey),
+        getPasskeyFromCache(env.KV_PASSKEY, {
+          app,
+          credentialId: signinEncoded.credentialId,
+        }),
       ]);
 
       if (!passed) {
@@ -338,22 +366,26 @@ const router = Router<[Env, ExecutionContext]>()
           {
             challenge: encode(claim.jti),
             origin: data.origin,
-            counter: passkey.meta.counter,
+            counter: passkey.metadata.counter,
             userVerified: true,
           }
         );
 
         ctx.waitUntil(
-          postUpdatePasskey(
-            env.KV_PASSKEY,
-            passkey,
-            signinParsed.authenticator.counter
+          updatePasskey(
+            jurisdiction,
+            jurisdiction.idFromString(passkey.metadata.passkeyId),
+            {
+              counter: signinParsed.authenticator.counter,
+              app,
+              visitor: claim.vis,
+            }
           )
         );
 
         return ok(200, {
-          userId: passkey.meta.userId,
-          credentialId: passkey.credential.id,
+          userId: passkey.metadata.userId,
+          passkeyId: passkey.metadata.passkeyId,
         });
       } catch (e) {
         if (e instanceof Error) console.log(e);
@@ -362,80 +394,70 @@ const router = Router<[Env, ExecutionContext]>()
     }
   )
   .post(
-    "/server/new-passkey",
+    "/server/users/:userId/passkeys",
     [server_, data_(type({ token: "string", origin: "string" }))],
-    async ({ app, request, data }, env, ctx) => {
+    async ({ app, params: { userId }, data: { token, origin } }, env, ctx) => {
+      const jurisdiction = env.DO_PASSKEY.jurisdiction("eu");
       const { registrationEncoded, claim, message } =
-        await parseRegistrationToken(app, data.token, env.SECRET_FOR_REGISTER);
+        await parseRegistrationToken(app, token, env.SECRET_FOR_PASSKEY);
       if (message === "token_invalid") {
         return error(401, "token_invalid");
       } else if (message) {
         return error(403, message);
       }
 
-      const country = request.headers.get("cf-ipcountry") ?? "AQ";
-
       try {
-        const registrationParsed = await server.verifyRegistration(
-          registrationEncoded,
-          {
-            challenge: encode(claim.jti),
-            origin: data.origin,
-          }
-        );
-
         const passed = await finishChallenge(env.DO_CHALLENGE, claim.jti);
         if (!passed) {
           return error(410, { message: "challenge_expired" });
         }
 
+        const registrationParsed = await server.verifyRegistration(
+          registrationEncoded,
+          { challenge: encode(claim.jti), origin }
+        );
+
+        const passkeyId = jurisdiction.idFromName(
+          registrationEncoded.credential.id
+        );
+
         ctx.waitUntil(
-          postUpdatePasskey(env.KV_PASSKEY, {
-            credential: registrationEncoded.credential,
-            meta: {
-              app,
-              country,
-              createdAt: now(),
-              lastUsedAt: now(),
-              userId: claim.sub,
-              counter: -1,
-            },
+          createPasskey(jurisdiction, passkeyId, {
+            app,
+            visitor: claim.vis,
+            userId,
+            credential: registrationParsed.credential,
           })
         );
 
-        return ok(200, {
-          userId: claim.sub,
-          credentialId: registrationParsed.credential.id,
+        return ok(201, {
+          userId,
+          passkeyId: passkeyId.toString(),
         });
       } catch (e) {
         return error(403, { message: "credential_invalid" });
       }
     }
   )
-  // .options("/client/signin-device", [], ({ request }) => {
-  //   return new Response(undefined, {
-  //     status: 204,
-  //     headers: cors(request),
-  //   });
-  // })
   .post(
-    "/client/:clientKey/challenge-signin",
+    "/client/challenge-passkey",
     [client_],
-    async ({ app }, env, ctx) => {
+    async ({ request, app }, env, ctx) => {
       const id = env.DO_CHALLENGE.newUniqueId();
 
       const claim = {
         jti: id.toString(),
-        sub: "discoverable",
+        sub: "unknown",
         exp: jwtTime(minute1()),
+        vis: makeVisitor(request),
         aud: app,
       };
 
-      const token = await encodeJwt(env.SECRET_FOR_SIGNIN, claim);
+      const token = await encodeJwt<ClientJwt>(env.SECRET_FOR_PASSKEY, claim);
 
       ctx.waitUntil($challenge(env.DO_CHALLENGE, id).post("/start"));
 
-      return ok(200, { token });
+      return ok(200, { token }, { headers: cors(request) });
     }
   )
   .all("/*", [], () => {
@@ -448,13 +470,6 @@ export type Routes = typeof routes;
 
 const handler: ExportedHandler<Env> = {
   fetch: router.handle,
-  scheduled: async (_, env, ctx) => {
-    ctx.waitUntil(
-      env.D1.prepare("DELETE FROM challenge WHERE expired_at < ?")
-        .bind(now())
-        .run()
-    );
-  },
 };
 
 export default handler;
@@ -472,7 +487,7 @@ const parseSigninToken = async (app: string, token: string, secret: string) => {
     return { message };
   }
 
-  const { data: signinEncoded, problems } = parseSigninEncoded(
+  const { data: signinEncoded, problems } = parseAuthenticationEncoded(
     JSON.parse(decode(signinRaw))
   );
   if (problems) {
@@ -506,7 +521,7 @@ const parseRegistrationToken = async (
 const cors = (request: Request) => ({
   "Access-Control-Allow-Origin": request.headers.get("Origin") ?? "",
   "Access-Control-Allow-Method": "POST",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": "Content-Type",
   "Access-Control-Max-Age": "86400",
 });
 
@@ -602,7 +617,7 @@ const fromNow = (ms: number) => {
 };
 
 const parseClaim = async (secret: string, aud: string, token: string) => {
-  const claim = await decodeJwt(secret, token);
+  const claim = await decodeJwt<ClientJwt>(secret, token);
   if (!claim) {
     return { message: "token_invalid" } as const;
   }
@@ -629,8 +644,6 @@ const generateCode = (numberOfCharacters: number) => {
 const CHARACTERS =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
-const now = () => new Date().toISOString();
-
 const finishChallenge = async (
   namespace: DurableObjectNamespace,
   id: string,
@@ -642,49 +655,61 @@ const finishChallenge = async (
   return response.ok;
 };
 
-const retrievePasskey = async (namespace: KVNamespace, key: string) => {
-  const passkey = await namespace.getWithMetadata<Credential, PasskeyMetadata>(
-    key,
-    "json"
-  );
-
-  if (passkey.metadata === null || passkey.value === null) return undefined;
-
-  return {
-    credential: passkey.value,
-    meta: passkey.metadata,
-  };
-};
-
-const postUpdatePasskey = async (
-  namespace: KVNamespace,
-  passkey: { credential: Credential; meta: PasskeyMetadata },
-  counter?: number
+const createPasskey = async (
+  namespace: DurableObjectNamespace,
+  passkeyId: DurableObjectId,
+  data: {
+    userId: string;
+    app: string;
+    credential: Credential;
+    visitor: Visitor;
+  }
 ) => {
-  const metadata = {
-    ...passkey.meta,
-    lastUsedAt: now(),
-    counter: counter === 0 ? -1 : counter,
-  };
+  const passkey = $passkey(namespace, passkeyId);
 
-  const credentialString = JSON.stringify(passkey.credential);
-
-  const single = namespace.put(
-    kvSinglePasskey(metadata.app, passkey.credential.id),
-    credentialString,
-    { metadata }
-  );
-
-  const list = namespace.put(
-    kvListPasskey(metadata.app, metadata.userId, passkey.credential.id),
-    "",
-    { metadata }
-  );
-
-  return Promise.all([single, list]);
+  await passkey.post("/occupy", {
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
 };
 
-const postUpdateAliases = async (
+const linkPasskey = async (
+  namespace: DurableObjectNamespace,
+  userId: DurableObjectId,
+  {
+    app,
+    passkeyId,
+    credentialId,
+  }: {
+    app: string;
+    passkeyId: DurableObjectId;
+    credentialId: string;
+  }
+) => {
+  const user = $user(namespace, userId);
+
+  await user.post("/add-passkey", {
+    headers: { "Content-Type": "application/json", Authorization: app },
+    body: JSON.stringify({
+      passkeyId: passkeyId.toString(),
+      credentialId,
+    }),
+  });
+};
+
+const updatePasskey = async (
+  namespace: DurableObjectNamespace,
+  passkeyId: DurableObjectId,
+  { app, counter, visitor }: { app: string; counter: number; visitor: Visitor }
+) => {
+  const passkey = $passkey(namespace, passkeyId);
+  await passkey.post("/used", {
+    headers: { "Content-Type": "application/json", Authorization: app },
+    body: JSON.stringify({ counter, visitor }),
+  });
+};
+
+const cacheAliases = async (
   namespace: KVNamespace,
   { app, userId, aliases }: { app: string; userId: string; aliases: string[] }
 ) => {
@@ -697,40 +722,22 @@ const postUpdateAliases = async (
   );
 };
 
-const deletePasskey = async (
-  namespace: KVNamespace,
-  {
-    app,
-    userId,
-    credentialId,
-  }: { app: string; userId: string; credentialId: string }
-) => {
-  const passkey = namespace.getWithMetadata<Credential, PasskeyMetadata>(
-    kvSinglePasskey(app, credentialId),
-    "json"
-  );
-
-  const single = namespace.delete(kvSinglePasskey(app, credentialId));
-  const list = namespace.delete(kvListPasskey(app, userId, credentialId));
-
-  await Promise.all([single, list]);
-
-  const pk = await passkey;
-  if (pk.metadata === null) {
-    throw new Error("metadata was unexpectedly null when deleting passkey");
-  }
-
-  return { credential: pk.value, meta: pk.metadata };
-};
-
-const kvSinglePasskey = (app: string, passkeyId: string) =>
-  `#app#${app}#id#${passkeyId}`;
-
-const kvListPasskey = (app: string, userId: string, passKeyId: string) =>
-  `#app#${app}#user#${userId}#id#${passKeyId}`;
-
-const kvListPasskeyPrefix = (app: string, userId: string) =>
-  `#app#${app}#user#${userId}#id#`;
-
 const kvAlias = (app: string, alias: string) =>
   `#app#${app}#alias#${encode(alias)}`;
+
+const makeVisitor = (request: Request) => {
+  return {
+    city: request.headers.get("cf-ipcity") ?? undefined,
+    country: request.headers.get("cf-ipcountry") ?? undefined,
+    continent: request.headers.get("cf-ipcontinent") ?? undefined,
+    longitude: request.headers.get("cf-iplongitude") ?? undefined,
+    latitude: request.headers.get("cf-iplatitude") ?? undefined,
+    region: request.headers.get("cf-region") ?? undefined,
+    regionCode: request.headers.get("cf-region-code") ?? undefined,
+    metroCode: request.headers.get("cf-metro-code") ?? undefined,
+    postalCode: request.headers.get("cf-postal-code") ?? undefined,
+    timezone: request.headers.get("cf-timezone") ?? undefined,
+  };
+};
+
+type ClientJwt = { vis: Visitor };

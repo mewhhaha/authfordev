@@ -1,3 +1,6 @@
+import { fetcher } from "@mewhhaha/little-fetcher";
+import { RoutesOf } from "@mewhhaha/little-router";
+
 type KeyofValues<T extends Record<any, any>> = {
   [K in keyof T]: T[K] extends (...args: any[]) => any
     ? never
@@ -55,3 +58,16 @@ export const hmac = async (
     .map((b) => String.fromCharCode(b))
     .join("");
 };
+
+export const now = () => new Date().toISOString() as DateISOString;
+
+export type DateISOString =
+  `${string}-${string}-${string}T${string}:${string}:${string}.${string}Z`;
+
+export const $any = <T extends { router: any }>(
+  namespace: DurableObjectNamespace,
+  id: string | DurableObjectId
+) =>
+  fetcher<RoutesOf<T["router"]>>(
+    namespace.get(typeof id === "string" ? namespace.idFromString(id) : id)
+  );

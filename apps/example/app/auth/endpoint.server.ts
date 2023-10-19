@@ -14,21 +14,20 @@ export const endpoint = async ({
   serverKey,
   origin,
   redirects,
-  sessionData = (session) => session,
+  sessionData,
 }: {
   request: Request;
   secrets: string | string[];
   serverKey: string;
   origin: string;
   redirects: {
-    success: (user: { id: string }) => string;
-    signin: () => string;
+    signup: (user: { userId: string; passkeyId: string }) => string;
+    signin: (user: { userId: string; passkeyId: string }) => string;
     signout: () => string;
-    challenge: (username: string, token: string) => string;
   };
-  sessionData?: (user: {
-    id: string;
-    credentialId: string;
+  sessionData: (user: {
+    userId: string;
+    passkeyId: string;
   }) => Required<SessionData>;
 }) => {
   const formData = await request.formData();
@@ -58,121 +57,77 @@ export const endpoint = async ({
     }
     case Intent.SignIn: {
       if (!form.token) {
-        return json({
-          message: `Missing form data for ${form.intent}`,
-          status: 422,
-        });
+        return json({ message: "form_data_missing", status: 422 });
       }
-      const { data } = await signIn(serverKey, {
+      const { data } = await newSignin(serverKey, {
         token: form.token,
-        origin: origin,
+        origin,
       });
       if (data) {
         const sessionHeaders = await makeSession(
           request,
           secrets,
-          sessionData({
-            id: data.userId,
-            credentialId: data.credentialId,
-          })
+          sessionData(data)
         );
-        return redirect(redirects.success({ id: data.userId }), {
+        return redirect(redirects.signin(data), {
           status: 303,
           headers: sessionHeaders,
         });
       } else {
-        return json({ message: "Signing in failed", status: 401 });
+        return json({ message: "signin_failed", status: 401 });
       }
     }
     case Intent.SignUp: {
-      if (!form.email || !form.username) {
-        return json({
-          message: `Missing form data for ${form.intent}`,
-          status: 422,
-        });
+      if (!form.username || !form.token) {
+        return json({ message: "form_data_missing", status: 422 });
       }
-      const data = await signUp(serverKey, {
-        email: form.email,
+      const { data, status } = await newUser(serverKey, {
+        origin,
+        aliases: [form.username],
+        token: form.token,
+      });
+
+      if (status === 409) {
+        return { message: "aliases_taken", status: 409 } as const;
+      } else if (status) {
+        return { message: "new_user_failed", status } as const;
+      }
+      const sessionHeaders = await makeSession(
+        request,
+        secrets,
+        sessionData(data)
+      );
+      const to = redirects.signup(data);
+      return redirect(to, { status: 303, headers: sessionHeaders });
+    }
+    case Intent.CheckAliases: {
+      if (!form.username) {
+        return json({ message: "form_data_missing", status: 422 });
+      }
+
+      const { data, status } = await checkAliases(serverKey, {
         aliases: [form.username],
       });
-
-      if (data.token === undefined) {
-        switch (data.status) {
-          case 409:
-            return json({ message: "User already exists", status: 409 });
-          default:
-            return json({
-              message: "Creating new user failed",
-              status: data.status,
-            });
-        }
+      if (status) {
+        return { message: "check_aliases_failed", status } as const;
       }
 
-      const to = redirects.challenge(form.username, data.token);
-      return redirect(to, { status: 303 });
-    }
-    case Intent.RequestCode: {
-      if (!form.username) {
-        return json({
-          message: `Missing form data for ${form.intent}`,
-          status: 422,
-        });
-      }
-      const data = await requestCode(serverKey, {
-        alias: form.username,
-      });
-
-      if (data.token === undefined) {
-        switch (data.status) {
-          case 404:
-            return json({ message: "User is missing", status: 404 });
-          default:
-            return json({
-              message: "Creating challenge for user failed",
-              status: data.status,
-            });
-        }
+      if (data.occupied) {
+        return { message: "aliases_taken", status: 409 } as const;
       }
 
-      const to = redirects.challenge(form.username, data.token);
-      return redirect(to, { status: 303 });
-    }
-    case Intent.CreatePasskey: {
-      if (!form.token) {
-        return json({
-          message: `Missing form data for ${form.intent}`,
-          status: 422,
-        });
-      }
-      const data = await createPasskey(serverKey, {
-        token: form.token,
-        origin: origin,
-      });
-
-      if (data?.userId) {
-        const sessionHeaders = await makeSession(request, secrets, {
-          id: data.userId,
-          credentialId: data.credentialId,
-        });
-
-        return redirect(redirects.success({ id: data.userId }), {
-          status: 303,
-          headers: sessionHeaders,
-        });
-      } else {
-        return json({ message: "Registering device failed", status: 401 });
-      }
+      return { message: "aliases_available", status: 200 } as const;
     }
   }
 
   return new Response("Not found", { status: 404 });
 };
 
-const signIn = async (
+const newSignin = async (
   serverKey: string,
   { token, origin }: { token: string; origin: string }
 ) => {
-  const response = await authfordev.post("/server/verify-signin", {
+  const response = await authfordev.post("/server/actions/verify-passkey", {
     headers: {
       Authorization: serverKey,
       "Content-Type": "application/json",
@@ -181,62 +136,54 @@ const signIn = async (
   });
 
   if (!response.ok) {
-    return { data: undefined };
+    return { status: response.status } as const;
   }
 
-  return { data: await response.json() };
+  return { data: await response.json() } as const;
 };
 
-const signUp = async (
+const newUser = async (
   serverKey: string,
-  { aliases, email }: { aliases: string[]; email: string }
+  {
+    aliases,
+    token,
+    origin,
+  }: { aliases: string[]; token: string; origin: string }
 ) => {
-  const response = await authfordev.post("/server/new-user", {
+  const response = await authfordev.post("/server/users", {
     headers: {
       Authorization: serverKey,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ aliases, email }),
+    body: JSON.stringify({ aliases, token, origin }),
   });
 
   if (!response.ok) {
-    return { token: undefined, status: response.status } as const;
+    return { status: response.status } as const;
   }
 
-  return await response.json();
+  return { data: await response.json() } as const;
 };
 
-const requestCode = async (serverKey: string, { alias }: { alias: string }) => {
-  const response = await authfordev.post("/server/new-device", {
-    headers: {
-      Authorization: serverKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ alias }),
-  });
-
-  if (!response.ok) {
-    return { token: undefined, status: response.status } as const;
-  }
-
-  return await response.json();
-};
-
-const createPasskey = async (
+const checkAliases = async (
   serverKey: string,
-  { token, origin }: { token: string; origin: string }
+  { aliases }: { aliases: string[] }
 ) => {
-  const response = await authfordev.post("/server/register-credential", {
+  const response = await authfordev.post("/server/actions/check-aliases", {
     headers: {
-      "Content-Type": "application/json",
       Authorization: serverKey,
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ token, origin }),
+    body: JSON.stringify({ aliases }),
   });
 
   if (!response.ok) {
-    return { userId: undefined } as const;
+    return { status: response.status } as const;
   }
 
-  return await response.json();
+  const data = await response.json();
+
+  return {
+    data: { occupied: data.aliases.some(([_, exists]) => exists) },
+  } as const;
 };
