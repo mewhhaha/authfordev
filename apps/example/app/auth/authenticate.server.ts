@@ -37,7 +37,10 @@ export const revalidateSession = async (request: Request, secrets: string) => {
 export const makeSession = async (
   request: Request,
   secrets: string | string[],
-  data: Required<SessionData>
+  data: Required<SessionData>,
+  {
+    expires = new Date(Date.now() + 1000 * 60 * 60 * 24),
+  }: { expires?: Date } = {}
 ) => {
   const { getSession, commitSession } = createAppCookieSessionStorage(secrets);
   const session = await getSession(request.headers.get("Cookie"));
@@ -47,7 +50,7 @@ export const makeSession = async (
 
   return {
     "Set-Cookie": await commitSession(session, {
-      expires: new Date(Date.now() + 1000 * 60 * 24),
+      expires,
     }),
   };
 };

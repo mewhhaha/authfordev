@@ -8,28 +8,32 @@ import {
 } from "./authenticate.server";
 import { Intent } from "./intent";
 
-export const endpoint = async ({
-  request,
-  secrets,
-  serverKey,
-  origin,
-  redirects,
-  sessionData,
-}: {
-  request: Request;
-  secrets: string | string[];
-  serverKey: string;
-  origin: string;
-  redirects: {
-    signup: (user: { userId: string; passkeyId: string }) => string;
-    signin: (user: { userId: string; passkeyId: string }) => string;
-    signout: () => string;
-  };
-  sessionData: (user: {
-    userId: string;
-    passkeyId: string;
-  }) => Required<SessionData>;
-}) => {
+export const endpoint = async (
+  serverKey: string,
+  {
+    request,
+    secrets,
+    origin,
+    redirects,
+    session: { data: sessionData, expires: sessionExpires },
+  }: {
+    request: Request;
+    secrets: string | string[];
+    origin: string;
+    redirects: {
+      signup: (user: { userId: string; passkeyId: string }) => string;
+      signin: (user: { userId: string; passkeyId: string }) => string;
+      signout: () => string;
+    };
+    session: {
+      data: (user: {
+        userId: string;
+        passkeyId: string;
+      }) => Required<SessionData>;
+      expires?: Date;
+    };
+  }
+) => {
   const formData = await request.formData();
 
   const form = {
@@ -67,7 +71,8 @@ export const endpoint = async ({
         const sessionHeaders = await makeSession(
           request,
           secrets,
-          sessionData(data)
+          sessionData(data),
+          { expires: sessionExpires }
         );
         return redirect(redirects.signin(data), {
           status: 303,
@@ -95,7 +100,8 @@ export const endpoint = async ({
       const sessionHeaders = await makeSession(
         request,
         secrets,
-        sessionData(data)
+        sessionData(data),
+        { expires: sessionExpires }
       );
       const to = redirects.signup(data);
       return redirect(to, { status: 303, headers: sessionHeaders });

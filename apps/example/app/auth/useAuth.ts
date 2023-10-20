@@ -6,14 +6,15 @@ import type { SubmitOptions } from "@remix-run/react";
 import { useFetcher } from "@remix-run/react";
 import { Intent } from "./intent";
 
-export const useWebAuthn = (clientKey: string) => {
+export const useAuth = (clientKey: string) => {
   const [client] = useState(() => Client({ clientKey }));
   const signin = useSignIn(client);
   const signup = useSignUp(client);
   const signout = useSignOut();
   const aliases = useAliases();
+  const addPasskey = useAddPasskey(client);
 
-  return { signin, signout, signup, aliases };
+  return { signin, signout, signup, aliases, addPasskey };
 };
 
 export const useAliases = () => {
@@ -27,7 +28,6 @@ export const useAliases = () => {
     fetcher.submit(formData, options);
   };
 
-  console.log(fetcher.data);
   return {
     submit,
     state: fetcher.state,
@@ -110,6 +110,44 @@ export const useSignUp = (client: AuthforDevClient) => {
     state: fetcher.state,
     error: fetcher.data !== undefined,
     form: { username: { name: "username" } },
+  };
+};
+
+export const useAddPasskey = (client: AuthforDevClient) => {
+  const fetcher = useFetcher<{ message: string; status: number }>();
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    if (fetcher.state !== "idle") {
+      console.warn("Tried adding passkey while already adding passkey.");
+      return;
+    }
+
+    const options = formOptions(event.currentTarget);
+    event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+
+    const username = formData.get("username")?.toString();
+    if (!username) {
+      console.error("username_missing");
+      return;
+    }
+
+    const { token, reason } = await client.register(username);
+    if (reason) {
+      console.error(reason);
+      return;
+    }
+
+    formData.set("intent", Intent.AddPasskey);
+    formData.set("token", token);
+    fetcher.submit(formData, options);
+  };
+
+  return {
+    submit,
+    state: fetcher.state,
+    error: fetcher.data !== undefined,
   };
 };
 

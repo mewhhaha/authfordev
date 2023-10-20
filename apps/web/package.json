@@ -30,14 +30,14 @@
     "@remix-run/dev": "^2.1.0",
     "@remix-run/eslint-config": "^2.1.0",
     "@tailwindcss/forms": "^0.5.6",
-    "@types/react": "^18.2.29",
-    "@types/react-dom": "^18.2.13",
+    "@types/react": "^18.2.30",
+    "@types/react-dom": "^18.2.14",
     "eslint": "^8.51.0",
     "eslint-plugin-tailwindcss": "^3.13.0",
     "random-words": "^2.0.0",
     "tailwindcss": "^3.3.3",
     "typescript": "^5.2.2",
-    "wrangler": "^3.13.2"
+    "wrangler": "^3.14.0"
   },
   "engines": {
     "node": ">=16.13.0"

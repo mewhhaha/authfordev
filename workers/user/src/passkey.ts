@@ -2,9 +2,11 @@ import { Plugin, PluginContext, Router } from "@mewhhaha/little-router";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { empty, error, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
-import { $any, now, storageLoader, storageSaver } from "./helpers";
-import { Credential, parseCredential } from "./parsers";
-import { Env } from "./env";
+import { $any, storageLoader, storageSaver } from "./helpers/durable";
+import { Credential, parseCredential } from "./helpers/parser";
+import { Env } from "./helpers/env";
+import { query_ } from "@mewhhaha/little-router-plugin-query";
+import { now } from "./helpers/time";
 
 const parseVisitor = type({
   "city?": "string",
@@ -17,6 +19,7 @@ const parseVisitor = type({
   "metroCode?": "string",
   "postalCode?": "string",
   "timezone?": "string",
+  timestamp: "string",
 });
 
 const parseMetadata = type({
@@ -49,19 +52,19 @@ const occupied_ = ((
     return error(401, "authorization_missing");
   }
 
-  if (!self.meta) {
+  if (!self.metadata) {
     return error(404, "passkey_unoccupied");
   }
 
-  if (authorization !== self.meta?.app) {
+  if (authorization !== self.metadata?.app) {
     return error(403, "app_mismatch");
   }
 
-  return { meta: self.meta } as const;
+  return { metadata: self.metadata } as const;
 }) satisfies Plugin<[DurableObjectPasskey]>;
 
 export class DurableObjectPasskey implements DurableObject {
-  meta?: Metadata;
+  metadata?: Metadata;
   credential?: Credential;
 
   private kv: KVNamespace;
@@ -80,7 +83,7 @@ export class DurableObjectPasskey implements DurableObject {
     this.id = state.id;
 
     state.blockConcurrencyWhile(async () => {
-      await this.load("meta", "credential", "visitors");
+      await this.load("metadata", "credential", "visitors");
     });
   }
 
@@ -103,7 +106,7 @@ export class DurableObjectPasskey implements DurableObject {
 
       visitors: [data.visitor],
     };
-    this.save("meta", meta);
+    this.save("metadata", meta);
     this.save("credential", data.credential);
     this.save("visitors", [data.visitor]);
 
@@ -111,25 +114,25 @@ export class DurableObjectPasskey implements DurableObject {
   }
 
   cache() {
-    if (!this.meta || !this.credential) {
+    if (!this.metadata || !this.credential) {
       throw new Error("Cannot cache empty passkey");
     }
 
     this.kv.put(
-      cacheKeySinglePasskey(this.meta),
+      cacheKeySinglePasskey(this.metadata),
       JSON.stringify<Passkey>({
         credential: this.credential,
-        metadata: this.meta,
+        metadata: this.metadata,
       }),
       {
-        metadata: this.meta,
+        metadata: this.metadata,
       }
     );
     this.kv.put(
-      cacheKeyListPasskey(this.meta),
-      JSON.stringify<Metadata>(this.meta),
+      cacheKeyListPasskey(this.metadata),
+      JSON.stringify<Metadata>(this.metadata),
       {
-        metadata: this.meta,
+        metadata: this.metadata,
       }
     );
   }
@@ -148,7 +151,7 @@ export class DurableObjectPasskey implements DurableObject {
         ),
       ],
       async ({ data }, self) => {
-        if (self.meta) {
+        if (self.metadata) {
           return error(403, "credential_exists");
         }
         const { credential, meta } = self.occupy(data);
@@ -160,39 +163,49 @@ export class DurableObjectPasskey implements DurableObject {
     .post(
       "/used",
       [occupied_, data_(type({ counter: "number", visitor: parseVisitor }))],
-      async ({ meta, data }, self) => {
+      async ({ metadata: meta, data }, self) => {
         const updated = {
           ...meta,
-          lastUsedAt: now(),
+          lastUsedAt: data.visitor.timestamp,
           counter: data.counter || -1,
         };
-        self.save("meta", updated);
+        self.save("metadata", updated);
         // We only save the ten last visitors
         self.save("visitors", [data.visitor, ...self.visitors].slice(0, 10));
         self.cache();
         return empty(204);
       }
     )
+    .get(
+      "/visitors",
+      [occupied_, query_(type({ "metadata?": "'true'" }))],
+      async ({ query, metadata }, self) => {
+        return ok(200, {
+          visitors: self.visitors,
+          metadata: query.metadata ? metadata : undefined,
+        });
+      }
+    )
     .post(
       "/rename",
       [occupied_, data_(type({ name: "string" }))],
-      async ({ meta, data }, self) => {
+      async ({ metadata: meta, data }, self) => {
         const updated = {
           ...meta,
           name: data.name,
         };
-        self.save("meta", updated);
+        self.save("metadata", updated);
         self.cache();
         return empty(204);
       }
     )
-    .delete("/implode", [occupied_], async ({ meta }, self) => {
+    .delete("/implode", [occupied_], async ({ metadata: meta }, self) => {
       self.storage.deleteAll();
 
       self.kv.delete(cacheKeySinglePasskey(meta));
       self.kv.delete(cacheKeyListPasskey(meta));
 
-      self.meta = undefined;
+      self.metadata = undefined;
       self.credential = undefined;
 
       return ok(200, { meta });
@@ -242,4 +255,20 @@ export const getListPasskeyFromCache = async (
   const result = await kv.list({ prefix: cacheKeyListPasskeyPrefix(values) });
 
   return result.keys.map((k) => k.metadata as Metadata);
+};
+
+export const makeVisitor = (request: Request) => {
+  return {
+    city: request.headers.get("cf-ipcity") ?? undefined,
+    country: request.headers.get("cf-ipcountry") ?? undefined,
+    continent: request.headers.get("cf-ipcontinent") ?? undefined,
+    longitude: request.headers.get("cf-iplongitude") ?? undefined,
+    latitude: request.headers.get("cf-iplatitude") ?? undefined,
+    region: request.headers.get("cf-region") ?? undefined,
+    regionCode: request.headers.get("cf-region-code") ?? undefined,
+    metroCode: request.headers.get("cf-metro-code") ?? undefined,
+    postalCode: request.headers.get("cf-postal-code") ?? undefined,
+    timezone: request.headers.get("cf-timezone") ?? undefined,
+    timestamp: now(),
+  };
 };

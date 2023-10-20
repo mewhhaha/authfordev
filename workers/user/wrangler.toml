@@ -41,3 +41,6 @@ new_classes = ["DurableObjectChallenge"]
 [[migrations]]
 tag = "v3"
 new_classes = ["DurableObjectPasskey"]
+
+[placement]
+mode = "smart"

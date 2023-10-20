@@ -3,4 +3,5 @@ export enum Intent {
   SignIn = "sign-in",
   SignUp = "sign-up",
   CheckAliases = "check-aliases",
+  AddPasskey = "add-passkey",
 }

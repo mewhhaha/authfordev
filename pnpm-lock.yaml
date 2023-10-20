@@ -14,8 +14,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/authfordev-client
       '@mewhhaha/little-fetcher':
-        specifier: ^0.0.27
-        version: 0.0.27
+        specifier: ^0.0.28
+        version: 0.0.28
       '@remix-run/cloudflare':
         specifier: ^2.1.0
         version: 2.1.0(@cloudflare/workers-types@4.20231016.0)(typescript@5.2.2)
@@ -60,11 +60,11 @@ importers:
         specifier: ^0.5.6
         version: 0.5.6(tailwindcss@3.3.3)
       '@types/react':
-        specifier: ^18.2.29
-        version: 18.2.29
+        specifier: ^18.2.30
+        version: 18.2.30
       '@types/react-dom':
-        specifier: ^18.2.13
-        version: 18.2.13
+        specifier: ^18.2.14
+        version: 18.2.14
       eslint:
         specifier: ^8.51.0
         version: 8.51.0
@@ -78,8 +78,8 @@ importers:
         specifier: ^5.0.4
         version: 5.2.2
       wrangler:
-        specifier: ^3.13.2
-        version: 3.13.2
+        specifier: ^3.14.0
+        version: 3.14.0
 
   apps/web:
     dependencies:
@@ -133,11 +133,11 @@ importers:
         specifier: ^0.5.6
         version: 0.5.6(tailwindcss@3.3.3)
       '@types/react':
-        specifier: ^18.2.29
-        version: 18.2.29
+        specifier: ^18.2.30
+        version: 18.2.30
       '@types/react-dom':
-        specifier: ^18.2.13
-        version: 18.2.13
+        specifier: ^18.2.14
+        version: 18.2.14
       eslint:
         specifier: ^8.51.0
         version: 8.51.0
@@ -154,8 +154,8 @@ importers:
         specifier: ^5.2.2
         version: 5.2.2
       wrangler:
-        specifier: ^3.13.2
-        version: 3.13.2
+        specifier: ^3.14.0
+        version: 3.14.0
 
   packages/authfordev-api:
     devDependencies:
@@ -178,8 +178,8 @@ importers:
         specifier: workspace:^
         version: link:../authfordev-api
       '@mewhhaha/little-fetcher':
-        specifier: ^0.0.27
-        version: 0.0.27
+        specifier: ^0.0.28
+        version: 0.0.28
       '@passwordless-id/webauthn':
         specifier: ^1.3.0
         version: 1.3.0
@@ -205,11 +205,11 @@ importers:
         specifier: ^1.6.8
         version: 1.6.8(@swc/core@1.3.93)(typescript@5.2.2)
       '@types/react':
-        specifier: ^18.2.29
-        version: 18.2.29
+        specifier: ^18.2.30
+        version: 18.2.30
       '@types/react-dom':
-        specifier: ^18.2.13
-        version: 18.2.13
+        specifier: ^18.2.14
+        version: 18.2.14
       '@vitejs/plugin-react-swc':
         specifier: ^3.4.0
         version: 3.4.0(vite@4.5.0)
@@ -233,7 +233,7 @@ importers:
         version: 3.3.3
       vite:
         specifier: ^4.5.0
-        version: 4.5.0(@types/node@20.8.0)
+        version: 4.5.0
 
   packages/jwt:
     devDependencies:
@@ -274,23 +274,23 @@ importers:
         specifier: workspace:^
         version: link:../../packages/keys
       '@mewhhaha/json-string':
-        specifier: ^0.0.27
-        version: 0.0.27
+        specifier: ^0.0.28
+        version: 0.0.28
       '@mewhhaha/little-fetcher':
-        specifier: ^0.0.27
-        version: 0.0.27
+        specifier: ^0.0.28
+        version: 0.0.28
       '@mewhhaha/little-router':
-        specifier: ^0.0.27
-        version: 0.0.27
+        specifier: ^0.0.28
+        version: 0.0.28
       '@mewhhaha/little-router-plugin-data':
-        specifier: ^0.0.27
-        version: 0.0.27(@mewhhaha/little-router@0.0.27)(arktype@1.0.24-alpha)
+        specifier: ^0.0.28
+        version: 0.0.28(@mewhhaha/little-router@0.0.28)(arktype@1.0.24-alpha)
       '@mewhhaha/little-router-plugin-query':
-        specifier: ^0.0.27
-        version: 0.0.27(@mewhhaha/little-router@0.0.27)(arktype@1.0.24-alpha)
+        specifier: ^0.0.28
+        version: 0.0.28(@mewhhaha/little-router@0.0.28)(arktype@1.0.24-alpha)
       '@mewhhaha/typed-response':
-        specifier: ^0.0.27
-        version: 0.0.27
+        specifier: ^0.0.28
+        version: 0.0.28
       '@passwordless-id/webauthn':
         specifier: ^1.3.0
         version: 1.3.0
@@ -306,12 +306,9 @@ importers:
       typescript:
         specifier: ^5.2.2
         version: 5.2.2
-      uuidv7:
-        specifier: ^0.6.3
-        version: 0.6.3
       wrangler:
-        specifier: ^3.13.2
-        version: 3.13.2
+        specifier: ^3.14.0
+        version: 3.14.0
 
 packages:
 
@@ -1997,40 +1994,40 @@ packages:
       - supports-color
     dev: true
 
-  /@mewhhaha/json-string@0.0.27:
-    resolution: {integrity: sha512-5P1B6rxmwIdSi4QmBZSU5qPCV+KzWhHNc7WrikBxMy6MR4bVJellX10FAk3rZGCt4b4RDC+fYMi/GKM+1r0Vkg==}
+  /@mewhhaha/json-string@0.0.28:
+    resolution: {integrity: sha512-1NE1wcid3d0OkyFwPE8hs+nbh88xfaMS2N2tzdGxz7UYwPUBOq4tXv7wpD01xQpoW02Qk0q05YGVrKudSeBzAw==}
     dev: true
 
-  /@mewhhaha/little-fetcher@0.0.27:
-    resolution: {integrity: sha512-cx+Fpn0jsSSxVQJmKXR2WHh0oyZmAQgSshVOUP77E0tz6ks36jk6r7WZityID0lJwlLDb8I7vWTxh7y1a3pCzQ==}
+  /@mewhhaha/little-fetcher@0.0.28:
+    resolution: {integrity: sha512-NbEG2OmC3Yk8qcNl6+f9c2dsjgbcdzSJBpG+9jeuwzPMqaPTU9teRZDWjKRJ7TYi/+6AgK6ms4Yz7vJUGMaJxg==}
 
-  /@mewhhaha/little-router-plugin-data@0.0.27(@mewhhaha/little-router@0.0.27)(arktype@1.0.24-alpha):
-    resolution: {integrity: sha512-pGV71RvgEexXYyYshALbGaDMcUtKJbAPThKFPYdUWF4p1IFModJZ2+BaziZugJSdgDGHfM6xpZCmlPaX5LlUDw==}
+  /@mewhhaha/little-router-plugin-data@0.0.28(@mewhhaha/little-router@0.0.28)(arktype@1.0.24-alpha):
+    resolution: {integrity: sha512-r2he5x+rifE9yERy6qIdtmBOESLopepF9Iw8WW6ktSM4i2CXpk/qFW6Hci5on9QSvEJLrOPxSgCLF4qGFA5ZkQ==}
     peerDependencies:
-      '@mewhhaha/little-router': ^0.0.27
+      '@mewhhaha/little-router': ^0.0.28
       arktype: '*'
     dependencies:
-      '@mewhhaha/json-string': 0.0.27
-      '@mewhhaha/little-router': 0.0.27
+      '@mewhhaha/json-string': 0.0.28
+      '@mewhhaha/little-router': 0.0.28
       arktype: 1.0.24-alpha
     dev: true
 
-  /@mewhhaha/little-router-plugin-query@0.0.27(@mewhhaha/little-router@0.0.27)(arktype@1.0.24-alpha):
-    resolution: {integrity: sha512-QoXAO8gr89o0Q3vxS/lXqWWUgWjNb0M5tFAWni3Bumai6KWxBnTyRkjsObxlVhymt78e7w3ll6FQl6GW5Oy3oQ==}
+  /@mewhhaha/little-router-plugin-query@0.0.28(@mewhhaha/little-router@0.0.28)(arktype@1.0.24-alpha):
+    resolution: {integrity: sha512-AeuHvvEnAOkmJ0UMzX5HSaOVftw+fTwuibFfs6XAKbQ4S9Ud2MzJ1lVXRilGKXQFDr242hw4VXoh80+JKALXbA==}
     peerDependencies:
-      '@mewhhaha/little-router': ^0.0.27
+      '@mewhhaha/little-router': ^0.0.28
       arktype: '*'
     dependencies:
-      '@mewhhaha/little-router': 0.0.27
+      '@mewhhaha/little-router': 0.0.28
       arktype: 1.0.24-alpha
     dev: true
 
-  /@mewhhaha/little-router@0.0.27:
-    resolution: {integrity: sha512-EE1JbD1WlvtWsSUHzbmO9kTg7Ivkb9t4TT4QdIsTLRRSga6JAg4OSvw2iAzrgTdkjPL8I+bQZCqQf+Y/MkJcRg==}
+  /@mewhhaha/little-router@0.0.28:
+    resolution: {integrity: sha512-Rr1idXy3UAAuLhpj7Z6jmNzAznK1Y0lCG0eaN9nQJLGeiJUB5u6GbcBLOIoUMsh7gzch7iWHPwrWA8GCfOnBwQ==}
     dev: true
 
-  /@mewhhaha/typed-response@0.0.27:
-    resolution: {integrity: sha512-2u7mWhWJzBvJmd77zJcJL85gBj+9ncpEyY0GF9FuItNL03/ScwDQ7bBeuB8RLUjWItks1GH8kW4RbuJ53uqI+w==}
+  /@mewhhaha/typed-response@0.0.28:
+    resolution: {integrity: sha512-cNiPFdE+925yqZcij8cexm8wMNPi0MgZOlR5GsNcD+SdTCddyZSg+7oVGVz9VAGuA2f2Ob1LpiMWz51D+sUwYQ==}
     dev: true
 
   /@microsoft/api-extractor-model@7.28.2:
@@ -3102,22 +3099,22 @@ packages:
     resolution: {integrity: sha512-n1yyPsugYNSmHgxDFjicaI2+gCNjsBck8UX9kuofAKlc0h1bL+20oSF72KeNaW2DUlesbEVCFgyV2dPGTiY42g==}
     dev: true
 
-  /@types/react-dom@18.2.13:
-    resolution: {integrity: sha512-eJIUv7rPP+EC45uNYp/ThhSpE16k22VJUknt5OLoH9tbXoi8bMhwLf5xRuWMywamNbWzhrSmU7IBJfPup1+3fw==}
+  /@types/react-dom@18.2.14:
+    resolution: {integrity: sha512-V835xgdSVmyQmI1KLV2BEIUgqEuinxp9O4G6g3FqO/SqLac049E53aysv0oEFD2kHfejeKU+ZqL2bcFWj9gLAQ==}
     dependencies:
-      '@types/react': 18.2.29
+      '@types/react': 18.2.30
     dev: true
 
-  /@types/react@18.2.29:
-    resolution: {integrity: sha512-Z+ZrIRocWtdD70j45izShRwDuiB4JZqDegqMFW/I8aG5DxxLKOzVNoq62UIO82v9bdgi+DO1jvsb9sTEZUSm+Q==}
+  /@types/react@18.2.30:
+    resolution: {integrity: sha512-OfqdJnDsSo4UNw0bqAjFCuBpLYQM7wvZidz0hVxHRjrEkzRlvZL1pJVyOSY55HMiKvRNEo9DUBRuEl7FNlJ/Vg==}
     dependencies:
       '@types/prop-types': 15.7.9
-      '@types/scheduler': 0.16.4
+      '@types/scheduler': 0.16.5
       csstype: 3.1.2
     dev: true
 
-  /@types/scheduler@0.16.4:
-    resolution: {integrity: sha512-2L9ifAGl7wmXwP4v3pN4p2FLhD0O1qsJpvKmNin5VA8+UvNVb447UDaAEV6UdrkA+m/Xs58U1RFps44x6TFsVQ==}
+  /@types/scheduler@0.16.5:
+    resolution: {integrity: sha512-s/FPdYRmZR8SjLWGMCuax7r3qCWQw9QKHzXVukAuuIJkXkDRwp+Pu5LMIVFi0Fxbav35WURicYr8u1QsoybnQw==}
     dev: true
 
   /@types/semver@7.5.3:
@@ -3296,7 +3293,7 @@ packages:
       lodash: 4.17.21
       mlly: 1.4.2
       outdent: 0.8.0
-      vite: 4.5.0(@types/node@20.8.0)
+      vite: 4.5.0
       vite-node: 0.28.5
     transitivePeerDependencies:
       - '@types/node'
@@ -3319,7 +3316,7 @@ packages:
       vite: ^4
     dependencies:
       '@swc/core': 1.3.90
-      vite: 4.5.0(@types/node@20.8.0)
+      vite: 4.5.0
     transitivePeerDependencies:
       - '@swc/helpers'
     dev: true
@@ -6929,7 +6926,7 @@ packages:
       glob-to-regexp: 0.4.1
       source-map-support: 0.5.21
       stoppable: 1.1.0
-      undici: 5.26.3
+      undici: 5.26.4
       workerd: 1.20231016.0
       ws: 8.14.2
       youch: 3.3.2
@@ -9058,8 +9055,8 @@ packages:
     resolution: {integrity: sha512-Ga1jfYwRn7+cP9v8auvEXN1rX3sWqlayd4HP7OKk4mZWylEmu3KzXDUGrQUN6Ol7qo1gPvB2e5gX6udnyEPgdA==}
     dev: true
 
-  /undici@5.26.3:
-    resolution: {integrity: sha512-H7n2zmKEWgOllKkIUkLvFmsJQj062lSm3uA4EYApG8gLuiOM0/go9bIoC3HVaSnfg4xunowDE2i9p8drkXuvDw==}
+  /undici@5.26.4:
+    resolution: {integrity: sha512-OG+QOf0fTLtazL9P9X7yqWxQ+Z0395Wk6DSkyTxtaq3wQEjIroVe7Y4asCX/vcCxYpNGMnwz8F0qbRYUoaQVMw==}
     engines: {node: '>=14.0'}
     dependencies:
       '@fastify/busboy': 2.0.0
@@ -9201,11 +9198,6 @@ packages:
     engines: {node: '>= 0.4.0'}
     dev: true
 
-  /uuidv7@0.6.3:
-    resolution: {integrity: sha512-zV3eW2NlXTsun/aJ7AixxZjH/byQcH/r3J99MI0dDEkU2cJIBJxhEWUHDTpOaLPRNhebPZoeHuykYREkI9HafA==}
-    hasBin: true
-    dev: true
-
   /uvu@0.5.6:
     resolution: {integrity: sha512-+g8ENReyr8YsOc6fv/NVJs2vFdHBnBNdfE49rshrTzDWOlUx4Gq7KOS2GD8eqhy2j+Ejq29+SbKH8yjkAqXqoA==}
     engines: {node: '>=8'}
@@ -9269,7 +9261,7 @@ packages:
       picocolors: 1.0.0
       source-map: 0.6.1
       source-map-support: 0.5.21
-      vite: 4.5.0(@types/node@20.8.0)
+      vite: 4.5.0
     transitivePeerDependencies:
       - '@types/node'
       - less
@@ -9301,6 +9293,41 @@ packages:
       - sugarss
       - supports-color
       - terser
+    dev: true
+
+  /vite@4.5.0:
+    resolution: {integrity: sha512-ulr8rNLA6rkyFAlVWw2q5YJ91v098AFQ2R0PRFwPzREXOUJQPtFUG0t+/ZikhaOCDqFoDhN6/v8Sq0o4araFAw==}
+    engines: {node: ^14.18.0 || >=16.0.0}
+    hasBin: true
+    peerDependencies:
+      '@types/node': '>= 14'
+      less: '*'
+      lightningcss: ^1.21.0
+      sass: '*'
+      stylus: '*'
+      sugarss: '*'
+      terser: ^5.4.0
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+      less:
+        optional: true
+      lightningcss:
+        optional: true
+      sass:
+        optional: true
+      stylus:
+        optional: true
+      sugarss:
+        optional: true
+      terser:
+        optional: true
+    dependencies:
+      esbuild: 0.18.20
+      postcss: 8.4.31
+      rollup: 3.29.4
+    optionalDependencies:
+      fsevents: 2.3.3
     dev: true
 
   /vite@4.5.0(@types/node@20.8.0):
@@ -9507,8 +9534,8 @@ packages:
       '@cloudflare/workerd-windows-64': 1.20231016.0
     dev: true
 
-  /wrangler@3.13.2:
-    resolution: {integrity: sha512-Z/ZrAL2mJc7E4ialOV9c3wGry0qagp9DfPl5XVd67vtlFPeTSR+1pemtZ5+qI2BXi59kP3OGHBKrrIyG0d9csg==}
+  /wrangler@3.14.0:
+    resolution: {integrity: sha512-4vzw11yG1/KXpYKbumvRJ61Iyhm/yKXb/ayOw/2xiIRdKdpsfN9/796d2l525+CDaGwZWswpLENe6ZMS0p/Ghg==}
     engines: {node: '>=16.13.0'}
     hasBin: true
     dependencies:

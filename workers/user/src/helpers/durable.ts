@@ -59,11 +59,6 @@ export const hmac = async (
     .join("");
 };
 
-export const now = () => new Date().toISOString() as DateISOString;
-
-export type DateISOString =
-  `${string}-${string}-${string}T${string}:${string}:${string}.${string}Z`;
-
 export const $any = <T extends { router: any }>(
   namespace: DurableObjectNamespace,
   id: string | DurableObjectId

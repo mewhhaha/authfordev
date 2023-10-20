@@ -3,7 +3,7 @@ import { PluginContext, Router, RoutesOf } from "@mewhhaha/little-router";
 import { empty, error, ok } from "@mewhhaha/typed-response";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { type } from "arktype";
-import { $any, storageLoader, storageSaver } from "./helpers";
+import { $any, storageLoader, storageSaver } from "./helpers/durable";
 
 const code_ = ({}: PluginContext<{ init?: { body?: string } }>) => {
   return {};

@@ -17,7 +17,7 @@
   "devDependencies": {
     "@internal/jwt": "workspace:^",
     "@mewhhaha/authfordev-api": "workspace:^",
-    "@mewhhaha/little-fetcher": "^0.0.27",
+    "@mewhhaha/little-fetcher": "^0.0.28",
     "@passwordless-id/webauthn": "^1.3.0",
     "esbuild": "^0.19.5",
     "typescript": "^5.2.2"

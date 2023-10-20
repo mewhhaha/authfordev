@@ -10,8 +10,11 @@ import {
 import stylesheet from "~/tailwind.css";
 
 export const links: LinksFunction = () => [
-  { rel: "stylesheet", href: "https://rsms.me/inter/inter.css" },
   { rel: "stylesheet", href: stylesheet },
+  {
+    rel: "stylesheet",
+    href: "https://fonts.googleapis.com/css2?family=Inter&display=swap",
+  },
 ];
 
 export default function App() {
