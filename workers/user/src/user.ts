@@ -145,7 +145,7 @@ export class DurableObjectUser implements DurableObject {
         ),
       ],
       async ({ metadata, query }, self) => {
-        const result: {
+        const data: {
           metadata: Metadata;
           recovery?: Recovery;
           passkeys?: PasskeyLink[];
@@ -154,14 +154,14 @@ export class DurableObjectUser implements DurableObject {
         };
 
         if (query.recovery) {
-          result.recovery = self.recovery;
+          data.recovery = self.recovery;
         }
 
         if (query.passkeys) {
-          result.passkeys = self.passkeys;
+          data.passkeys = self.passkeys;
         }
 
-        return ok(200, result);
+        return ok(200, data);
       }
     )
     .all("/*", [], () => {

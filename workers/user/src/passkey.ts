@@ -3,7 +3,7 @@ import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { empty, error, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { $any, storageLoader, storageSaver } from "./helpers/durable";
-import { Credential, parseCredential } from "./helpers/parser";
+import { Credential, parseCredential, parsedBoolean } from "./helpers/parser";
 import { Env } from "./helpers/env";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { now } from "./helpers/time";
@@ -183,9 +183,20 @@ export class DurableObjectPasskey implements DurableObject {
         return empty(204);
       }
     )
-    .get("/data", [occupied_], async ({ metadata }) => {
-      return ok(200, { metadata });
-    })
+    .get(
+      "/data",
+      [occupied_, query_(type({ "credential?": parsedBoolean }))],
+      async ({ metadata, query }, self) => {
+        const data: { metadata: Metadata; credential?: Credential } = {
+          metadata,
+        };
+
+        if (query.credential) {
+          data.credential = self.credential;
+        }
+        return ok(200, { metadata });
+      }
+    )
     .get(
       "/visitors",
       [occupied_, query_(type({ "metadata?": "'true'" }))],
