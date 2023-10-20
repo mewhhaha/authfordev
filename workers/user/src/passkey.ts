@@ -128,13 +128,6 @@ export class DurableObjectPasskey implements DurableObject {
         metadata: this.metadata,
       }
     );
-    this.kv.put(
-      cacheKeyListPasskey(this.metadata),
-      JSON.stringify<Metadata>(this.metadata),
-      {
-        metadata: this.metadata,
-      }
-    );
   }
 
   static router = Router<[DurableObjectPasskey]>()
@@ -207,7 +200,6 @@ export class DurableObjectPasskey implements DurableObject {
       self.storage.deleteAll();
 
       self.kv.delete(cacheKeySinglePasskey(meta));
-      self.kv.delete(cacheKeyListPasskey(meta));
 
       self.metadata = undefined;
       self.credential = undefined;
@@ -232,32 +224,11 @@ export const cacheKeySinglePasskey = ({
   credentialId,
 }: Pick<Metadata, "app" | "credentialId">) => `#app#${app}#id#${credentialId}`;
 
-export const cacheKeyListPasskey = ({
-  app,
-  userId,
-  credentialId,
-}: Pick<Metadata, "app" | "userId" | "credentialId">) =>
-  `#app#${app}#user#${userId}#id#${credentialId}`;
-
-export const cacheKeyListPasskeyPrefix = ({
-  app,
-  userId,
-}: Pick<Metadata, "app" | "userId">) => `#app#${app}#user#${userId}#id#`;
-
 export const getPasskeyFromCache = (
   kv: KVNamespace,
   values: Pick<Metadata, "app" | "credentialId">
 ) => {
   return kv.get<Passkey>(cacheKeySinglePasskey(values), "json");
-};
-
-export const getListPasskeyFromCache = async (
-  kv: KVNamespace,
-  values: Pick<Metadata, "app" | "userId">
-) => {
-  const result = await kv.list({ prefix: cacheKeyListPasskeyPrefix(values) });
-
-  return result.keys.map((k) => k.metadata as Metadata);
 };
 
 export const makeVisitor = (request: Request) => {

@@ -16,13 +16,7 @@ import {
 } from "./helpers/parser";
 import { $challenge } from "./challenge";
 import { $user } from "./user";
-import {
-  $passkey,
-  Visitor,
-  getListPasskeyFromCache,
-  getPasskeyFromCache,
-  makeVisitor,
-} from "./passkey";
+import { $passkey, Visitor, getPasskeyFromCache, makeVisitor } from "./passkey";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { createBody, sendEmail } from "./helpers/email";
 import { insertUser } from "./helpers/d1";
@@ -246,57 +240,39 @@ const router = Router<[Env, ExecutionContext]>()
   .get(
     "/server/users/:userId/passkeys",
     [server_],
-    async ({ url, app, params: { userId } }, env, ctx) => {
+    async ({ request, app, params: { userId: userIdString } }, env, ctx) => {
       const jurisdiction = {
         user: env.DO_USER.jurisdiction("eu"),
         passkey: env.DO_PASSKEY.jurisdiction("eu"),
       };
-      const cache = caches.default;
+      const cache = await caches.open(`app:${app}`);
 
-      const cacheKey = new Request(`${url.origin}/${app}${url.pathname}`);
+      const cacheKey = new Request(request.url);
 
       const response = await cache.match(cacheKey);
 
       const revalidate = async () => {
-        const getUser = async () => {
-          const user = $user(jurisdiction.user, userId);
-          const response = await user.get("/data?passkeys=true", {
-            headers: { Authorization: app },
-          });
-          if (!response.ok) {
-            return undefined;
-          }
-          return response.json();
-        };
-
-        const user = await getUser();
-        if (!user?.passkeys) {
-          return error(404, { message: "user_missing" });
-        }
-
-        const loadPasskey = async ({ passkeyId }: { passkeyId: string }) => {
-          const passkey = $passkey(jurisdiction.passkey, passkeyId);
-          const response = await passkey.get("/data", {
-            headers: { Authorization: app },
-          });
-
-          if (!response.ok) {
-            return undefined;
-          }
-
-          const { metadata } = await response.json();
-          return metadata;
-        };
-
-        const passkeys = await Promise.all(user.passkeys.map(loadPasskey));
-
-        const response = ok(200, { passkeys });
-        cache.put(cacheKey, response.clone());
-        return response;
+        const passkeys = await listPasskeys(jurisdiction, {
+          app,
+          userId: jurisdiction.user.idFromString(userIdString),
+        });
+        const next = ok(
+          200,
+          { passkeys },
+          { headers: { "Last-Modified": new Date().toUTCString() } }
+        );
+        cache.put(cacheKey, next.clone());
+        return next;
       };
 
       if (response) {
-        ctx.waitUntil(revalidate());
+        const lastModified = response.headers.get("Last-Modified") as string;
+        const difference = Date.now() - new Date(lastModified).getTime();
+        const minute1 = 1000 * 60;
+        const stale = difference > minute1;
+        if (stale) {
+          ctx.waitUntil(revalidate());
+        }
         return response;
       }
 
@@ -698,6 +674,45 @@ const cacheAliases = async (
       })
     )
   );
+};
+
+const listPasskeys = async (
+  namsepaces: { user: DurableObjectNamespace; passkey: DurableObjectNamespace },
+  { app, userId }: { app: string; userId: DurableObjectId }
+) => {
+  const getUser = async () => {
+    const user = $user(namsepaces.user, userId);
+    const response = await user.get("/data?passkeys=true", {
+      headers: { Authorization: app },
+    });
+    if (!response.ok) {
+      return undefined;
+    }
+    return response.json();
+  };
+
+  const user = await getUser();
+  if (!user?.passkeys) {
+    return error(404, { message: "user_missing" });
+  }
+
+  const loadPasskey = async ({ passkeyId }: { passkeyId: string }) => {
+    const passkey = $passkey(namsepaces.passkey, passkeyId);
+    const response = await passkey.get("/data", {
+      headers: { Authorization: app },
+    });
+
+    if (!response.ok) {
+      return undefined;
+    }
+
+    const { metadata } = await response.json();
+    return metadata;
+  };
+
+  const passkeys = await Promise.all(user.passkeys.map(loadPasskey));
+
+  return passkeys;
 };
 
 const verifyRegistration = async (
