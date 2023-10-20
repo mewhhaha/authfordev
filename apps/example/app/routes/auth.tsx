@@ -26,6 +26,10 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   });
 }
 
+export function shouldRevalidate() {
+  return false;
+}
+
 export default function SignIn() {
   const { clientKey } = useLoaderData<typeof loader>();
 

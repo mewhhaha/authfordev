@@ -11,12 +11,18 @@ import {
   Credential,
   parsedBoolean,
   parseClaim,
-  parseSigninToken,
+  parseAuthenticationToken,
   parseRegistrationToken,
+  AuthenticationEncoded,
 } from "./helpers/parser";
 import { $challenge } from "./challenge";
 import { $user } from "./user";
-import { $passkey, Visitor, getPasskeyFromCache, makeVisitor } from "./passkey";
+import {
+  $passkey,
+  Visitor,
+  makeVisitor,
+  Metadata as PasskeyMetadata,
+} from "./passkey";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { createBody, sendEmail } from "./helpers/email";
 import { insertUser } from "./helpers/d1";
@@ -205,7 +211,9 @@ const router = Router<[Env, ExecutionContext]>()
 
         if (created && !linked) {
           const passkey = $passkey(jurisdiction.passkey, passkeyId);
-          passkey.delete("/implode", { headers: { Authorization: app } });
+          passkey.delete("/implode", {
+            headers: { Authorization: `${app}:${userId}` },
+          });
         }
         return error(401, { message: "passkey_not_created" });
       }
@@ -222,59 +230,64 @@ const router = Router<[Env, ExecutionContext]>()
     async ({ app, params: { userId, passkeyId } }, env) => {
       const jurisdiction = env.DO_PASSKEY.jurisdiction("eu");
       const passkey = $passkey(jurisdiction, passkeyId);
-      const response = await passkey.get("/visitors?metadata=true", {
-        headers: { Authorization: app },
+      const response = await passkey.get("/visitors", {
+        headers: { Authorization: `${app}:${userId}` },
       });
       if (!response.ok) {
         return error(404, { message: "passkey_missing" });
       }
 
-      const { metadata, visitors } = await response.json();
-      if (metadata && metadata.userId !== userId) {
-        return error(403, { message: "passkey_invalid" });
-      }
-
-      return ok(200, { visitors });
+      return response;
     }
   )
   .get(
     "/server/users/:userId/passkeys",
     [server_],
     async ({ request, app, params: { userId: userIdString } }, env, ctx) => {
-      const jurisdiction = {
-        user: env.DO_USER.jurisdiction("eu"),
-        passkey: env.DO_PASSKEY.jurisdiction("eu"),
-      };
-      const cache = await caches.open(`app:${app}`);
+      // const cache = await caches.open(`app:${app}`);
 
-      const cacheKey = new Request(request.url);
-
-      const response = await cache.match(cacheKey);
-
+      // const cacheKey = new Request(request.url, {
+      //   headers: { "Last-Modified": new Date().toUTCString() },
+      // });
       const revalidate = async () => {
-        const passkeys = await listPasskeys(jurisdiction, {
+        const jurisdiction = {
+          user: env.DO_USER.jurisdiction("eu"),
+          passkey: env.DO_PASSKEY.jurisdiction("eu"),
+        };
+
+        const { message, passkeys } = await listPasskeys(jurisdiction, {
           app,
           userId: jurisdiction.user.idFromString(userIdString),
         });
-        const next = ok(
-          200,
-          { passkeys },
-          { headers: { "Last-Modified": new Date().toUTCString() } }
+        if (message) {
+          return error(404, { message });
+        }
+
+        await env.KV_PASSKEY.put(
+          kvKeyPasskeys(app, userIdString),
+          JSON.stringify(passkeys)
         );
-        cache.put(cacheKey, next.clone());
-        return next;
+
+        return ok(200, { passkeys });
       };
 
-      if (response) {
-        const lastModified = response.headers.get("Last-Modified") as string;
-        const difference = Date.now() - new Date(lastModified).getTime();
-        const minute1 = 1000 * 60;
-        const stale = difference > minute1;
-        if (stale) {
-          ctx.waitUntil(revalidate());
-        }
-        return response;
+      const passkeys = await env.KV_PASSKEY.get<PasskeyMetadata>(
+        kvKeyPasskeys(app, userIdString),
+        "json"
+      );
+      if (passkeys) {
+        ctx.waitUntil(revalidate());
+        return ok(200, { passkeys });
       }
+
+      // const cached = await cache.match(cacheKey);
+      // if (cached) {
+      //   if (isStale(cached)) {
+      //     ctx.waitUntil(revalidate());
+      //   }
+
+      //   return cached;
+      // }
 
       return revalidate();
     }
@@ -309,19 +322,62 @@ const router = Router<[Env, ExecutionContext]>()
           user: env.DO_USER.jurisdiction("eu"),
         };
 
-        const user = $user(jurisdiction.user, userId);
-        const response = await user.delete("/remove-passkey/:passkeyId", {
-          headers: { Authorization: app },
+        const removeLink = async () => {
+          const user = $user(jurisdiction.user, userId);
+          const response = await user.delete("/remove-passkey/:passkeyId", {
+            headers: { Authorization: app },
+          });
+
+          return response.ok;
+        };
+
+        const removePasskey = async () => {
+          const passkey = $passkey(jurisdiction.passkey, passkeyId);
+          const response = await passkey.delete("/implode", {
+            headers: { Authorization: `${app}:${userId}` },
+          });
+          return response.ok;
+        };
+
+        const [linkRemoved, passkeyRemoved] = await Promise.all([
+          removeLink(),
+          removePasskey(),
+        ]);
+
+        if (!linkRemoved && !passkeyRemoved) {
+          return error(404, { message: "passkey_missing" });
+        }
+
+        return empty(204);
+      } catch {
+        throw error(500, { message: "internal_error" });
+      }
+    }
+  )
+  .put(
+    "/server/users/:userId/passkeys/:passkeyId/rename",
+    [server_, data_(type({ name: "string" }))],
+    async ({ app, data, params: { userId, passkeyId } }, env) => {
+      try {
+        const jurisdiction = {
+          passkey: env.DO_PASSKEY.jurisdiction("eu"),
+          user: env.DO_USER.jurisdiction("eu"),
+        };
+
+        const passkey = $passkey(jurisdiction.passkey, passkeyId);
+        const response = await passkey.put("/rename", {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `${app}:${userId}`,
+          },
+          body: JSON.stringify(data),
         });
 
         if (!response.ok) {
           return error(404, { message: "passkey_missing" });
         }
 
-        const passkey = $passkey(jurisdiction.passkey, passkeyId);
-        await passkey.delete("/implode", { headers: { Authorization: app } });
-
-        return empty(204);
+        return ok(200, data);
       } catch {
         throw error(500, { message: "internal_error" });
       }
@@ -441,71 +497,52 @@ const router = Router<[Env, ExecutionContext]>()
   .post(
     "/server/actions/verify-passkey",
     [server_, data_(type({ token: "string", origin: "string" }))],
-    async ({ app, data }, env, ctx) => {
+    async ({ app, data: { origin, token } }, env, ctx) => {
       const jurisdiction = env.DO_PASSKEY.jurisdiction("eu");
-      const { signinEncoded, claim, message } = await parseSigninToken(
-        app,
-        data.token,
-        env.SECRET_FOR_PASSKEY
-      );
+      const { authentication, challenge, visitor, message } =
+        await parseAuthenticationToken(token, {
+          app,
+          secret: env.SECRET_FOR_PASSKEY,
+        });
       if (message === "token_invalid") {
         return error(401, "token_invalid");
       } else if (message) {
         return error(403, message);
       }
 
-      const [passed, passkey] = await Promise.all([
-        finishChallenge(env.DO_CHALLENGE, claim.jti),
-        $passkey(
-          jurisdiction,
-          jurisdiction.idFromName(signinEncoded.credentialId)
-        )
-          .get("/data?credential=true", { headers: { Authorization: app } })
-          .then((r) => (r.ok ? r.json() : undefined)),
+      const passkeyId = jurisdiction.idFromName(authentication.credentialId);
+      const data = { authentication, origin, challenge };
+
+      const [passed, authenticated] = await Promise.all([
+        finishChallenge(env.DO_CHALLENGE, challenge),
+        authenticatePasskey(jurisdiction, passkeyId, { app, data }),
       ]);
-      if (passkey?.credential === undefined) {
-        throw new Error("Passkey should always have a credential");
-      }
 
       if (!passed) {
         return error(410, { message: "challenge_expired" });
       }
-      if (!passkey) {
+
+      if (!authenticated) {
         return error(403, { message: "passkey_invalid" });
       }
 
-      try {
-        const signinParsed = await server.verifyAuthentication(
-          signinEncoded,
-          passkey.credential,
-          {
-            challenge: encode(claim.jti),
-            origin: data.origin,
-            counter: passkey.metadata.counter,
-            userVerified: true,
-          }
-        );
-
-        ctx.waitUntil(
-          updatePasskey(
-            jurisdiction,
-            jurisdiction.idFromString(passkey.metadata.passkeyId),
-            {
-              counter: signinParsed.authenticator.counter,
-              app,
-              visitor: claim.vis,
-            }
-          )
-        );
-
-        return ok(200, {
-          userId: passkey.metadata.userId,
-          passkeyId: passkey.metadata.passkeyId,
+      const visitPasskey = () => {
+        const passkey = $passkey(jurisdiction, passkeyId);
+        return passkey.put("/visit", {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `${app}:${authenticated.userId}`,
+          },
+          body: JSON.stringify({ visitor, counter: authenticated.counter }),
         });
-      } catch (e) {
-        if (e instanceof Error) console.log(e);
-        return error(403, { message: "passkey_invalid" });
-      }
+      };
+
+      ctx.waitUntil(visitPasskey());
+
+      return ok(200, {
+        userId: authenticated.userId,
+        passkeyId: passkeyId.toString(),
+      });
     }
   )
   .post(
@@ -551,6 +588,13 @@ export default handler;
  * Helper functions
  * --------------------------------------------------------------------
  */
+
+const isStale = (response: Response) => {
+  const lastModified = response.headers.get("Last-Modified") ?? 0;
+  const difference = Date.now() - new Date(lastModified).getTime();
+  const minute1 = 1000 * 60;
+  return difference > minute1;
+};
 
 const cors = (request: Request) => ({
   "Access-Control-Allow-Origin": request.headers.get("Origin") ?? "",
@@ -647,18 +691,6 @@ const removePasskeyLink = async (
   return response.ok;
 };
 
-const updatePasskey = async (
-  namespace: DurableObjectNamespace,
-  passkeyId: DurableObjectId,
-  { app, counter, visitor }: { app: string; counter: number; visitor: Visitor }
-) => {
-  const passkey = $passkey(namespace, passkeyId);
-  await passkey.post("/used", {
-    headers: { "Content-Type": "application/json", Authorization: app },
-    body: JSON.stringify({ counter, visitor }),
-  });
-};
-
 const kvAlias = (app: string, alias: string) =>
   `#app#${app}#alias#${encode(alias)}`;
 
@@ -693,18 +725,18 @@ const listPasskeys = async (
     if (!response.ok) {
       return undefined;
     }
-    return response.json();
+    return await response.json();
   };
 
   const user = await getUser();
   if (!user?.passkeys) {
-    return error(404, { message: "user_missing" });
+    return { message: "user_missing" } as const;
   }
 
   const loadPasskey = async ({ passkeyId }: { passkeyId: string }) => {
     const passkey = $passkey(namsepaces.passkey, passkeyId);
     const response = await passkey.get("/data", {
-      headers: { Authorization: app },
+      headers: { Authorization: `${app}:${userId}` },
     });
 
     if (!response.ok) {
@@ -717,7 +749,11 @@ const listPasskeys = async (
 
   const passkeys = await Promise.all(user.passkeys.map(loadPasskey));
 
-  return passkeys;
+  return {
+    passkeys: passkeys.filter(
+      (p): p is NonNullable<typeof p> => p !== undefined
+    ),
+  } as const;
 };
 
 const verifyRegistration = async (
@@ -727,7 +763,10 @@ const verifyRegistration = async (
   const jurisdiction = env.DO_PASSKEY.jurisdiction("eu");
   try {
     const { registrationEncoded, claim, message } =
-      await parseRegistrationToken(app, token, env.SECRET_FOR_PASSKEY);
+      await parseRegistrationToken(token, {
+        app,
+        secret: env.SECRET_FOR_PASSKEY,
+      });
     if (message) {
       return { message } as const;
     }
@@ -753,4 +792,44 @@ const verifyRegistration = async (
   } catch {
     return { message: "passkey_invalid" } as const;
   }
+};
+
+const authenticatePasskey = async (
+  namespace: DurableObjectNamespace,
+  passkeyId: DurableObjectId,
+  {
+    app,
+    data,
+  }: {
+    app: string;
+    data: {
+      authentication: AuthenticationEncoded;
+      origin: string;
+      challenge: string;
+    };
+  }
+) => {
+  const passkey = $passkey(namespace, passkeyId);
+
+  try {
+    const response = await passkey.post("/authenticate", {
+      headers: { "Content-Type": "application/json", Authorization: app },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      return undefined;
+    }
+    return await response.json();
+  } catch {
+    return undefined;
+  }
+};
+
+const kvKeyPasskey = (app: string, credentialId: string) => {
+  return `app#${app}#credentialId#${credentialId}}`;
+};
+
+const kvKeyPasskeys = (app: string, userId: string) => {
+  return `app#${app}#userId#${userId}}`;
 };

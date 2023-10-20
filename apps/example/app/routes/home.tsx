@@ -6,7 +6,7 @@ import {
 } from "@remix-run/cloudflare";
 import { Form, useFetcher, useLoaderData } from "@remix-run/react";
 import type { ComponentProps, JSXElementConstructor } from "react";
-import { createContext, forwardRef, useContext } from "react";
+import { forwardRef } from "react";
 import { authfordev } from "~/api/authfordev";
 import { authenticate } from "~/auth/authenticate.server";
 import { useSignOut } from "~/auth/useAuth";
@@ -93,20 +93,14 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   return { success: true, id: "" };
 }
 
-const Context = createContext<string[]>(["en-US"]);
-
-const useLanguage = () => {
-  return useContext(Context);
-};
-
 export default function Index() {
-  const { language, passkeys, user, session } = useLoaderData<typeof loader>();
+  const { passkeys, user, session } = useLoaderData<typeof loader>();
 
   const signout = useSignOut();
   const item = useFetcher<typeof action>();
 
   return (
-    <Context.Provider value={language}>
+    <>
       <header>
         <div className="border-b p-10 md:flex md:items-center md:justify-between">
           <div className="min-w-0 flex-1">
@@ -223,7 +217,7 @@ export default function Index() {
                             <p className="text-sm">
                               The date when this passkey was last used
                             </p>
-                            <Time dateTime={lastUsedAt} />
+                            {/* <Time dateTime={lastUsedAt} /> */}
                           </dd>
                         </div>
                         <div>
@@ -247,7 +241,7 @@ export default function Index() {
           </Button>
         </section>
       </main>
-    </Context.Provider>
+    </>
   );
 }
 
@@ -287,14 +281,15 @@ const DetailsPasskey = ({
 };
 
 const Time = (props: Omit<JSX.IntrinsicElements["time"], "children">) => {
-  const language = useLanguage();
+  const formatter = new Intl.DateTimeFormat("en-se", {
+    dateStyle: "full",
+    timeStyle: "long",
+    timeZone: "UTC",
+  });
 
   return (
     <time {...props}>
-      {props.dateTime &&
-        new Date(props.dateTime).toLocaleDateString(language, {
-          dateStyle: "full",
-        })}
+      {props.dateTime && formatter.format(new Date(props.dateTime))}
     </time>
   );
 };

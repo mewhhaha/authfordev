@@ -81,10 +81,9 @@ export const parsedBoolean = type([
   },
 ]);
 
-export const parseSigninToken = async (
-  app: string,
+export const parseAuthenticationToken = async (
   token: string,
-  secret: string
+  { app, secret }: { app: string; secret: string }
 ) => {
   const [tokenRaw, signinRaw] = token.split("#");
   const { claim, message } = await parseClaim<{ vis: Visitor }>(
@@ -96,20 +95,19 @@ export const parseSigninToken = async (
     return { message };
   }
 
-  const { data: signinEncoded, problems } = parseAuthenticationEncoded(
+  const { data: authentication, problems } = parseAuthenticationEncoded(
     JSON.parse(decode(signinRaw))
   );
   if (problems) {
     return { message: "token_invalid" } as const;
   }
 
-  return { signinEncoded, claim };
+  return { authentication, visitor: claim.vis, challenge: claim.jti };
 };
 
 export const parseRegistrationToken = async (
-  app: string,
   token: string,
-  secret: string
+  { app, secret }: { app: string; secret: string }
 ) => {
   const [tokenRaw, registrationRaw] = token.split("#");
   const { claim, message } = await parseClaim<{ vis: Visitor }>(
