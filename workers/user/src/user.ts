@@ -138,14 +138,27 @@ export class DurableObjectUser implements DurableObject {
     )
     .get(
       "/data",
-      [occupied_, query_(type({ "recovery?": parsedBoolean }))],
+      [
+        occupied_,
+        query_(
+          type({ "recovery?": parsedBoolean, "passkeys?": parsedBoolean })
+        ),
+      ],
       async ({ metadata, query }, self) => {
-        const result: { metadata: Metadata; recovery?: Recovery } = {
+        const result: {
+          metadata: Metadata;
+          recovery?: Recovery;
+          passkeys?: PasskeyLink[];
+        } = {
           metadata,
         };
 
         if (query.recovery) {
           result.recovery = self.recovery;
+        }
+
+        if (query.passkeys) {
+          result.passkeys = self.passkeys;
         }
 
         return ok(200, result);

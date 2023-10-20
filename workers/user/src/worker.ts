@@ -246,17 +246,61 @@ const router = Router<[Env, ExecutionContext]>()
   .get(
     "/server/users/:userId/passkeys",
     [server_],
-    async ({ app, params: { userId } }, env) => {
-      try {
-        const passkeys = await getListPasskeyFromCache(env.KV_PASSKEY, {
-          app,
-          userId,
-        });
+    async ({ url, app, params: { userId } }, env, ctx) => {
+      const jurisdiction = {
+        user: env.DO_USER.jurisdiction("eu"),
+        passkey: env.DO_PASSKEY.jurisdiction("eu"),
+      };
+      const cache = caches.default;
 
-        return ok(200, { passkeys });
-      } catch {
-        return error(404, { message: "user_missing" });
+      const cacheKey = new Request(`${url.origin}/${app}${url.pathname}`);
+
+      const response = await cache.match(cacheKey);
+
+      const revalidate = async () => {
+        const getUser = async () => {
+          const user = $user(jurisdiction.user, userId);
+          const response = await user.get("/data?passkeys=true", {
+            headers: { Authorization: app },
+          });
+          if (!response.ok) {
+            return undefined;
+          }
+          return response.json();
+        };
+
+        const user = await getUser();
+        if (!user?.passkeys) {
+          return error(404, { message: "user_missing" });
+        }
+
+        const loadPasskey = async ({ passkeyId }: { passkeyId: string }) => {
+          const passkey = $passkey(jurisdiction.passkey, passkeyId);
+          const response = await passkey.get("/data", {
+            headers: { Authorization: app },
+          });
+
+          if (!response.ok) {
+            return undefined;
+          }
+
+          const { metadata } = await response.json();
+          return metadata;
+        };
+
+        const passkeys = await Promise.all(user.passkeys.map(loadPasskey));
+
+        const response = ok(200, { passkeys });
+        cache.put(cacheKey, response.clone());
+        return response;
+      };
+
+      if (response) {
+        ctx.waitUntil(revalidate());
+        return response;
       }
+
+      return revalidate();
     }
   )
   .get(

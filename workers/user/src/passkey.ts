@@ -160,6 +160,7 @@ export class DurableObjectPasskey implements DurableObject {
         return ok(201, { credential, meta });
       }
     )
+
     .post(
       "/used",
       [occupied_, data_(type({ counter: "number", visitor: parseVisitor }))],
@@ -176,16 +177,6 @@ export class DurableObjectPasskey implements DurableObject {
         return empty(204);
       }
     )
-    .get(
-      "/visitors",
-      [occupied_, query_(type({ "metadata?": "'true'" }))],
-      async ({ query, metadata }, self) => {
-        return ok(200, {
-          visitors: self.visitors,
-          metadata: query.metadata ? metadata : undefined,
-        });
-      }
-    )
     .post(
       "/rename",
       [occupied_, data_(type({ name: "string" }))],
@@ -199,6 +190,19 @@ export class DurableObjectPasskey implements DurableObject {
         return empty(204);
       }
     )
+    .get("/data", [occupied_], async ({ metadata }) => {
+      return ok(200, { metadata });
+    })
+    .get(
+      "/visitors",
+      [occupied_, query_(type({ "metadata?": "'true'" }))],
+      async ({ query, metadata }, self) => {
+        return ok(200, {
+          visitors: self.visitors,
+          metadata: query.metadata ? metadata : undefined,
+        });
+      }
+    )
     .delete("/implode", [occupied_], async ({ metadata: meta }, self) => {
       self.storage.deleteAll();
 
@@ -210,7 +214,6 @@ export class DurableObjectPasskey implements DurableObject {
 
       return ok(200, { meta });
     })
-
     .all("/*", [], () => {
       return new Response("Not found", { status: 404 });
     });
