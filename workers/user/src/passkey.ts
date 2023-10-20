@@ -194,7 +194,7 @@ export class DurableObjectPasskey implements DurableObject {
         if (query.credential) {
           data.credential = self.credential;
         }
-        return ok(200, { metadata });
+        return ok(200, data);
       }
     )
     .get(

@@ -456,11 +456,16 @@ const router = Router<[Env, ExecutionContext]>()
 
       const [passed, passkey] = await Promise.all([
         finishChallenge(env.DO_CHALLENGE, claim.jti),
-        getPasskeyFromCache(env.KV_PASSKEY, {
-          app,
-          credentialId: signinEncoded.credentialId,
-        }),
+        $passkey(
+          jurisdiction,
+          jurisdiction.idFromName(signinEncoded.credentialId)
+        )
+          .get("/data?credential=true", { headers: { Authorization: app } })
+          .then((r) => (r.ok ? r.json() : undefined)),
       ]);
+      if (passkey?.credential === undefined) {
+        throw new Error("Passkey should always have a credential");
+      }
 
       if (!passed) {
         return error(410, { message: "challenge_expired" });
