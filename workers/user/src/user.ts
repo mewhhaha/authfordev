@@ -1,4 +1,3 @@
-import { fetcher } from "@mewhhaha/little-fetcher";
 import { Plugin, PluginContext, Router } from "@mewhhaha/little-router";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { empty, error, ok } from "@mewhhaha/typed-response";
@@ -7,42 +6,55 @@ import { $any, storageLoader, storageSaver } from "./helpers/durable";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { parsedBoolean } from "./helpers/parser";
 
+export type GuardUser = `user:${string}`;
+
 const occupied_ = ((
   {
     request,
   }: PluginContext<{
-    init: { headers: { Authorization: string } };
+    // This should be `user:${app}`
+    init: { headers: { Authorization: GuardUser } };
   }>,
   self
 ) => {
-  const authorization = request.headers.get("Authorization");
+  const authorization = request.headers.get("Authorization")?.slice();
   if (!authorization) {
     return error(401, "authorization_missing");
   }
 
   if (!self.metadata) {
-    return error(404, "user_unoccupied");
+    return error(404, "user_missing");
   }
 
-  if (authorization !== self.metadata?.app) {
+  const [_, app] = authorization.split(":");
+
+  if (app !== self.metadata?.app) {
+    console.log(self.metadata);
     return error(403, "app_mismatch");
   }
 
   return { metadata: self.metadata };
 }) satisfies Plugin<[DurableObjectUser]>;
 
-type Metadata = {
+// This should be #${app}:${userId}
+
+export type Metadata = {
   app: string;
   aliases: string[];
 };
 
-type Recovery = {
+export type Recovery = {
   emails: { address: string; verified: boolean; primary: boolean }[];
 };
 
-const parsePasskeyLink = type({ credentialId: "string", passkeyId: "string" });
+const parsePasskeyLink = type({
+  name: "1<=string<=60",
+  credentialId: "string",
+  userId: "string",
+  passkeyId: "string",
+});
 
-type PasskeyLink = typeof parsePasskeyLink.infer;
+export type PasskeyLink = typeof parsePasskeyLink.infer;
 
 export class DurableObjectUser implements DurableObject {
   metadata?: Metadata;
@@ -124,16 +136,31 @@ export class DurableObjectUser implements DurableObject {
         return empty(204);
       }
     )
+    .put(
+      "/rename-passkey/:passkeyId",
+      [occupied_, data_(type({ name: "1<=string<=60" }))],
+      async ({ params: { passkeyId }, data: { name } }, self) => {
+        const passkey = self.passkeys.find((p) => p.passkeyId === passkeyId);
+        if (!passkey) {
+          return error(404, { message: "passkey_missing" });
+        }
+
+        passkey.name = name;
+        self.save("passkeys", self.passkeys);
+
+        return ok(200, { passkeys: self.passkeys });
+      }
+    )
     .delete(
       "/remove-passkey/:passkeyId",
       [occupied_],
       async ({ params: { passkeyId } }, self) => {
-        const updated = self.passkeys.filter((p) => p.passkeyId !== passkeyId);
-        if (updated.length === self.passkeys.length) {
+        const removed = self.passkeys.filter((p) => p.passkeyId !== passkeyId);
+        if (removed.length === self.passkeys.length) {
           return error(404, { message: "passkey_not_found" });
         }
-        self.save("passkeys", updated);
-        return empty(204);
+        self.save("passkeys", removed);
+        return ok(200, { passkeys: self.passkeys });
       }
     )
     .get(

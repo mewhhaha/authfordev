@@ -102,7 +102,7 @@ export const parseAuthenticationToken = async (
     return { message: "token_invalid" } as const;
   }
 
-  return { authentication, visitor: claim.vis, challenge: claim.jti };
+  return { authentication, visitor: claim.vis, challengeId: claim.jti };
 };
 
 export const parseRegistrationToken = async (

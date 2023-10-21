@@ -1,5 +1,5 @@
 import { json, redirect } from "@remix-run/cloudflare";
-import { authfordev } from "~/api/authfordev";
+import { webauthn } from "~/api/authfordev";
 import type { SessionData } from "./authenticate.server";
 import {
   authenticate,
@@ -126,14 +126,14 @@ export const endpoint = async (
     }
   }
 
-  return new Response("Not found", { status: 404 });
+  throw new Response("Not found", { status: 404 });
 };
 
 const newSignin = async (
   serverKey: string,
   { token, origin }: { token: string; origin: string }
 ) => {
-  const response = await authfordev.post("/server/actions/verify-passkey", {
+  const response = await webauthn.post("/server/actions/verify-passkey", {
     headers: {
       Authorization: serverKey,
       "Content-Type": "application/json",
@@ -156,7 +156,7 @@ const newUser = async (
     origin,
   }: { aliases: string[]; token: string; origin: string }
 ) => {
-  const response = await authfordev.post("/server/users", {
+  const response = await webauthn.post("/server/users", {
     headers: {
       Authorization: serverKey,
       "Content-Type": "application/json",
@@ -175,7 +175,7 @@ const checkAliases = async (
   serverKey: string,
   { aliases }: { aliases: string[] }
 ) => {
-  const response = await authfordev.post("/server/actions/check-aliases", {
+  const response = await webauthn.post("/server/actions/check-aliases", {
     headers: {
       Authorization: serverKey,
       "Content-Type": "application/json",

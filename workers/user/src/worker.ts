@@ -13,15 +13,15 @@ import {
   parseClaim,
   parseAuthenticationToken,
   parseRegistrationToken,
-  AuthenticationEncoded,
 } from "./helpers/parser";
 import { $challenge } from "./challenge";
-import { $user } from "./user";
+import { $user, GuardUser, PasskeyLink } from "./user";
 import {
   $passkey,
   Visitor,
   makeVisitor,
   Metadata as PasskeyMetadata,
+  GuardPasskey,
 } from "./passkey";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { createBody, sendEmail } from "./helpers/email";
@@ -31,6 +31,13 @@ import { minute1, now } from "./helpers/time";
 export { DurableObjectUser } from "./user";
 export { DurableObjectChallenge } from "./challenge";
 export { DurableObjectPasskey } from "./passkey";
+
+type CachedPasskey = {
+  userId: string;
+  passkeyId: string;
+  counter: number;
+  credential: Credential;
+};
 
 const server_ = (async (
   {
@@ -116,20 +123,17 @@ const router = Router<[Env, ExecutionContext]>()
       const userId = jurisdiction.user.newUniqueId();
 
       const { success } = await insertUser(env.D1, {
-        userId: userId.toString(),
+        userId: `${userId}`,
         app,
         aliases,
       });
       if (!success) {
-        return error(409, { message: "aliases_already_in_use" });
+        return error(409, { message: "aliases_taken" });
       }
 
       const user = $user(jurisdiction.user, userId);
 
-      const passkeyLink = {
-        passkeyId: passkeyId.toString(),
-        credentialId: credential.id,
-      };
+      const passkeyLink = makePasskeyLink({ passkeyId, credential, userId });
       const response = await user.post("/occupy", {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, app, aliases, passkey: passkeyLink }),
@@ -139,22 +143,20 @@ const router = Router<[Env, ExecutionContext]>()
       }
 
       const postUpdate = async () => {
+        const passkey = $passkey(jurisdiction.passkey, passkeyId);
+
         await Promise.all([
           cacheAliases(env.KV_ALIAS, { app, userId, aliases }),
-          createPasskey(jurisdiction.passkey, passkeyId, {
-            app,
-            visitor,
-            userId,
-            credential,
-          }),
+          cacheNewPasskey(env.KV_PASSKEY, { app, passkeyLink, credential }),
+          createPasskey(passkey, { app, visitor, userId, credential }),
         ]);
       };
 
       ctx.waitUntil(postUpdate());
 
       return ok(201, {
-        userId: userId.toString(),
-        passkeyId: passkeyId.toString(),
+        userId: `${userId}`,
+        passkeyId: `${passkeyId}`,
       });
     }
   )
@@ -185,38 +187,20 @@ const router = Router<[Env, ExecutionContext]>()
       }
 
       const userId = jurisdiction.user.idFromString(userIdString);
-
-      const linkedPromise = linkPasskey(jurisdiction.user, userId, {
-        app,
-        passkeyId,
-        credentialId: credential.id,
-      });
-
-      const createdPromise = createPasskey(jurisdiction.passkey, passkeyId, {
-        app,
-        visitor,
-        userId,
-        credential,
-      });
-
-      const [linked, created] = await Promise.all([
-        linkedPromise,
-        createdPromise,
-      ]);
-
-      if (!created || !linked) {
-        if (!created && linked) {
-          removePasskeyLink(jurisdiction.user, userId, { app, passkeyId });
-        }
-
-        if (created && !linked) {
-          const passkey = $passkey(jurisdiction.passkey, passkeyId);
-          passkey.delete("/implode", {
-            headers: { Authorization: `${app}:${userId}` },
-          });
-        }
-        return error(401, { message: "passkey_not_created" });
+      const user = $user(jurisdiction.user, userId);
+      const passkeyLink = makePasskeyLink({ passkeyId, credential, userId });
+      const guard = guardUser(app);
+      const linked = await linkPasskey(user, { passkeyLink, guard });
+      if (!linked) {
+        return error(404, { message: "user_missing" });
       }
+
+      const passkey = $passkey(jurisdiction.passkey, passkeyId);
+      const creationData = { app, visitor, userId, credential };
+      await Promise.all([
+        createPasskey(passkey, creationData),
+        cacheNewPasskey(env.KV_PASSKEY, { app, passkeyLink, credential }),
+      ]);
 
       return ok(201, {
         userId,
@@ -225,16 +209,21 @@ const router = Router<[Env, ExecutionContext]>()
     }
   )
   .get(
-    "/server/users/:userId/passkeys/:passkeyId/visitors",
-    [server_],
-    async ({ app, params: { userId, passkeyId } }, env) => {
+    "/server/users/:userId/passkeys/:passkeyId",
+    [server_, query_(type({ "visitors?": parsedBoolean }))],
+    async (
+      { app, query: { visitors = false }, params: { userId, passkeyId } },
+      env
+    ) => {
       const jurisdiction = env.DO_PASSKEY.jurisdiction("eu");
       const passkey = $passkey(jurisdiction, passkeyId);
-      const response = await passkey.get("/visitors", {
-        headers: { Authorization: `${app}:${userId}` },
+      const guard = guardPasskey(app, userId);
+      const response = await passkey.get(`/data?visitors=${visitors}`, {
+        headers: { Authorization: guard },
       });
+
       if (!response.ok) {
-        return error(404, { message: "passkey_missing" });
+        return error(404, "passkey_missing");
       }
 
       return response;
@@ -243,53 +232,13 @@ const router = Router<[Env, ExecutionContext]>()
   .get(
     "/server/users/:userId/passkeys",
     [server_],
-    async ({ request, app, params: { userId: userIdString } }, env, ctx) => {
-      // const cache = await caches.open(`app:${app}`);
-
-      // const cacheKey = new Request(request.url, {
-      //   headers: { "Last-Modified": new Date().toUTCString() },
-      // });
-      const revalidate = async () => {
-        const jurisdiction = {
-          user: env.DO_USER.jurisdiction("eu"),
-          passkey: env.DO_PASSKEY.jurisdiction("eu"),
-        };
-
-        const { message, passkeys } = await listPasskeys(jurisdiction, {
-          app,
-          userId: jurisdiction.user.idFromString(userIdString),
-        });
-        if (message) {
-          return error(404, { message });
-        }
-
-        await env.KV_PASSKEY.put(
-          kvKeyPasskeys(app, userIdString),
-          JSON.stringify(passkeys)
-        );
-
-        return ok(200, { passkeys });
-      };
-
-      const passkeys = await env.KV_PASSKEY.get<PasskeyMetadata>(
-        kvKeyPasskeys(app, userIdString),
+    async ({ app, params: { userId: userIdString } }, env, ctx) => {
+      const passkeys = await env.KV_PASSKEY.get<PasskeyLink[]>(
+        makeKvKeyPasskeys(app, userIdString),
         "json"
       );
-      if (passkeys) {
-        ctx.waitUntil(revalidate());
-        return ok(200, { passkeys });
-      }
 
-      // const cached = await cache.match(cacheKey);
-      // if (cached) {
-      //   if (isStale(cached)) {
-      //     ctx.waitUntil(revalidate());
-      //   }
-
-      //   return cached;
-      // }
-
-      return revalidate();
+      return ok(200, { passkeys: passkeys ?? [] });
     }
   )
   .get(
@@ -302,7 +251,7 @@ const router = Router<[Env, ExecutionContext]>()
       const jurisdiction = env.DO_USER.jurisdiction("eu");
       const user = $user(jurisdiction, userIdString);
       const response = await user.get(`/data?recovery=${recovery}`, {
-        headers: { Authorization: app },
+        headers: { Authorization: guardUser(app) },
       });
 
       if (!response.ok) {
@@ -315,72 +264,69 @@ const router = Router<[Env, ExecutionContext]>()
   .delete(
     "/server/users/:userId/passkeys/:passkeyId",
     [server_],
-    async ({ app, params: { userId, passkeyId } }, env) => {
-      try {
-        const jurisdiction = {
-          passkey: env.DO_PASSKEY.jurisdiction("eu"),
-          user: env.DO_USER.jurisdiction("eu"),
-        };
+    async ({ app, params: { userId, passkeyId } }, env, ctx) => {
+      const jurisdiction = {
+        passkey: env.DO_PASSKEY.jurisdiction("eu"),
+        user: env.DO_USER.jurisdiction("eu"),
+      };
 
-        const removeLink = async () => {
-          const user = $user(jurisdiction.user, userId);
-          const response = await user.delete("/remove-passkey/:passkeyId", {
-            headers: { Authorization: app },
-          });
+      const user = $user(jurisdiction.user, userId);
+      const passkey = $passkey(jurisdiction.passkey, passkeyId);
 
-          return response.ok;
-        };
+      const [removedLink, removedPasskey] = await Promise.all([
+        removePasskeyLink(user, { guard: guardUser(app), passkeyId }),
+        removePasskey(passkey, { guard: guardPasskey(app, userId) }),
+      ]);
 
-        const removePasskey = async () => {
-          const passkey = $passkey(jurisdiction.passkey, passkeyId);
-          const response = await passkey.delete("/implode", {
-            headers: { Authorization: `${app}:${userId}` },
-          });
-          return response.ok;
-        };
-
-        const [linkRemoved, passkeyRemoved] = await Promise.all([
-          removeLink(),
-          removePasskey(),
-        ]);
-
-        if (!linkRemoved && !passkeyRemoved) {
-          return error(404, { message: "passkey_missing" });
-        }
-
-        return empty(204);
-      } catch {
-        throw error(500, { message: "internal_error" });
+      if (!removedLink || !removedPasskey) {
+        return error(404, { message: "passkey_missing" });
       }
+
+      const postDelete = async () => {
+        await cacheRemovedPasskey(env.KV_PASSKEY, {
+          app,
+          userId,
+          credentialId: removedPasskey.metadata.credentialId,
+          passkeyLinks: removedLink.passkeys,
+        });
+      };
+
+      ctx.waitUntil(postDelete());
+
+      return ok(200, removedPasskey);
     }
   )
   .put(
-    "/server/users/:userId/passkeys/:passkeyId/rename",
+    "/server/users/:userId/rename-passkey/:passkeyId",
     [server_, data_(type({ name: "string" }))],
-    async ({ app, data, params: { userId, passkeyId } }, env) => {
-      try {
-        const jurisdiction = {
-          passkey: env.DO_PASSKEY.jurisdiction("eu"),
-          user: env.DO_USER.jurisdiction("eu"),
-        };
+    async ({ app, data, params: { userId, passkeyId } }, env, ctx) => {
+      const jurisdiction = {
+        passkey: env.DO_PASSKEY.jurisdiction("eu"),
+        user: env.DO_USER.jurisdiction("eu"),
+      };
 
-        const passkey = $passkey(jurisdiction.passkey, passkeyId);
-        const response = await passkey.put("/rename", {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `${app}:${userId}`,
-          },
-          body: JSON.stringify(data),
-        });
+      const user = $user(jurisdiction.user, userId);
+      const response = await user.put(`/rename-passkey/${passkeyId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: guardUser(app),
+        },
+        body: JSON.stringify(data),
+      });
 
-        if (!response.ok) {
-          return error(404, { message: "passkey_missing" });
-        }
-
-        return ok(200, data);
-      } catch {
-        throw error(500, { message: "internal_error" });
+      if (!response.ok) {
+        return error(404, { message: "passkey_missing" });
       }
+
+      const postRename = async () => {
+        const { passkeys } = await response.json();
+        const kvKey = makeKvKeyPasskeys(app, userId);
+        await cacheUpdatedPasskeys(env.KV_PASSKEY, kvKey, passkeys);
+      };
+
+      ctx.waitUntil(postRename());
+
+      return ok(200, data);
     }
   )
   .post(
@@ -418,9 +364,7 @@ const router = Router<[Env, ExecutionContext]>()
 
       const response = await $user(jurisdiction, userId).get(
         "/data?recovery=true",
-        {
-          headers: { Authorization: app },
-        }
+        { headers: { Authorization: guardUser(app) } }
       );
       if (!response.ok) {
         console.log("Alias didn't result in a proper user for some reason");
@@ -451,20 +395,19 @@ const router = Router<[Env, ExecutionContext]>()
 
       const minute30 = 1000 * 60 * 30;
 
+      const challenge = $challenge(env.DO_CHALLENGE, challengeId);
+
       const postSend = async () => {
         await Promise.all([
           sendEmail(env.API_URL_MAILCHANNELS, body),
-          $challenge(env.DO_CHALLENGE, challengeId).post(
-            `/start?ms=${minute30}`,
-            { body: code }
-          ),
+          startChallenge(challenge, { ms: minute30, code }),
         ]);
       };
 
       ctx.waitUntil(postSend());
 
       const claim = encodeJwt(env.SECRET_FOR_PASSKEY, {
-        jti: challengeId.toString(),
+        jti: `${challengeId}`,
         sub: userId,
         exp: jwtTime(new Date(Date.now() + minute30)),
         aud: app,
@@ -486,7 +429,8 @@ const router = Router<[Env, ExecutionContext]>()
         return error(403, message);
       }
 
-      const passed = await finishChallenge(env.DO_CHALLENGE, claim.jti, code);
+      const challenge = $challenge(env.DO_CHALLENGE, claim.jti);
+      const passed = await finishChallenge(challenge, code);
       if (!passed) {
         return error(403, { message: "challenge_expired" });
       }
@@ -499,7 +443,7 @@ const router = Router<[Env, ExecutionContext]>()
     [server_, data_(type({ token: "string", origin: "string" }))],
     async ({ app, data: { origin, token } }, env, ctx) => {
       const jurisdiction = env.DO_PASSKEY.jurisdiction("eu");
-      const { authentication, challenge, visitor, message } =
+      const { authentication, challengeId, visitor, message } =
         await parseAuthenticationToken(token, {
           app,
           secret: env.SECRET_FOR_PASSKEY,
@@ -511,38 +455,60 @@ const router = Router<[Env, ExecutionContext]>()
       }
 
       const passkeyId = jurisdiction.idFromName(authentication.credentialId);
-      const data = { authentication, origin, challenge };
-
-      const [passed, authenticated] = await Promise.all([
-        finishChallenge(env.DO_CHALLENGE, challenge),
-        authenticatePasskey(jurisdiction, passkeyId, { app, data }),
+      const kvKeyPasskey = makeKvKeyPasskey(app, authentication.credentialId);
+      const challenge = $challenge(env.DO_CHALLENGE, challengeId);
+      const [passed, cached] = await Promise.all([
+        finishChallenge(challenge),
+        env.KV_PASSKEY.get<CachedPasskey>(kvKeyPasskey, "json"),
       ]);
 
       if (!passed) {
         return error(410, { message: "challenge_expired" });
       }
 
-      if (!authenticated) {
+      if (!cached) {
         return error(403, { message: "passkey_invalid" });
       }
 
-      const visitPasskey = () => {
-        const passkey = $passkey(jurisdiction, passkeyId);
-        return passkey.put("/visit", {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `${app}:${authenticated.userId}`,
-          },
-          body: JSON.stringify({ visitor, counter: authenticated.counter }),
+      try {
+        const { authenticator } = await server.verifyAuthentication(
+          authentication,
+          cached.credential,
+          {
+            origin,
+            challenge: encode(challengeId),
+            counter: cached.counter,
+            userVerified: true,
+          }
+        );
+
+        const postVerification = async () => {
+          const passkey = $passkey(jurisdiction, passkeyId);
+          const guard = guardPasskey(app, cached.userId);
+          const counter = authenticator.counter || -1;
+          const data = { guard, visitor, counter };
+          const visitPromise = visitPasskey(passkey, data);
+
+          const updated = { ...cached, counter };
+          const cachePromise = cacheUpdatedPasskey(
+            env.KV_PASSKEY,
+            kvKeyPasskey,
+            updated
+          );
+
+          await Promise.all([visitPromise, cachePromise]);
+        };
+
+        ctx.waitUntil(postVerification());
+
+        return ok(200, {
+          userId: cached.userId,
+          passkeyId: cached.passkeyId,
         });
-      };
-
-      ctx.waitUntil(visitPasskey());
-
-      return ok(200, {
-        userId: authenticated.userId,
-        passkeyId: passkeyId.toString(),
-      });
+      } catch (err) {
+        console.error(err);
+        return error(403, { message: "authentication_failed" });
+      }
     }
   )
   .post(
@@ -589,13 +555,6 @@ export default handler;
  * --------------------------------------------------------------------
  */
 
-const isStale = (response: Response) => {
-  const lastModified = response.headers.get("Last-Modified") ?? 0;
-  const difference = Date.now() - new Date(lastModified).getTime();
-  const minute1 = 1000 * 60;
-  return difference > minute1;
-};
-
 const cors = (request: Request) => ({
   "Access-Control-Allow-Origin": request.headers.get("Origin") ?? "",
   "Access-Control-Allow-Method": "POST",
@@ -615,80 +574,90 @@ const CHARACTERS =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
 const finishChallenge = async (
-  namespace: DurableObjectNamespace,
-  id: string,
+  challenge: ReturnType<typeof $challenge>,
   code?: string
 ) => {
-  const response = await $challenge(namespace, id).post("/finish", {
+  const response = await challenge.post("/finish", {
     body: code,
   });
   return response.ok;
 };
 
+const startChallenge = async (
+  challenge: ReturnType<typeof $challenge>,
+  { ms, code }: { ms?: number; code?: string }
+) => {
+  return challenge.post(`/start?ms=${ms}`, { body: code });
+};
+
 const createPasskey = async (
-  namespace: DurableObjectNamespace,
-  passkeyId: DurableObjectId,
+  passkey: ReturnType<typeof $passkey>,
   data: {
-    userId: DurableObjectId;
+    userId: DurableObjectId | string;
     app: string;
     credential: Credential;
     visitor: Visitor;
   }
 ) => {
-  const passkey = $passkey(namespace, passkeyId);
-
   const response = await passkey.post("/occupy", {
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...data, userId: data.userId.toString() }),
+    body: JSON.stringify({ ...data, userId: `${data.userId}` }),
   });
 
   return response.ok;
 };
 
 const linkPasskey = async (
-  namespace: DurableObjectNamespace,
-  userId: DurableObjectId,
+  user: ReturnType<typeof $user>,
   {
-    app,
-    passkeyId,
-    credentialId,
+    guard,
+    passkeyLink,
   }: {
-    app: string;
-    passkeyId: DurableObjectId;
-    credentialId: string;
+    guard: GuardUser;
+    passkeyLink: PasskeyLink;
   }
 ) => {
-  const user = $user(namespace, userId);
-
   const response = await user.post("/link-passkey", {
-    headers: { "Content-Type": "application/json", Authorization: app },
-    body: JSON.stringify({
-      passkeyId: passkeyId.toString(),
-      credentialId,
-    }),
+    headers: { "Content-Type": "application/json", Authorization: guard },
+    body: JSON.stringify(passkeyLink),
   });
 
   return response.ok;
 };
 
 const removePasskeyLink = async (
-  namespace: DurableObjectNamespace,
-  userId: DurableObjectId,
+  user: ReturnType<typeof $user>,
   {
-    app,
+    guard,
     passkeyId,
   }: {
-    app: string;
-    passkeyId: DurableObjectId;
+    guard: GuardUser;
+    passkeyId: DurableObjectId | string;
   }
 ) => {
-  const user = $user(namespace, userId);
-
   const response = await user.delete(`/remove-passkey/${passkeyId}`, {
-    headers: { Authorization: app },
+    headers: { Authorization: guard },
   });
 
-  return response.ok;
+  if (!response.ok) {
+    return undefined;
+  }
+
+  return await response.json();
+};
+
+const removePasskey = async (
+  passkey: ReturnType<typeof $passkey>,
+  { guard }: { guard: GuardPasskey }
+) => {
+  const response = await passkey.delete("/implode", {
+    headers: { Authorization: guard },
+  });
+
+  if (!response.ok) {
+    return undefined;
+  }
+  return await response.json();
 };
 
 const kvAlias = (app: string, alias: string) =>
@@ -698,62 +667,89 @@ const cacheAliases = async (
   namespace: KVNamespace,
   {
     app,
-    userId,
+    userId: userIdAny,
     aliases,
-  }: { app: string; userId: DurableObjectId; aliases: string[] }
+  }: { app: string; userId: DurableObjectId | string; aliases: string[] }
 ) => {
-  const userIdString = userId.toString();
+  const userId = `${userIdAny}`;
 
   return await Promise.all(
     aliases.map((alias) =>
-      namespace.put(kvAlias(app, alias), userIdString, {
-        metadata: { userId: userIdString, createdAt: now() },
+      namespace.put(kvAlias(app, alias), userId, {
+        metadata: { userId, createdAt: now() },
       })
     )
   );
 };
 
-const listPasskeys = async (
-  namsepaces: { user: DurableObjectNamespace; passkey: DurableObjectNamespace },
-  { app, userId }: { app: string; userId: DurableObjectId }
-) => {
-  const getUser = async () => {
-    const user = $user(namsepaces.user, userId);
-    const response = await user.get("/data?passkeys=true", {
-      headers: { Authorization: app },
-    });
-    if (!response.ok) {
-      return undefined;
-    }
-    return await response.json();
-  };
-
-  const user = await getUser();
-  if (!user?.passkeys) {
-    return { message: "user_missing" } as const;
+const cacheNewPasskey = async (
+  namespace: KVNamespace,
+  {
+    app,
+    passkeyLink,
+    credential,
+  }: {
+    app: string;
+    passkeyLink: PasskeyLink;
+    credential: Credential;
   }
+) => {
+  const single = namespace.put(
+    makeKvKeyPasskey(app, credential.id),
+    JSON.stringify<CachedPasskey>({
+      counter: -1,
+      userId: passkeyLink.userId,
+      passkeyId: passkeyLink.passkeyId,
+      credential,
+    })
+  );
 
-  const loadPasskey = async ({ passkeyId }: { passkeyId: string }) => {
-    const passkey = $passkey(namsepaces.passkey, passkeyId);
-    const response = await passkey.get("/data", {
-      headers: { Authorization: `${app}:${userId}` },
-    });
+  const list = namespace.put(
+    makeKvKeyPasskeys(app, passkeyLink.userId),
+    JSON.stringify([passkeyLink])
+  );
 
-    if (!response.ok) {
-      return undefined;
-    }
+  await Promise.all([single, list]);
+};
 
-    const { metadata } = await response.json();
-    return metadata;
-  };
+const cacheRemovedPasskey = async (
+  namespace: KVNamespace,
+  {
+    app,
+    credentialId,
+    userId,
+    passkeyLinks,
+  }: {
+    app: string;
+    credentialId: string;
+    userId: string;
+    passkeyLinks: PasskeyLink[];
+  }
+) => {
+  const single = namespace.delete(makeKvKeyPasskey(app, credentialId));
 
-  const passkeys = await Promise.all(user.passkeys.map(loadPasskey));
+  const list = namespace.put(
+    makeKvKeyPasskeys(app, userId),
+    JSON.stringify(passkeyLinks)
+  );
 
-  return {
-    passkeys: passkeys.filter(
-      (p): p is NonNullable<typeof p> => p !== undefined
-    ),
-  } as const;
+  await Promise.all([single, list]);
+};
+
+const cacheUpdatedPasskey = async (
+  namespace: KVNamespace,
+  cacheKey: KvKeyPasskey,
+  data: CachedPasskey
+) => {
+  await namespace.put(cacheKey, JSON.stringify(data));
+};
+
+const cacheUpdatedPasskeys = async (
+  namespace: KVNamespace,
+  cacheKey: KvKeyPasskeys,
+  data: PasskeyLink[]
+) => {
+  await namespace.put(cacheKey, JSON.stringify(data));
 };
 
 const verifyRegistration = async (
@@ -771,7 +767,8 @@ const verifyRegistration = async (
       return { message } as const;
     }
 
-    const passed = await finishChallenge(env.DO_CHALLENGE, claim.jti);
+    const challenge = $challenge(env.DO_CHALLENGE, claim.jti);
+    const passed = await finishChallenge(challenge);
     if (!passed) {
       return { message: "challenge_expired" } as const;
     }
@@ -794,42 +791,57 @@ const verifyRegistration = async (
   }
 };
 
-const authenticatePasskey = async (
-  namespace: DurableObjectNamespace,
-  passkeyId: DurableObjectId,
+const makeKvKeyPasskey = (app: string, credentialId: string) => {
+  return `#app#${app}#credentialId#${credentialId}` as const;
+};
+
+type KvKeyPasskey = ReturnType<typeof makeKvKeyPasskey>;
+
+const makeKvKeyPasskeys = (app: string, userId: string) => {
+  return `#app#${app}#userId#${userId}` as const;
+};
+
+type KvKeyPasskeys = ReturnType<typeof makeKvKeyPasskeys>;
+
+const visitPasskey = (
+  passkey: ReturnType<typeof $passkey>,
   {
-    app,
-    data,
-  }: {
-    app: string;
-    data: {
-      authentication: AuthenticationEncoded;
-      origin: string;
-      challenge: string;
-    };
-  }
+    guard,
+    visitor,
+    counter,
+  }: { guard: GuardPasskey; visitor: Visitor; counter: number }
 ) => {
-  const passkey = $passkey(namespace, passkeyId);
-
-  try {
-    const response = await passkey.post("/authenticate", {
-      headers: { "Content-Type": "application/json", Authorization: app },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      return undefined;
-    }
-    return await response.json();
-  } catch {
-    return undefined;
-  }
+  return passkey.put("/visit", {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: guard,
+    },
+    body: JSON.stringify({ visitor, counter }),
+  });
 };
 
-const kvKeyPasskey = (app: string, credentialId: string) => {
-  return `app#${app}#credentialId#${credentialId}}`;
+const guardPasskey = (app: string, userId: DurableObjectId | string) => {
+  return `passkey:${app}:${userId}` as const;
 };
 
-const kvKeyPasskeys = (app: string, userId: string) => {
-  return `app#${app}#userId#${userId}}`;
+const guardUser = (app: string) => {
+  return `user:${app}` as const;
+};
+
+const makePasskeyLink = ({
+  passkeyId,
+  credential,
+  userId,
+}: {
+  passkeyId: DurableObjectId | string;
+  credential: Credential;
+  userId: DurableObjectId | string;
+}): PasskeyLink => {
+  const passkeyIdString = `${passkeyId}`;
+  return {
+    passkeyId: passkeyIdString,
+    credentialId: credential.id,
+    userId: `${userId}`,
+    name: `passkey-${passkeyIdString.slice(0, 3) + passkeyIdString.slice(-3)}`,
+  };
 };

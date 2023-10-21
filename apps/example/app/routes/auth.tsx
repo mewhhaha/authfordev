@@ -4,7 +4,7 @@ import type { ComponentProps, JSXElementConstructor } from "react";
 import { forwardRef } from "react";
 import { cn } from "~/css/cn";
 import { endpoint } from "~/auth/endpoint.server";
-import { useAuth } from "~/auth/useAuth";
+import { useWebauthn } from "~/auth/useWebauthn";
 
 export async function loader({ context: { env } }: DataFunctionArgs) {
   return {
@@ -33,7 +33,7 @@ export function shouldRevalidate() {
 export default function SignIn() {
   const { clientKey } = useLoaderData<typeof loader>();
 
-  const { signin, signup, aliases } = useAuth(clientKey);
+  const { signin, signup, aliases } = useWebauthn(clientKey);
 
   return (
     <main className="flex h-full w-full items-center sm:items-start">
