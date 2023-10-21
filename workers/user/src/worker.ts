@@ -28,6 +28,7 @@ import { createBody, sendEmail } from "./helpers/email";
 import { insertUser } from "./helpers/d1";
 import { minute1, now } from "./helpers/time";
 
+export { type Visitor, type Metadata as PasskeyMetadata } from "./passkey";
 export { DurableObjectUser } from "./user";
 export { DurableObjectChallenge } from "./challenge";
 export { DurableObjectPasskey } from "./passkey";
@@ -145,9 +146,20 @@ const router = Router<[Env, ExecutionContext]>()
       const postUpdate = async () => {
         const passkey = $passkey(jurisdiction.passkey, passkeyId);
 
+        const kvKeyPasskey = makeKvKeyPasskey(app, credential.id);
+        const kvKeyPasskeys = makeKvKeyPasskeys(app, userId);
+
+        const cachedData: CachedPasskey = {
+          userId: `${userId}`,
+          passkeyId: `${passkeyId}`,
+          counter: -1,
+          credential,
+        };
+
         await Promise.all([
           cacheAliases(env.KV_ALIAS, { app, userId, aliases }),
-          cacheNewPasskey(env.KV_PASSKEY, { app, passkeyLink, credential }),
+          cacheUpdatedPasskey(env.KV_PASSKEY, kvKeyPasskey, cachedData),
+          cacheUpdatedPasskeys(env.KV_PASSKEY, kvKeyPasskeys, [passkeyLink]),
           createPasskey(passkey, { app, visitor, userId, credential }),
         ]);
       };
@@ -196,10 +208,19 @@ const router = Router<[Env, ExecutionContext]>()
       }
 
       const passkey = $passkey(jurisdiction.passkey, passkeyId);
+      const cachedData = {
+        counter: -1,
+        credential,
+        passkeyId: `${passkeyId}`,
+        userId: `${userId}`,
+      };
+      const kvKeyPasskeys = makeKvKeyPasskeys(app, userId);
+      const kvKeyPasskey = makeKvKeyPasskey(app, credential.id);
       const creationData = { app, visitor, userId, credential };
       await Promise.all([
         createPasskey(passkey, creationData),
-        cacheNewPasskey(env.KV_PASSKEY, { app, passkeyLink, credential }),
+        cacheUpdatedPasskey(env.KV_PASSKEY, kvKeyPasskey, cachedData),
+        cacheUpdatedPasskeys(env.KV_PASSKEY, kvKeyPasskeys, linked.passkeys),
       ]);
 
       return ok(201, {
@@ -282,16 +303,12 @@ const router = Router<[Env, ExecutionContext]>()
         return error(404, { message: "passkey_missing" });
       }
 
-      const postDelete = async () => {
-        await cacheRemovedPasskey(env.KV_PASSKEY, {
-          app,
-          userId,
-          credentialId: removedPasskey.metadata.credentialId,
-          passkeyLinks: removedLink.passkeys,
-        });
-      };
-
-      ctx.waitUntil(postDelete());
+      await cacheRemovedPasskey(env.KV_PASSKEY, {
+        app,
+        userId,
+        credentialId: removedPasskey.metadata.credentialId,
+        passkeyLinks: removedLink.passkeys,
+      });
 
       return ok(200, removedPasskey);
     }
@@ -622,7 +639,11 @@ const linkPasskey = async (
     body: JSON.stringify(passkeyLink),
   });
 
-  return response.ok;
+  if (!response.ok) {
+    return undefined;
+  }
+
+  return await response.json();
 };
 
 const removePasskeyLink = async (
@@ -680,36 +701,6 @@ const cacheAliases = async (
       })
     )
   );
-};
-
-const cacheNewPasskey = async (
-  namespace: KVNamespace,
-  {
-    app,
-    passkeyLink,
-    credential,
-  }: {
-    app: string;
-    passkeyLink: PasskeyLink;
-    credential: Credential;
-  }
-) => {
-  const single = namespace.put(
-    makeKvKeyPasskey(app, credential.id),
-    JSON.stringify<CachedPasskey>({
-      counter: -1,
-      userId: passkeyLink.userId,
-      passkeyId: passkeyLink.passkeyId,
-      credential,
-    })
-  );
-
-  const list = namespace.put(
-    makeKvKeyPasskeys(app, passkeyLink.userId),
-    JSON.stringify([passkeyLink])
-  );
-
-  await Promise.all([single, list]);
 };
 
 const cacheRemovedPasskey = async (
@@ -797,7 +788,7 @@ const makeKvKeyPasskey = (app: string, credentialId: string) => {
 
 type KvKeyPasskey = ReturnType<typeof makeKvKeyPasskey>;
 
-const makeKvKeyPasskeys = (app: string, userId: string) => {
+const makeKvKeyPasskeys = (app: string, userId: DurableObjectId | string) => {
   return `#app#${app}#userId#${userId}` as const;
 };
 

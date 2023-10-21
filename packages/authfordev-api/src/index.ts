@@ -1,1 +1,1 @@
-export { type Routes } from "@workers/user";
+export { type Routes, type Visitor, type PasskeyMetadata } from "@workers/user";

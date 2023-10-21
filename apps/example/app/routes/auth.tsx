@@ -30,7 +30,7 @@ export function shouldRevalidate() {
   return false;
 }
 
-export default function SignIn() {
+export default function Page() {
   const { clientKey } = useLoaderData<typeof loader>();
 
   const { signin, signup, aliases } = useWebauthn(clientKey);

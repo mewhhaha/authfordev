@@ -24,12 +24,12 @@ export const ButtonInline = forwardRef<HTMLButtonElement, ButtonInlineProps>(
         aria-disabled={loading}
         onClick={loading ? undefined : props.onClick}
         className={cn(
-          "px-3 text-sm font-bold leading-6 text-gray-900",
+          "px-3 py-2 text-sm font-bold leading-6 text-gray-900",
           "focus:outline focus:outline-2 focus:outline-offset-2",
           "active:bg-black active:text-white",
           "disabled:bg-gray-100 disabled:text-black disabled:hover:bg-gray-100",
           "bg-white hover:bg-gray-100 focus:bg-gray-100",
-          "inline-block translate-x-0 translate-y-0 border-y-0 border-l-8 border-r-0 border-black py-0 shadow-none transition-[border] ease-linear hover:border-x-4 hover:shadow-none focus:border-x-4 active:border-l-0 active:border-r-8",
+          "inline-block translate-x-0 translate-y-0 border-y-0 border-l-8 border-r-0 border-black shadow-none transition-[border] ease-linear hover:border-x-4 hover:shadow-none focus:border-x-4 active:border-l-0 active:border-r-8",
           props.className
         )}
       >

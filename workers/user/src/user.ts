@@ -133,7 +133,7 @@ export class DurableObjectUser implements DurableObject {
       [occupied_, data_(parsePasskeyLink)],
       async ({ data }, self) => {
         self.save("passkeys", [...self.passkeys, data]);
-        return empty(204);
+        return ok(200, { passkeys: self.passkeys });
       }
     )
     .put(
