@@ -225,8 +225,8 @@ const DetailsPasskey = ({
     <details
       {...props}
       className={cn(
-        "group text-ellipsis bg-white shadow",
-        { "ring-1 ring-amber-600": current },
+        "group text-ellipsis bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ring-1 ring-inset ring-gray-200",
+        { "ring-amber-600": current },
         props.className
       )}
     >
