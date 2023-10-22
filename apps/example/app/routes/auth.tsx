@@ -234,7 +234,7 @@ const Dialog = forwardRef<HTMLDialogElement, JSX.IntrinsicElements["dialog"]>(
         open
         {...props}
         className={cn(
-          "relative mx-auto my-10 w-full max-w-sm bg-white px-2 sm:border sm:px-4 sm:py-10 sm:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]",
+          "relative mx-auto my-10 w-full max-w-sm bg-white px-10 sm:border sm:px-4 sm:py-10 sm:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]",
           props.className
         )}
       />

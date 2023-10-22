@@ -116,7 +116,7 @@ const router = Router<[Env, ExecutionContext]>()
       };
 
       const { message, credential, passkeyId, visitor } =
-        await verifyRegistration(token, { app, env, origin });
+        await verifyRegistration(token, env, { app, origin });
       if (message) {
         return error(403, { message });
       }
@@ -147,7 +147,6 @@ const router = Router<[Env, ExecutionContext]>()
         const passkey = $passkey(jurisdiction.passkey, passkeyId);
 
         const kvKeyPasskey = makeKvKeyPasskey(app, credential.id);
-        const kvKeyPasskeys = makeKvKeyPasskeys(app, userId);
 
         const cachedData: CachedPasskey = {
           userId: `${userId}`,
@@ -159,12 +158,14 @@ const router = Router<[Env, ExecutionContext]>()
         await Promise.all([
           cacheAliases(env.KV_ALIAS, { app, userId, aliases }),
           cacheUpdatedPasskey(env.KV_PASSKEY, kvKeyPasskey, cachedData),
-          cacheUpdatedPasskeys(env.KV_PASSKEY, kvKeyPasskeys, [passkeyLink]),
           createPasskey(passkey, { app, visitor, userId, credential }),
         ]);
       };
 
       ctx.waitUntil(postUpdate());
+
+      const kvKeyPasskeys = makeKvKeyPasskeys(app, userId);
+      await cacheUpdatedPasskeys(env.KV_PASSKEY, kvKeyPasskeys, [passkeyLink]);
 
       return ok(201, {
         userId: `${userId}`,
@@ -193,7 +194,7 @@ const router = Router<[Env, ExecutionContext]>()
       };
 
       const { message, passkeyId, credential, visitor } =
-        await verifyRegistration(token, { app, origin, env });
+        await verifyRegistration(token, env, { app, origin });
       if (message) {
         return error(403, { message });
       }
@@ -285,7 +286,7 @@ const router = Router<[Env, ExecutionContext]>()
   .delete(
     "/server/users/:userId/passkeys/:passkeyId",
     [server_],
-    async ({ app, params: { userId, passkeyId } }, env, ctx) => {
+    async ({ app, params: { userId, passkeyId } }, env) => {
       const jurisdiction = {
         passkey: env.DO_PASSKEY.jurisdiction("eu"),
         user: env.DO_USER.jurisdiction("eu"),
@@ -745,7 +746,8 @@ const cacheUpdatedPasskeys = async (
 
 const verifyRegistration = async (
   token: string,
-  { app, env, origin }: { app: string; origin: string; env: Env }
+  env: Env,
+  { app, origin }: { app: string; origin: string }
 ) => {
   const jurisdiction = env.DO_PASSKEY.jurisdiction("eu");
   try {

@@ -176,7 +176,7 @@ export default function Page() {
               const current = session.passkeyId === passkeyId;
 
               return (
-                <li key={passkeyId} className="w-full">
+                <li key={passkeyId} className="w-full max-w-2xl">
                   <DetailsPasskey current={current}>
                     <summary
                       title={name}
