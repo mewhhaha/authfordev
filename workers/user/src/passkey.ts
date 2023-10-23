@@ -1,11 +1,22 @@
-import { Plugin, PluginContext, Router } from "@mewhhaha/little-router";
+import {
+  type Plugin,
+  type PluginContext,
+  Router,
+} from "@mewhhaha/little-router";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
-import { empty, error, ok } from "@mewhhaha/typed-response";
+import { error, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { $any, storageLoader, storageSaver } from "./helpers/durable";
-import { Credential, parseCredential, parsedBoolean } from "./helpers/parser";
+import {
+  type Credential,
+  parseAuthenticationEncoded,
+  parseCredential,
+  parsedBoolean,
+} from "./helpers/parser";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { now } from "./helpers/time";
+import { server } from "@passwordless-id/webauthn";
+import { encode } from "@internal/jwt";
 
 const parseVisitor = type({
   "city?": "string",
@@ -29,14 +40,33 @@ const parseMetadata = type({
   createdAt: "string",
 });
 
-export type Metadata = typeof parseMetadata.infer;
+const inferredMetadata = parseMetadata.infer;
+/** @public */
+export type Metadata = typeof inferredMetadata;
 
-export type Visitor = typeof parseVisitor.infer;
+const inferredVisitor = parseVisitor.infer;
+/** @public */
+export type Visitor = typeof inferredVisitor;
 
-export type Passkey = { credential: Credential; metadata: Metadata };
+export type Passkey = {
+  credential: Credential;
+  metadata: Metadata;
+};
 
 // This should be `passkey:${app}:${userId}`
 export type GuardPasskey = `passkey:${string}:${string}`;
+
+export const guardPasskey = (app: string, userId: DurableObjectId | string) => {
+  return `passkey:${app}:${userId.toString()}` as const;
+};
+
+const unoccupied_ = ((_: PluginContext<any>, self) => {
+  if (self.metadata !== undefined) {
+    return error(409, "passkey_exists");
+  }
+
+  return {};
+}) satisfies Plugin<[DurableObjectPasskey]>;
 
 const occupied_ = ((
   {
@@ -47,15 +77,16 @@ const occupied_ = ((
   self
 ) => {
   const authorization = request.headers.get("Authorization");
-  if (!authorization) {
+  if (authorization === null) {
     return error(401, "authorization_missing");
   }
 
-  if (!self.metadata || !self.credential) {
+  if (self.metadata === undefined || self.credential === undefined) {
     return error(404, "passkey_missing");
   }
 
-  const [_, app, userId] = authorization.split(":");
+  // First word is just passkey:
+  const [, app, userId] = authorization.split(":");
 
   if (app !== self.metadata.app) {
     return error(403, "app_mismatch");
@@ -73,20 +104,20 @@ export class DurableObjectPasskey implements DurableObject {
   credential?: Credential;
   counter: number = -1;
 
-  private id: DurableObjectId;
+  private readonly id: DurableObjectId;
 
   visitors: Visitor[] = [];
 
   storage: DurableObjectStorage;
 
-  private save = storageSaver<DurableObjectPasskey>(this);
-  private load = storageLoader<DurableObjectPasskey>(this);
+  private readonly save = storageSaver<DurableObjectPasskey>(this);
+  private readonly load = storageLoader<DurableObjectPasskey>(this);
 
   constructor(state: DurableObjectState) {
     this.storage = state.storage;
     this.id = state.id;
 
-    state.blockConcurrencyWhile(async () => {
+    void state.blockConcurrencyWhile(async () => {
       await this.load("metadata", "credential", "visitors", "counter");
     });
   }
@@ -116,6 +147,7 @@ export class DurableObjectPasskey implements DurableObject {
     .post(
       "/occupy",
       [
+        unoccupied_,
         data_(
           type({
             app: "string",
@@ -126,21 +158,57 @@ export class DurableObjectPasskey implements DurableObject {
         ),
       ],
       async ({ data }, self) => {
-        if (self.metadata) {
-          return error(403, "credential_exists");
-        }
         const { credential, metadata } = self.occupy(data);
 
         return ok(201, { credential, metadata });
       }
     )
-    .put(
-      "/visit",
-      [occupied_, data_(type({ visitor: parseVisitor, counter: "number" }))],
-      async ({ data: { counter, visitor } }, self) => {
-        self.save("counter", counter || -1);
-        self.save("visitors", [visitor, ...self.visitors].slice(0, 10));
-        return empty(204);
+    .post(
+      "/authenticate",
+      [
+        data_(
+          type({
+            app: "string",
+            challengeId: "string",
+            origin: "string",
+            authentication: parseAuthenticationEncoded,
+            visitor: parseVisitor,
+          })
+        ),
+      ],
+      async (
+        { data: { app, authentication, visitor, challengeId, origin } },
+        self
+      ) => {
+        if (
+          self.credential === undefined ||
+          self.metadata === undefined ||
+          app !== self.metadata.app
+        ) {
+          return error(404, "passkey_missing");
+        }
+
+        try {
+          const { authenticator } = await server.verifyAuthentication(
+            authentication,
+            self.credential,
+            {
+              origin,
+              challenge: encode(challengeId),
+              counter: self.counter,
+              userVerified: true,
+            }
+          );
+
+          const counter = authenticator.counter;
+          self.save("counter", counter === 0 ? -1 : counter);
+          self.save("visitors", [visitor, ...self.visitors].slice(0, 10));
+
+          return ok(200, { metadata: self.metadata });
+        } catch (e) {
+          if (e instanceof Error) console.log(e);
+          return error(403, "authentication_failed");
+        }
       }
     )
     .get(
@@ -151,7 +219,10 @@ export class DurableObjectPasskey implements DurableObject {
           type({ "credential?": parsedBoolean, "visitors?": parsedBoolean })
         ),
       ],
-      async ({ metadata, query }, self) => {
+      async (
+        { metadata, query: { credential = false, visitors = false } },
+        self
+      ) => {
         const data: {
           metadata: Metadata;
           credential?: Credential;
@@ -160,11 +231,11 @@ export class DurableObjectPasskey implements DurableObject {
           metadata,
         };
 
-        if (query.credential) {
+        if (credential) {
           data.credential = self.credential;
         }
 
-        if (query.visitors) {
+        if (visitors) {
           data.visitors = self.visitors;
         }
 
@@ -172,10 +243,12 @@ export class DurableObjectPasskey implements DurableObject {
       }
     )
     .delete("/implode", [occupied_], async ({ metadata }, self) => {
-      self.storage.deleteAll();
+      void self.storage.deleteAll();
 
       self.metadata = undefined;
       self.credential = undefined;
+      self.visitors = [];
+      self.counter = -1;
 
       return ok(200, { metadata });
     })

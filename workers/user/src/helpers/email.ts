@@ -34,7 +34,7 @@ type RoutesMailChannels = FetchDefinition<
 >;
 
 export const mailChannels = (base: string) =>
-  fetcher<RoutesMailChannels>("fetch", { base: base });
+  fetcher<RoutesMailChannels>("fetch", { base });
 
 export type MailChannels = ReturnType<typeof mailChannels>;
 

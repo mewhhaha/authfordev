@@ -1,12 +1,28 @@
-import { Plugin, PluginContext, Router } from "@mewhhaha/little-router";
+import {
+  type Plugin,
+  type PluginContext,
+  Router,
+} from "@mewhhaha/little-router";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
-import { empty, error, ok } from "@mewhhaha/typed-response";
+import { error, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { $any, storageLoader, storageSaver } from "./helpers/durable";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { parsedBoolean } from "./helpers/parser";
 
 export type GuardUser = `user:${string}`;
+
+export const guardUser = (app: string) => {
+  return `user:${app}` as const;
+};
+
+const unoccupied_ = ((_: PluginContext<any>, self) => {
+  if (self.metadata !== undefined) {
+    return error(409, "user_exists");
+  }
+
+  return {};
+}) satisfies Plugin<[DurableObjectUser]>;
 
 const occupied_ = ((
   {
@@ -17,16 +33,17 @@ const occupied_ = ((
   }>,
   self
 ) => {
-  const authorization = request.headers.get("Authorization")?.slice();
-  if (!authorization) {
+  const authorization = request.headers.get("Authorization");
+  if (authorization === null) {
     return error(401, "authorization_missing");
   }
 
-  if (!self.metadata) {
+  if (self.metadata === undefined) {
     return error(404, "user_missing");
   }
 
-  const [_, app] = authorization.split(":");
+  // First word is just user:
+  const [, app] = authorization.split(":");
 
   if (app !== self.metadata?.app) {
     console.log(self.metadata);
@@ -54,6 +71,13 @@ const parsePasskeyLink = type({
   passkeyId: "string",
 });
 
+const parseOccupyData = type({
+  "email?": "email",
+  app: "string",
+  aliases: "string[]",
+  "passkey?": parsePasskeyLink,
+});
+
 export type PasskeyLink = typeof parsePasskeyLink.infer;
 
 export class DurableObjectUser implements DurableObject {
@@ -64,14 +88,14 @@ export class DurableObjectUser implements DurableObject {
 
   storage: DurableObjectStorage;
 
-  private save = storageSaver<DurableObjectUser>(this);
-  private load = storageLoader<DurableObjectUser>(this);
+  readonly save = storageSaver<DurableObjectUser>(this);
+  readonly load = storageLoader<DurableObjectUser>(this);
 
   constructor(state: DurableObjectState) {
     this.storage = state.storage;
     this.passkeys = [];
 
-    state.blockConcurrencyWhile(async () => {
+    void state.blockConcurrencyWhile(async () => {
       await this.load("metadata", "recovery", "passkeys");
     });
   }
@@ -83,12 +107,12 @@ export class DurableObjectUser implements DurableObject {
     app,
   }: Metadata & { email?: string; passkey?: PasskeyLink }) {
     this.save("metadata", { aliases, app });
-    if (email) {
+    if (email !== undefined) {
       this.save("recovery", {
         emails: [{ address: email, verified: false, primary: true }],
       });
     }
-    if (passkey) {
+    if (passkey !== undefined) {
       this.save("passkeys", [passkey]);
     }
   }
@@ -96,20 +120,8 @@ export class DurableObjectUser implements DurableObject {
   static router = Router<[DurableObjectUser]>()
     .post(
       "/occupy",
-      [
-        data_(
-          type({
-            "email?": "email",
-            app: "string",
-            aliases: "string[]",
-            "passkey?": parsePasskeyLink,
-          })
-        ),
-      ],
+      [unoccupied_, data_(parseOccupyData)],
       async ({ data }, self) => {
-        if (self.metadata) {
-          return error(403, "user_exists");
-        }
         self.occupy(data);
         return ok(200);
       }
@@ -120,7 +132,7 @@ export class DurableObjectUser implements DurableObject {
       async ({ data }, self) => {
         const { emails } = self.recovery;
         const email = emails.find((e) => e.address === data.email);
-        if (!email) {
+        if (email === undefined) {
           return error(404, { message: "email_not_found" });
         }
         email.verified = true;
@@ -141,7 +153,7 @@ export class DurableObjectUser implements DurableObject {
       [occupied_, data_(type({ name: "1<=string<=60" }))],
       async ({ params: { passkeyId }, data: { name } }, self) => {
         const passkey = self.passkeys.find((p) => p.passkeyId === passkeyId);
-        if (!passkey) {
+        if (passkey === undefined) {
           return error(404, { message: "passkey_missing" });
         }
 
@@ -171,7 +183,10 @@ export class DurableObjectUser implements DurableObject {
           type({ "recovery?": parsedBoolean, "passkeys?": parsedBoolean })
         ),
       ],
-      async ({ metadata, query }, self) => {
+      async (
+        { metadata, query: { recovery = false, passkeys = false } },
+        self
+      ) => {
         const data: {
           metadata: Metadata;
           recovery?: Recovery;
@@ -180,11 +195,11 @@ export class DurableObjectUser implements DurableObject {
           metadata,
         };
 
-        if (query.recovery) {
+        if (recovery) {
           data.recovery = self.recovery;
         }
 
-        if (query.passkeys) {
+        if (passkeys) {
           data.passkeys = self.passkeys;
         }
 

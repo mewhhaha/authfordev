@@ -1,6 +1,6 @@
 import { decode, decodeJwt, jwtTime } from "@internal/jwt";
 import { type } from "arktype";
-import { Visitor } from "../passkey";
+import { type Visitor } from "../passkey";
 
 export const parseCredential = type({
   id: "string",
@@ -91,14 +91,14 @@ export const parseAuthenticationToken = async (
     app,
     tokenRaw
   );
-  if (!claim) {
+  if (claim === undefined) {
     return { message };
   }
 
   const { data: authentication, problems } = parseAuthenticationEncoded(
     JSON.parse(decode(signinRaw))
   );
-  if (problems) {
+  if (problems !== undefined) {
     return { message: "token_invalid" } as const;
   }
 
@@ -115,14 +115,14 @@ export const parseRegistrationToken = async (
     app,
     tokenRaw
   );
-  if (!claim) {
+  if (claim === undefined) {
     return { message } as const;
   }
 
   const { data: registrationEncoded, problems } = parseRegistrationEncoded(
     JSON.parse(decode(registrationRaw))
   );
-  if (problems) {
+  if (problems !== undefined) {
     return { message: "token_invalid" } as const;
   }
 
@@ -135,7 +135,7 @@ export const parseClaim = async <T>(
   token: string
 ) => {
   const claim = await decodeJwt<T>(secret, token);
-  if (!claim) {
+  if (claim === undefined) {
     return { message: "token_invalid" } as const;
   }
 

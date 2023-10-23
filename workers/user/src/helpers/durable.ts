@@ -1,5 +1,5 @@
 import { fetcher } from "@mewhhaha/little-fetcher";
-import { RoutesOf } from "@mewhhaha/little-router";
+import { type RoutesOf } from "@mewhhaha/little-router";
 
 type KeyofValues<T extends Record<any, any>> = {
   [K in keyof T]: T[K] extends (...args: any[]) => any
@@ -17,20 +17,20 @@ export const storageLoader =
     const promises = async () => {
       const map = await t.storage.get<THIS[keyof THIS]>(keys as string[]);
       for (const [key, value] of map.entries()) {
-        if (value) t[key as keyof THIS] = value;
+        if (value !== undefined) t[key as keyof THIS] = value;
       }
     };
 
-    return promises();
+    await promises();
   };
 
 export const storageSaver =
   <THIS extends Record<any, any>>(
     t: { storage: DurableObjectStorage } & THIS
   ) =>
-  async <KEY extends KeyofValues<THIS>>(key: KEY, value: THIS[KEY]) => {
+  <KEY extends KeyofValues<THIS>>(key: KEY, value: THIS[KEY]) => {
     t[key as keyof typeof t] = value;
-    t.storage.put(key as string, value);
+    void t.storage.put(key as string, value);
   };
 
 const encoder = new TextEncoder();

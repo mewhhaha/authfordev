@@ -9,32 +9,6 @@ export enum PasskeyIntent {
   Remove = "remove",
 }
 
-export async function loader({
-  request,
-  params: { passkeyId },
-  context: { env },
-}: DataFunctionArgs) {
-  const session = await authenticate(request, env.SECRET_FOR_AUTH);
-  if (!session) {
-    throw redirect("/auth");
-  }
-  invariant(passkeyId, "passkeyId is part of params");
-
-  const response = await webauthn.get(
-    `/server/users/${session.userId}/passkeys/${passkeyId}?visitors=true`,
-    { headers: { Authorization: env.AUTH_SERVER_KEY } }
-  );
-
-  if (!response.ok) {
-    return { success: false } as const;
-  }
-
-  const { metadata, visitors } = await response.json();
-  invariant(visitors, "visitors is included because of query param");
-
-  return { success: true, metadata, visitors };
-}
-
 export async function action({
   request,
   context: { env },

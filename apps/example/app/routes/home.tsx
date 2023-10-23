@@ -2,9 +2,10 @@ import {
   type MetaFunction,
   type DataFunctionArgs,
   redirect,
+  defer,
 } from "@remix-run/cloudflare";
-import { Form, useFetcher, useLoaderData } from "@remix-run/react";
-import { useEffect, useRef } from "react";
+import { Await, Form, useFetcher, useLoaderData } from "@remix-run/react";
+import { Suspense } from "react";
 import { webauthn } from "~/api/authfordev";
 import { authenticate } from "~/auth/authenticate.server";
 import { invariant } from "~/auth/invariant";
@@ -14,7 +15,7 @@ import { Button } from "~/components/Button";
 import { ButtonInline } from "~/components/ButtonInline";
 import { cn } from "~/css/cn";
 import { PasskeyIntent } from "./passkeys.$passkeyId";
-import type { Visitor } from "@mewhhaha/authfordev-api";
+import type { PasskeyMetadata, Visitor } from "@mewhhaha/authfordev-api";
 
 export const meta: MetaFunction = () => {
   return [
@@ -29,7 +30,7 @@ export async function loader({ request, context: { env } }: DataFunctionArgs) {
     throw redirect("/auth");
   }
 
-  const passkeys = async () => {
+  const fetchPasskeys = async () => {
     const response = await webauthn.get(
       `/server/users/${session.userId}/passkeys`,
       { headers: { Authorization: env.AUTH_SERVER_KEY } }
@@ -43,7 +44,7 @@ export async function loader({ request, context: { env } }: DataFunctionArgs) {
     return passkeys;
   };
 
-  const user = async () => {
+  const fetchUser = async () => {
     const response = await webauthn.get(
       `/server/users/${session.userId}?recovery=true`,
       { headers: { Authorization: env.AUTH_SERVER_KEY } }
@@ -57,14 +58,36 @@ export async function loader({ request, context: { env } }: DataFunctionArgs) {
     return { metadata, recovery };
   };
 
-  const [u, pks] = await Promise.all([user(), passkeys()]);
+  const userPromise = fetchUser();
+  const passkeysPromise = fetchPasskeys();
 
-  return {
+  const fetchDetails = async (p: { passkeyId: string }) => {
+    const response = await webauthn.get(
+      `/server/users/${session.userId}/passkeys/${p.passkeyId}?visitors=true`,
+      { headers: { Authorization: env.AUTH_SERVER_KEY } }
+    );
+
+    console.log(response.status);
+    if (!response.ok) {
+      return null;
+    }
+
+    const { metadata, visitors } = await response.json();
+    invariant(visitors, "visitors is included because of query param");
+    return { metadata, visitors };
+  };
+
+  const passkeys = await passkeysPromise;
+
+  return defer({
     session,
-    user: u,
-    passkeys: pks,
+    user: await userPromise,
+    passkeys: passkeys.map((p) => {
+      return { ...p, data: fetchDetails(p) };
+    }),
     clientKey: env.AUTH_CLIENT_KEY,
-  } as const;
+    data: Promise.all(passkeys.map((p) => fetchDetails(p))),
+  });
 }
 
 enum Intent {
@@ -121,7 +144,8 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
 }
 
 export default function Page() {
-  const { passkeys, user, session, clientKey } = useLoaderData<typeof loader>();
+  const { passkeys, user, session, clientKey, data } =
+    useLoaderData<typeof loader>();
 
   const signout = useSignOut();
 
@@ -143,7 +167,7 @@ export default function Page() {
           </div>
         </div>
       </header>
-      <main className="flex flex-col gap-10 px-2 py-10 sm:px-10">
+      <main className="flex flex-col gap-10 p-10 sm:px-10">
         <section>
           <h2 className="mb-2 text-2xl font-bold">Emails</h2>
           <p className="mb-4">Your email used to recover your account with.</p>
@@ -190,7 +214,45 @@ export default function Page() {
                         </span>
                       )}
                     </summary>
-                    <Passkey passkeyId={passkeyId} current={current} />
+                    <Suspense
+                      fallback={
+                        <div className="flex animate-pulse justify-center py-4">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="h-6 w-6 animate-spin"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+                            />
+                          </svg>
+                        </div>
+                      }
+                    >
+                      <Await resolve={data}>
+                        {(resolved) => {
+                          const d = resolved.find(
+                            (p) => p?.metadata.passkeyId === passkeyId
+                          );
+                          if (!d) {
+                            return null;
+                          }
+                          return (
+                            <Passkey
+                              metadata={d.metadata}
+                              visitors={d.visitors}
+                              passkeyId={passkeyId}
+                              current={current}
+                            />
+                          );
+                        }}
+                      </Await>
+                    </Suspense>
                   </DetailsPasskey>
                 </li>
               );
@@ -254,17 +316,6 @@ const PlusCircle = () => {
   );
 };
 
-const usePasskeyLoader = () => {
-  return useFetcher<
-    | { success: false }
-    | {
-        success: true;
-        metadata: { createdAt: string };
-        visitors: Visitor[];
-      }
-  >();
-};
-
 const usePassKeyAction = () => {
   return useFetcher<{ success: boolean; message?: string }>();
 };
@@ -272,66 +323,23 @@ const usePassKeyAction = () => {
 type PasskeyProps = {
   passkeyId: string;
   current?: boolean;
+  metadata: PasskeyMetadata;
+  visitors: Visitor[];
 };
 
-const Passkey = ({ passkeyId, current }: PasskeyProps) => {
-  const loader = usePasskeyLoader();
+const Passkey = ({
+  metadata: { createdAt },
+  visitors: [lastVisitor],
+  passkeyId,
+  current,
+}: PasskeyProps) => {
   const action = usePassKeyAction();
-
-  const ref = useRef<HTMLDivElement>(null);
-  const submitted = useRef(false);
-
-  useEffect(() => {
-    const submit = loader.submit;
-    if (!ref.current) return;
-
-    const callback: IntersectionObserverCallback = ([entry]) => {
-      if (entry.intersectionRatio > 0) {
-        if (submitted.current) return;
-        submit(null, { action: `/passkeys/${passkeyId}` });
-        submitted.current = true;
-      }
-    };
-
-    const observer = new IntersectionObserver(callback);
-    observer.observe(ref.current);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [loader.data, loader.state, loader.submit, passkeyId]);
 
   const loading = (intent: PasskeyIntent) => {
     return (
       action.state === "submitting" && action.formData?.get("intent") === intent
     );
   };
-
-  if (!loader.data || loader.data.success === false) {
-    return (
-      <div ref={ref} className="flex animate-pulse justify-center py-4">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={1.5}
-          stroke="currentColor"
-          className="h-6 w-6 animate-spin"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
-          />
-        </svg>
-      </div>
-    );
-  }
-
-  const {
-    metadata: { createdAt },
-    visitors: [lastVisitor],
-  } = loader.data;
 
   return (
     <div className="bg-amber-50 px-2 pb-8 pt-4">

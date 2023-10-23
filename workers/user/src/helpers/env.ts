@@ -1,4 +1,4 @@
-export interface Env {
+export type Env = {
   API_URL_MAILCHANNELS: string;
   SECRET_FOR_SERVER: string;
   SECRET_FOR_CLIENT: string;
@@ -8,6 +8,5 @@ export interface Env {
   DO_CHALLENGE: DurableObjectNamespace;
   DO_PASSKEY: DurableObjectNamespace;
   KV_ALIAS: KVNamespace;
-  KV_PASSKEY: KVNamespace;
   DKIM_PRIVATE_KEY: string;
-}
+};
