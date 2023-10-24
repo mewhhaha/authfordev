@@ -387,11 +387,12 @@ const router = Router<[Env, ExecutionContext]>()
 
       ctx.waitUntil(postSend());
 
-      const claim = encodeJwt(env.SECRET_FOR_PASSKEY, {
+      const claim = encodeJwt<{ val: string }>(env.SECRET_FOR_PASSKEY, {
         jti: challengeId.toString(),
         sub: userId,
         exp: jwtTime(new Date(Date.now() + minute30)),
         aud: app,
+        val: address,
       });
 
       return ok(202, { token: claim });
@@ -401,7 +402,7 @@ const router = Router<[Env, ExecutionContext]>()
     "/server/actions/verify-code",
     [server_, data_(type({ token: "string", code: "string" }))],
     async ({ data: { token, code }, app }, env) => {
-      const { message, claim } = await parseClaim(
+      const { message, claim } = await parseClaim<{ val: string }>(
         env.SECRET_FOR_PASSKEY,
         app,
         token
@@ -416,7 +417,7 @@ const router = Router<[Env, ExecutionContext]>()
         return error(403, { message: "challenge_expired" });
       }
 
-      return empty(204);
+      return ok(200, { email: claim.val });
     }
   )
   .post(
@@ -486,7 +487,8 @@ const router = Router<[Env, ExecutionContext]>()
         claim
       );
 
-      ctx.waitUntil($challenge(env.DO_CHALLENGE, id).post("/start"));
+      const challenge = $challenge(env.DO_CHALLENGE, id);
+      ctx.waitUntil(startChallenge(challenge));
 
       return ok(200, { token }, { headers: cors(request) });
     }
@@ -534,13 +536,18 @@ const finishChallenge = async (
   const response = await challenge.post("/finish", {
     body: code,
   });
+
   return response.ok;
 };
 
 const startChallenge = async (
   challenge: ReturnType<typeof $challenge>,
-  { ms, code }: { ms?: number; code?: string }
-) => await challenge.post(`/start?ms=${ms}`, { body: code });
+  data: { ms?: number; code?: string; value?: string } = {}
+) =>
+  await challenge.post(`/start`, {
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
 
 const createPasskey = async (
   passkey: ReturnType<typeof $passkey>,

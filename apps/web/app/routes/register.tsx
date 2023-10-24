@@ -172,11 +172,10 @@ const ButtonDownload = ({
 }: ButtonDownloadProps) => {
   const ref = useRef<HTMLAnchorElement>(null);
   const fileUrl = useMemo(() => {
-    const content = "This is your arbitrary string content";
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     return url;
-  }, []);
+  }, [content]);
   return (
     <Button
       ref={ref}
@@ -229,7 +228,7 @@ const Blink = ({ interval, ...props }: BlinkProps) => {
 };
 
 type ButtonProps<
-  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button"
+  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button",
 > = {
   as?: T;
   icon?: React.ReactNode;
@@ -286,7 +285,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     );
   }
 ) as (<
-  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button"
+  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button",
 >(
   props: ButtonProps<T>
 ) => JSX.Element) & { displayName?: string };

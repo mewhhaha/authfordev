@@ -1,19 +1,12 @@
-import type { AuthforDevClient } from "@mewhhaha/authfordev-client";
 import { Client } from "@mewhhaha/authfordev-client";
-import type { FormEvent } from "react";
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import type { SubmitOptions } from "@remix-run/react";
 import { useFetcher } from "@remix-run/react";
 import { Intent } from "./intent";
 
-export const useWebauthn = (clientKey: string) => {
+const useClient = (clientKey: string) => {
   const [client] = useState(() => Client({ clientKey }));
-  const signin = useSignIn(client);
-  const signup = useSignUp(client);
-  const signout = useSignOut();
-  const aliases = useAliases();
-
-  return { signin, signout, signup, aliases };
+  return client;
 };
 
 export const useAliases = () => {
@@ -48,7 +41,9 @@ export const useSignOut = () => {
   return { submit, state: fetcher.state };
 };
 
-export const useSignIn = (client: AuthforDevClient) => {
+export const useSignIn = (clientKey: string) => {
+  const client = useClient(clientKey);
+
   const fetcher = useFetcher<{ message: string; status: number }>();
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -73,7 +68,8 @@ export const useSignIn = (client: AuthforDevClient) => {
   return { submit, state: fetcher.state, error: fetcher.data !== undefined };
 };
 
-export const useSignUp = (client: AuthforDevClient) => {
+export const useSignUp = (clientKey: string) => {
+  const client = useClient(clientKey);
   const fetcher = useFetcher<{ message: string; status: number }>();
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {

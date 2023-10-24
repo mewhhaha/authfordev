@@ -1,8 +1,8 @@
 import { type PluginContext, Router } from "@mewhhaha/little-router";
 import { empty, error } from "@mewhhaha/typed-response";
-import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { type } from "arktype";
 import { $any, storageLoader, storageSaver } from "./helpers/durable";
+import { data_ } from "@mewhhaha/little-router-plugin-data";
 
 const code_ = (_: PluginContext<{ init?: { body?: string } }>) => {
   return {};
@@ -21,25 +21,17 @@ export class DurableObjectChallenge implements DurableObject {
     this.storage = state.storage;
 
     void state.blockConcurrencyWhile(async () => {
-      await this.load("valid");
+      await this.load("valid", "code");
     });
   }
 
   static router = Router<[DurableObjectChallenge]>()
     .post(
       "/start",
-      [
-        code_,
-        query_(
-          type({
-            "ms?": "parsedNumber",
-          })
-        ),
-      ],
-      async ({ request, query: { ms = 60000 } }, self) => {
+      [data_(type({ "ms?": "number", "code?": "string" }))],
+      async ({ data: { ms = 60000, code } }, self) => {
         self.save("valid", true);
 
-        const code = await request.text();
         if (code !== undefined) {
           self.save("code", code);
         }
@@ -51,6 +43,7 @@ export class DurableObjectChallenge implements DurableObject {
     )
     .post("/finish", [code_], async ({ request }, self) => {
       if (!self.valid) return error(403, { message: "challenge_expired" });
+
       self.valid = false;
       void self.storage.deleteAll();
       void self.storage.deleteAlarm();

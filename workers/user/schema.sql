@@ -1,14 +1,20 @@
+DROP TABLE IF EXISTS app;
+
 CREATE TABLE
     IF NOT EXISTS app (
         id TEXT NOT NULL PRIMARY KEY,
         created_at TEXT NOT NULL
     );
 
+DROP TABLE IF EXISTS user;
+
 CREATE TABLE
     IF NOT EXISTS user (
         id TEXT NOT NULL PRIMARY KEY,
         created_at TEXT NOT NULL
     );
+
+DROP TABLE IF EXISTS alias;
 
 CREATE TABLE
     IF NOT EXISTS alias (

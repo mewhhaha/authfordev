@@ -1,10 +1,12 @@
 import { type DataFunctionArgs } from "@remix-run/cloudflare";
-import { Form, useLoaderData } from "@remix-run/react";
-import type { ComponentProps, JSXElementConstructor } from "react";
+import { useLoaderData } from "@remix-run/react";
+import type { ComponentProps, JSXElementConstructor, Ref } from "react";
 import { forwardRef } from "react";
 import { cn } from "~/css/cn";
 import { endpoint } from "~/auth/endpoint.server";
-import { useWebauthn } from "~/auth/useWebauthn";
+import { FormSignUp } from "~/components/FormSignUp";
+import { useAliases } from "~/auth/useWebauthn";
+import { FormSignIn } from "~/components/FormSignIn";
 
 export async function loader({ context: { env } }: DataFunctionArgs) {
   return {
@@ -32,8 +34,7 @@ export function shouldRevalidate() {
 
 export default function Page() {
   const { clientKey } = useLoaderData<typeof loader>();
-
-  const { signin, signup, aliases } = useWebauthn(clientKey);
+  const aliases = useAliases();
 
   return (
     <main className="flex h-full w-full items-center sm:items-start">
@@ -42,60 +43,70 @@ export default function Page() {
           Sign up or sign in to the
           <br /> example application!
         </h1>
-        <Form
-          onSubmit={signup.submit}
-          method="POST"
+        <FormSignUp
+          clientKey={clientKey}
           onChange={(event) => {
             if (event.currentTarget.checkValidity()) {
               aliases.submit(event);
             }
           }}
         >
-          <div className="mb-4 flex flex-col-reverse">
-            <InputText
-              aria-labelledby="username"
-              name="username"
-              type="text"
-              autoComplete="username"
-              minLength={2}
-              maxLength={60}
-              readOnly={signup.state !== "idle"}
-              placeholder="username"
-              className="peer"
-              required
-            />
-            <label
-              id="username"
-              className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
-            >
-              Username
-            </label>
-          </div>
-          {aliases.error && (
-            <p className="text-red-600">Try another username</p>
-          )}
-          <Button
-            kind="secondary"
-            loading={signup.state !== "idle" || aliases.state !== "idle"}
-            className="w-full"
-          >
-            Sign up
-          </Button>
-        </Form>
+          {({ state, error }) => {
+            return (
+              <>
+                <div className="mb-4 flex flex-col-reverse">
+                  <InputText
+                    as={FormSignUp.Username}
+                    minLength={2}
+                    maxLength={60}
+                    readOnly={state !== "idle"}
+                    placeholder="Enter your username"
+                    aria-labelledby="username"
+                    className="peer"
+                  />
+                  <label
+                    id="username"
+                    className="text-sm font-semibold transition-opacity peer-focus:text-amber-800/70"
+                  >
+                    Username
+                  </label>
+                </div>
+                {aliases.error && (
+                  <p className="text-red-600">Try another username</p>
+                )}
+                <Button
+                  kind="secondary"
+                  loading={state !== "idle" || aliases.state !== "idle"}
+                  className="w-full"
+                >
+                  Sign up
+                </Button>
+                {error && (
+                  <p className="text-sm text-red-600">Failed to sign up.</p>
+                )}
+              </>
+            );
+          }}
+        </FormSignUp>
         <DividerText>or</DividerText>
-        <Form onSubmit={signin.submit} method="POST">
-          <Button
-            kind="primary"
-            loading={signin.state !== "idle"}
-            className="w-full"
-          >
-            Sign in with passkey
-          </Button>
-          {/* <AlertError>
-            Failed to sign in. Do you need to{" "}
-            <a href="#">recover your passkey?</a>
-          </AlertError> */}
-        </Form>
+        <FormSignIn immediately clientKey={clientKey} method="POST">
+          {({ state, error }) => {
+            return (
+              <>
+                <Button
+                  kind="primary"
+                  loading={state !== "idle"}
+                  className="w-full"
+                >
+                  Sign in with passkey
+                </Button>
+                {error && (
+                  <p className="text-sm text-red-600">Failed to sign in.</p>
+                )}
+              </>
+            );
+          }}
+        </FormSignIn>
       </Dialog>
     </main>
   );
@@ -164,7 +175,7 @@ const DividerText = ({ children }: DividerTextProps) => {
 /** Button component */
 
 type ButtonProps<
-  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button"
+  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button",
 > = {
   as?: T;
   icon?: React.ReactNode;
@@ -218,7 +229,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     );
   }
 ) as (<
-  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button"
+  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button",
 >(
   props: ButtonProps<T>
 ) => JSX.Element) & { displayName?: string };
@@ -246,16 +257,40 @@ Dialog.displayName = "Dialog";
 
 /** Input Text component */
 
-const InputText = (props: JSX.IntrinsicElements["input"]) => {
-  return (
-    <input
-      {...props}
-      className={cn(
-        "block w-full border-2 border-black font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] placeholder:font-bold focus:border-2 focus:border-black",
-        "transition-[transform,box-shadow] focus-visible:translate-x-[4px] focus-visible:translate-y-[4px] focus-visible:shadow-none",
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500",
-        props.className
-      )}
-    />
-  );
-};
+type InputTextProps<
+  T extends
+    | "input"
+    | ((props: {
+        name: string;
+        ref: Ref<HTMLInputElement>;
+      }) => React.ReactNode) = "input",
+> = {
+  as?: T;
+} & (T extends "input" ? JSX.IntrinsicElements["input"] : ComponentProps<T>);
+
+const InputText = forwardRef<HTMLInputElement, InputTextProps>(
+  ({ as: Component = "input", className, ...props }, ref) => {
+    return (
+      <Component
+        ref={ref}
+        className={cn(
+          "block w-full border-2 border-black font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] placeholder:font-bold focus:border-2 focus:border-black",
+          "transition-[transform,box-shadow] focus-visible:translate-x-[4px] focus-visible:translate-y-[4px] focus-visible:shadow-none",
+          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500",
+          className
+        )}
+        {...props}
+      />
+    );
+  }
+) as (<
+  T extends
+    | "input"
+    | ((props: {
+        name?: any extends string ? any : never;
+      }) => React.ReactNode) = "input",
+>(
+  props: InputTextProps<T>
+) => React.ReactNode) & { displayName?: string };
+
+InputText.displayName = "InputText";
