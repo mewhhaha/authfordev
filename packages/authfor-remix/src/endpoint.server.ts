@@ -41,6 +41,8 @@ export const endpoint = async (
     username: formData.get("username")?.toString(),
     token: formData.get("token")?.toString(),
     code: formData.get("code")?.toString(),
+    passkeyId: formData.get("passkeyId")?.toString(),
+    passkeyName: formData.get("passkeyName")?.toString(),
   };
 
   const session = await storage.authenticate(request, secrets);
@@ -51,11 +53,13 @@ export const endpoint = async (
         if (!form.token) {
           return json({ message: "form_data_missing", status: 422 });
         }
-        const { data } = await newSignin(serverKey, {
-          token: form.token,
-          origin,
-        });
-        if (data) {
+        const response = await api.post(
+          "/server/actions/verify-passkey",
+          jsonBody({ token: form.token, origin }, serverKey)
+        );
+
+        if (response.ok) {
+          const data = await response.json();
           const sessionHeaders = await storage.create(
             request,
             secrets,
@@ -74,17 +78,22 @@ export const endpoint = async (
         if (!form.username || !form.token) {
           return json({ message: "form_data_missing", status: 422 });
         }
-        const { data, status } = await newUser(serverKey, {
-          origin,
-          aliases: [form.username],
-          token: form.token,
-        });
 
-        if (status === 409) {
+        const response = await api.post(
+          "/server/users",
+          jsonBody(
+            { origin, aliases: [form.username], token: form.token },
+            serverKey
+          )
+        );
+
+        if (response.status === 409) {
           return { message: "aliases_taken", status: 409 } as const;
-        } else if (status) {
+        } else if (!response.ok) {
           return { message: "new_user_failed", status } as const;
         }
+
+        const data = await response.json();
         const sessionHeaders = await storage.create(
           request,
           secrets,
@@ -99,14 +108,17 @@ export const endpoint = async (
           return json({ message: "form_data_missing", status: 422 });
         }
 
-        const { data, status } = await checkAliases(serverKey, {
-          aliases: [form.username],
-        });
-        if (status) {
+        const response = await api.post(
+          "/server/actions/check-aliases",
+          jsonBody({ aliases: [form.username] }, serverKey)
+        );
+
+        if (!response.ok) {
           return { message: "check_aliases_failed", status } as const;
         }
 
-        if (data.occupied) {
+        const data = await response.json();
+        if (data.aliases.some(([_, exists]) => exists)) {
           return { message: "aliases_taken", status: 409 } as const;
         }
 
@@ -140,18 +152,32 @@ export const endpoint = async (
 
         const response = await api.post(
           `/server/users/${session.userId}/passkeys`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: serverKey,
-            },
-            body: JSON.stringify({ token: form.token, origin }),
-          }
+          jsonBody({ token: form.token, origin }, serverKey)
         );
 
         if (!response.ok) {
           return { message: "add_passkey_failed", status: response.status };
         }
+      }
+      case Intent.RemovePasskey: {
+        const response = await api.delete(
+          `/server/users/${session.userId}/passkeys/${form.passkeyId}`,
+          { headers: { Authorization: serverKey } }
+        );
+        return { success: response.ok };
+      }
+
+      case Intent.RenamePasskey: {
+        if (!form.passkeyName) {
+          return { success: false, message: "form_data_missing" };
+        }
+
+        const response = await api.put(
+          `/server/users/${session.userId}/rename-passkey/${form.passkeyId}`,
+          jsonBody({ name: form.passkeyName }, serverKey)
+        );
+
+        return { success: response.ok };
       }
     }
   };
@@ -167,71 +193,6 @@ export const endpoint = async (
   }
 
   throw new Response("Not found", { status: 404 });
-};
-
-const newSignin = async (
-  serverKey: string,
-  { token, origin }: { token: string; origin: string }
-) => {
-  const response = await api.post("/server/actions/verify-passkey", {
-    headers: {
-      Authorization: serverKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ token, origin }),
-  });
-
-  if (!response.ok) {
-    return { status: response.status } as const;
-  }
-
-  return { data: await response.json() } as const;
-};
-
-const newUser = async (
-  serverKey: string,
-  {
-    aliases,
-    token,
-    origin,
-  }: { aliases: string[]; token: string; origin: string }
-) => {
-  const response = await api.post("/server/users", {
-    headers: {
-      Authorization: serverKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ aliases, token, origin }),
-  });
-
-  if (!response.ok) {
-    return { status: response.status } as const;
-  }
-
-  return { data: await response.json() } as const;
-};
-
-const checkAliases = async (
-  serverKey: string,
-  { aliases }: { aliases: string[] }
-) => {
-  const response = await api.post("/server/actions/check-aliases", {
-    headers: {
-      Authorization: serverKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ aliases }),
-  });
-
-  if (!response.ok) {
-    return { status: response.status } as const;
-  }
-
-  const data = await response.json();
-
-  return {
-    data: { occupied: data.aliases.some(([_, exists]) => exists) },
-  } as const;
 };
 
 type JSONBody = {
@@ -251,7 +212,7 @@ type JSONBody = {
   };
 };
 
-export const jsonBody: JSONBody = <T, Y extends string>(
+const jsonBody: JSONBody = <T, Y extends string>(
   body: T,
   authorization?: Y
 ) => {

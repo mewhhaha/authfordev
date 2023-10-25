@@ -34,7 +34,7 @@ export const FormSignIn = forwardRef<HTMLFormElement, FormSignInProps>(
     useEffect(() => {
       if (!immediately || internalRef.current === null || onceRef.current)
         return;
-      onceRef.current = false;
+      onceRef.current = true;
       signin.submit({
         currentTarget: internalRef.current,
         preventDefault: noop,

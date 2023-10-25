@@ -3,22 +3,9 @@ import { Form } from "@remix-run/react";
 import { forwardRef } from "react";
 import { useAddPasskey } from "./useAddPasskey.js";
 
-type UsernameProps = { name?: "username" } & (
-  | { defaultValue: string; value?: string }
-  | { value: string; defaultValue?: string }
-) &
-  Omit<JSX.IntrinsicElements["input"], "name">;
-
-const Username = forwardRef<HTMLInputElement, UsernameProps>(
-  ({ onChange, ...props }) => {
-    return <input type="hidden" required name="username" {...props} />;
-  }
-);
-
-Username.displayName = "Username";
-
 type FormAddPasskeyProps = {
   clientKey: string;
+  username: string;
   method?: "POST";
   className?:
     | string
@@ -34,8 +21,8 @@ type FormAddPasskeyProps = {
       }) => React.ReactNode);
 } & Omit<FormProps, "children" | "method" | "onSubmit" | "className">;
 
-const FormForward = forwardRef<HTMLFormElement, FormAddPasskeyProps>(
-  ({ clientKey, children, className, ...props }, ref) => {
+export const FormAddPasskey = forwardRef<HTMLFormElement, FormAddPasskeyProps>(
+  ({ clientKey, username, children, className, ...props }, ref) => {
     const addPasskey = useAddPasskey(clientKey);
     const childrenProps = { state: addPasskey.state, error: addPasskey.error };
     return (
@@ -48,16 +35,11 @@ const FormForward = forwardRef<HTMLFormElement, FormAddPasskeyProps>(
         }
         {...props}
       >
+        <input type="hidden" required name="username" value={username} />
         {typeof children === "function" ? children(childrenProps) : children}
       </Form>
     );
   }
 );
 
-FormForward.displayName = "FormSignUp";
-
-export const FormAddPasskey = FormForward as typeof FormForward & {
-  Username: typeof Username;
-};
-
-FormAddPasskey.Username = Username;
+FormAddPasskey.displayName = "FormAddPasskey";

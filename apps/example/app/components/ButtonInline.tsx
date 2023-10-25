@@ -1,6 +1,7 @@
 import type { JSXElementConstructor, ComponentProps } from "react";
 import { forwardRef } from "react";
 import { cn } from "~/css/cn.js";
+import { IconArrowPath } from "./IconArrowPath.js";
 
 export type ButtonInlineProps<
   T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button",
@@ -36,7 +37,11 @@ export const ButtonInline = forwardRef<HTMLButtonElement, ButtonInlineProps>(
         <div className="flex items-center">
           {icon && <div className="mr-2">{icon}</div>}
           {children}
-          {loading && <div className="ml-2 animate-pulse">...</div>}
+          {loading && (
+            <div className="ml-2 animate-pulse">
+              <IconArrowPath className="h-6 w-6 animate-spin" />
+            </div>
+          )}
         </div>
       </Component>
     );

@@ -4,11 +4,15 @@ import {
   redirect,
   defer,
 } from "@remix-run/cloudflare";
-import { Await, useFetcher, useLoaderData } from "@remix-run/react";
+import { Await, useLoaderData } from "@remix-run/react";
 import { Suspense } from "react";
-import { PasskeyIntent } from "./passkeys.$passkeyId.js";
 import type { PasskeyMetadata, Visitor } from "@mewhhaha/authfor-api";
-import { FormAddPasskey, FormSignOut } from "@mewhhaha/authfor-remix";
+import {
+  FormAddPasskey,
+  FormRemovePasskey,
+  FormRenamePasskey,
+  FormSignOut,
+} from "@mewhhaha/authfor-remix";
 import { authenticate } from "../auth/session.server.js";
 import { api } from "~/api/api.js";
 import { invariant } from "@internal/common";
@@ -241,8 +245,12 @@ export default function Page() {
               );
             })}
           </ul>
-          <FormAddPasskey clientKey={clientKey} method="POST">
-            <FormAddPasskey.Username defaultValue={user.metadata.aliases[0]} />
+          <FormAddPasskey
+            action="/auth"
+            username={user.metadata.aliases[0]}
+            clientKey={clientKey}
+            method="POST"
+          >
             <ButtonInline className="w-full max-w-sm" icon={<PlusCircle />}>
               Add a new passkey
             </ButtonInline>
@@ -295,10 +303,6 @@ const PlusCircle = () => {
   );
 };
 
-const usePassKeyAction = () => {
-  return useFetcher<{ success: boolean; message?: string }>();
-};
-
 type PasskeyProps = {
   passkeyId: string;
   current?: boolean;
@@ -312,14 +316,6 @@ const Passkey = ({
   passkeyId,
   current,
 }: PasskeyProps) => {
-  const action = usePassKeyAction();
-
-  const loading = (intent: PasskeyIntent) => {
-    return (
-      action.state === "submitting" && action.formData?.get("intent") === intent
-    );
-  };
-
   return (
     <div className="bg-amber-50 px-2 pb-8 pt-4">
       <dl className="grid gap-6 sm:grid-cols-2 [&>div]:bg-white [&>div]:px-4 [&>div]:py-2">
@@ -329,23 +325,21 @@ const Passkey = ({
             <p className="mb-2 text-sm">
               Rename your passkey to something that's easy to identify.
             </p>
-            <action.Form action={`/passkeys/${passkeyId}`} method="POST">
-              <input type="hidden" name="intent" value={PasskeyIntent.Rename} />
-              <input
-                type="text"
-                minLength={1}
-                maxLength={60}
-                name="name"
-                placeholder="Enter a new name"
-                className="mb-1 w-full border-gray-50 text-sm opacity-50 hover:border-black hover:opacity-100 focus:border-black focus:opacity-100"
-              />
-              <ButtonInline
-                className="w-full"
-                loading={loading(PasskeyIntent.Rename)}
-              >
-                Rename
-              </ButtonInline>
-            </action.Form>
+            <FormRenamePasskey action="/auth" passkeyId={passkeyId}>
+              {({ state }) => {
+                return (
+                  <>
+                    <FormRenamePasskey.InputName
+                      placeholder="Enter a new name"
+                      className="mb-1 w-full border-gray-50 text-sm opacity-50 hover:border-black hover:opacity-100 focus:border-black focus:opacity-100"
+                    />
+                    <ButtonInline className="w-full" loading={state !== "idle"}>
+                      Rename
+                    </ButtonInline>
+                  </>
+                );
+              }}
+            </FormRenamePasskey>
           </dd>
         </div>
         {!current && (
@@ -355,19 +349,18 @@ const Passkey = ({
               Permanently delete the passkey so it can't be used for signing in.
             </p>
             <dd className="mt-auto">
-              <action.Form action={`/passkeys/${passkeyId}`} method="POST">
-                <input
-                  type="hidden"
-                  name="intent"
-                  value={PasskeyIntent.Remove}
-                />
-                <ButtonInline
-                  loading={loading(PasskeyIntent.Remove)}
-                  className="w-full text-red-600"
-                >
-                  Delete
-                </ButtonInline>
-              </action.Form>
+              <FormRemovePasskey action="/auth" passkeyId={passkeyId}>
+                {({ state }) => {
+                  return (
+                    <ButtonInline
+                      loading={state !== "idle"}
+                      className="w-full text-red-600"
+                    >
+                      Delete
+                    </ButtonInline>
+                  );
+                }}
+              </FormRemovePasskey>
             </dd>
           </div>
         )}

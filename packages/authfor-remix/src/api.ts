@@ -13,6 +13,8 @@ export enum Intent {
   SignUp = "sign-up",
   CheckAliases = "check-aliases",
   AddPasskey = "add-passkey",
+  RemovePasskey = "remove-passkey",
+  RenamePasskey = "rename-passkey",
 }
 
 export const formOptions = (element: HTMLFormElement) =>

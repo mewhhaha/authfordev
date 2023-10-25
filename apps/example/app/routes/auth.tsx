@@ -56,7 +56,7 @@ export default function Page() {
                     Username
                   </label>
                   <InputText
-                    as={FormSignUp.Username}
+                    as={FormSignUp.InputUsername}
                     maxLength={60}
                     placeholder="Enter your username"
                     aria-labelledby="username"

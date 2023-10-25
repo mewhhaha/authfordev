@@ -71,7 +71,7 @@ export type Recovery = {
 
 const parsePasskeyLink = type({
   name: "1<=string<=60",
-  credentialId: "string",
+  credentialId: "1<=string<=256",
   userId: "string",
   passkeyId: "string",
 });

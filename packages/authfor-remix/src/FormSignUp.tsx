@@ -3,12 +3,12 @@ import { Form } from "@remix-run/react";
 import { forwardRef } from "react";
 import { useSignUp } from "./useSignUp.js";
 
-type UsernameProps = { name?: "username" } & Omit<
+type InputUsernameProps = { name?: "username" } & Omit<
   JSX.IntrinsicElements["input"],
   "name"
 >;
 
-const Username = forwardRef<HTMLInputElement, UsernameProps>(
+const InputUsername = forwardRef<HTMLInputElement, InputUsernameProps>(
   ({ onChange, ...props }: JSX.IntrinsicElements["input"]) => {
     return (
       <input
@@ -26,7 +26,7 @@ const Username = forwardRef<HTMLInputElement, UsernameProps>(
   }
 );
 
-Username.displayName = "Username";
+InputUsername.displayName = "InputUsername";
 
 type FormSignUpProps = {
   clientKey: string;
@@ -46,7 +46,7 @@ type FormSignUpProps = {
       }) => React.ReactNode);
 } & Omit<FormProps, "children" | "method" | "onSubmit" | "className">;
 
-const FormForward = forwardRef<HTMLFormElement, FormSignUpProps>(
+const _FormSignUp = forwardRef<HTMLFormElement, FormSignUpProps>(
   ({ clientKey, taken = "", children, className, ...props }, ref) => {
     const signup = useSignUp(clientKey, taken);
     const childrenProps = { state: signup.state, error: signup.error };
@@ -66,10 +66,10 @@ const FormForward = forwardRef<HTMLFormElement, FormSignUpProps>(
   }
 );
 
-FormForward.displayName = "FormSignUp";
+_FormSignUp.displayName = "FormSignUp";
 
-export const FormSignUp = FormForward as typeof FormForward & {
-  Username: typeof Username;
+export const FormSignUp = _FormSignUp as typeof _FormSignUp & {
+  InputUsername: typeof InputUsername;
 };
 
-FormSignUp.Username = Username;
+FormSignUp.InputUsername = InputUsername;
