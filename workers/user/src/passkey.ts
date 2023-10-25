@@ -6,31 +6,22 @@ import {
 import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { error, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
-import { $any, storageLoader, storageSaver } from "./helpers/durable";
+import { $any, storageLoader, storageSaver } from "./helpers/durable.js";
 import {
   type Credential,
   parseAuthenticationEncoded,
   parseCredential,
   parsedBoolean,
-} from "./helpers/parser";
+  type Visitor,
+  parseVisitor,
+} from "./helpers/parser.js";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
-import { now } from "./helpers/time";
+import { now } from "./helpers/time.js";
 import { server } from "@passwordless-id/webauthn";
-import { encode } from "@internal/jwt";
-
-const parseVisitor = type({
-  "city?": "string",
-  "country?": "string",
-  "continent?": "string",
-  "longitude?": "string",
-  "latitude?": "string",
-  "region?": "string",
-  "regionCode?": "string",
-  "metroCode?": "string",
-  "postalCode?": "string",
-  "timezone?": "string",
-  timestamp: "string",
-});
+import { type Env } from "./helpers/env.js";
+import { type ServerAppName } from "./plugins/server.js";
+import { encode } from "@internal/common";
+export type { JSONString, JSONOf } from "@mewhhaha/json-string";
 
 const parseMetadata = type({
   passkeyId: "string",
@@ -44,25 +35,24 @@ const inferredMetadata = parseMetadata.infer;
 /** @public */
 export type Metadata = typeof inferredMetadata;
 
-const inferredVisitor = parseVisitor.infer;
-/** @public */
-export type Visitor = typeof inferredVisitor;
-
 export type Passkey = {
   credential: Credential;
   metadata: Metadata;
 };
 
 // This should be `passkey:${app}:${userId}`
-export type GuardPasskey = `passkey:${string}:${string}`;
+export type GuardPasskey = `passkey:${ServerAppName}:${string}`;
 
-export const guardPasskey = (app: string, userId: DurableObjectId | string) => {
+export const guardPasskey = (
+  app: ServerAppName,
+  userId: DurableObjectId | string
+) => {
   return `passkey:${app}:${userId.toString()}` as const;
 };
 
 const unoccupied_ = ((_: PluginContext<any>, self) => {
   if (self.metadata !== undefined) {
-    return error(409, "passkey_exists");
+    return error(409, { message: "passkey_exists" });
   }
 
   return {};
@@ -78,22 +68,22 @@ const occupied_ = ((
 ) => {
   const authorization = request.headers.get("Authorization");
   if (authorization === null) {
-    return error(401, "authorization_missing");
+    return error(401, { message: "authorization_missing" });
   }
 
   if (self.metadata === undefined || self.credential === undefined) {
-    return error(404, "passkey_missing");
+    return error(404, { message: "passkey_missing" });
   }
 
   // First word is just passkey:
   const [, app, userId] = authorization.split(":");
 
   if (app !== self.metadata.app) {
-    return error(403, "app_mismatch");
+    return error(403, { message: "app_mismatch" });
   }
 
   if (userId !== self.metadata.userId) {
-    return error(403, "user_mismatch");
+    return error(403, { message: "user_mismatch" });
   }
 
   return { metadata: self.metadata, credential: self.credential } as const;
@@ -263,7 +253,7 @@ export class DurableObjectPasskey implements DurableObject {
   }
 }
 
-export const $passkey = $any<typeof DurableObjectPasskey>;
+export const $passkey = $any<typeof DurableObjectPasskey, Env["DO_PASSKEY"]>;
 
 export const makeVisitor = (request: Request) => {
   return {

@@ -1,8 +1,8 @@
+import { invariant } from "@internal/common";
 import type { DataFunctionArgs } from "@remix-run/cloudflare";
 import { redirect } from "@remix-run/cloudflare";
-import { webauthn } from "~/api/authfordev";
-import { authenticate } from "~/auth/authenticate.server";
-import { invariant } from "~/auth/invariant";
+import { api } from "~/api/api.js";
+import { authenticate } from "~/auth/session.server.js";
 
 export enum PasskeyIntent {
   Rename = "rename",
@@ -29,7 +29,7 @@ export async function action({
 
   switch (form.intent) {
     case PasskeyIntent.Remove: {
-      const response = await webauthn.delete(
+      const response = await api.delete(
         `/server/users/${session.userId}/passkeys/${passkeyId}`,
         {
           headers: { Authorization: env.AUTH_SERVER_KEY },
@@ -43,7 +43,7 @@ export async function action({
         return { success: false, message: "form_data_missing" };
       }
 
-      const response = await webauthn.put(
+      const response = await api.put(
         `/server/users/${session.userId}/rename-passkey/${passkeyId}`,
         {
           headers: {

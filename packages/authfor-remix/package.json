@@ -1,0 +1,47 @@
+{
+  "name": "@mewhhaha/authfor-remix",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./endpoint.server": {
+      "import": "./dist/endpoint.server.js",
+      "types": "./dist/endpoint.server.d.ts"
+    }
+  },
+  "scripts": {
+    "prepublish": "pnpm -w build",
+    "build": "tsc -p tsconfig.json"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "sideEffects": false,
+  "devDependencies": {
+    "@mewhhaha/authfor-api": "workspace:^",
+    "@mewhhaha/json-string": "^0.0.33",
+    "@remix-run/eslint-config": "^2.1.0",
+    "@remix-run/react": "^2.1.0",
+    "@remix-run/router": "^1.10.0",
+    "@remix-run/server-runtime": "^2.1.0",
+    "@types/react": "^18.2.32",
+    "eslint": "^8.52.0",
+    "prettier": "^3.0.3",
+    "react": "^18.2.0",
+    "typescript": "^5.2.2"
+  },
+  "peerDependencies": {
+    "@remix-run/react": "^2.1.0",
+    "@remix-run/router": "^1.10.0",
+    "@remix-run/server-runtime": "^2.1.0",
+    "react": "^18.2.0"
+  },
+  "dependencies": {
+    "@mewhhaha/authfor-client": "workspace:^",
+    "@mewhhaha/little-fetcher": "^0.0.33"
+  }
+}

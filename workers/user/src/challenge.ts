@@ -1,8 +1,10 @@
 import { type PluginContext, Router } from "@mewhhaha/little-router";
-import { empty, error } from "@mewhhaha/typed-response";
+import { empty, error, text } from "@mewhhaha/typed-response";
 import { type } from "arktype";
-import { $any, storageLoader, storageSaver } from "./helpers/durable";
+import { $any, storageLoader, storageSaver } from "./helpers/durable.js";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
+import { type Env } from "./helpers/env.js";
+export { type JSONString } from "@mewhhaha/json-string";
 
 const code_ = (_: PluginContext<{ init?: { body?: string } }>) => {
   return {};
@@ -11,6 +13,7 @@ const code_ = (_: PluginContext<{ init?: { body?: string } }>) => {
 export class DurableObjectChallenge implements DurableObject {
   valid = false;
   code?: string;
+  value: string = "";
 
   storage: DurableObjectStorage;
 
@@ -28,12 +31,16 @@ export class DurableObjectChallenge implements DurableObject {
   static router = Router<[DurableObjectChallenge]>()
     .post(
       "/start",
-      [data_(type({ "ms?": "number", "code?": "string" }))],
-      async ({ data: { ms = 60000, code } }, self) => {
+      [data_(type({ "ms?": "number", "code?": "string", "value?": "string" }))],
+      async ({ data: { ms = 60000, code, value } }, self) => {
         self.save("valid", true);
 
         if (code !== undefined) {
           self.save("code", code);
+        }
+
+        if (value !== undefined) {
+          self.save("value", value);
         }
 
         const expiry = new Date(Date.now() + ms);
@@ -51,7 +58,7 @@ export class DurableObjectChallenge implements DurableObject {
       if (self.code !== undefined && (await request.text()) !== self.code) {
         return error(403, { message: "code_mismatch" });
       }
-      return empty(204);
+      return text(200, self.value);
     })
     .all("/*", [], () => {
       return new Response("Not found", { status: 404 });
@@ -69,4 +76,7 @@ export class DurableObjectChallenge implements DurableObject {
   }
 }
 
-export const $challenge = $any<typeof DurableObjectChallenge>;
+export const $challenge = $any<
+  typeof DurableObjectChallenge,
+  Env["DO_CHALLENGE"]
+>;

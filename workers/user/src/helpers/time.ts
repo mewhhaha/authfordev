@@ -1,7 +1,8 @@
+import { type TaggedType } from "@internal/common";
+
 export const now = () => new Date().toISOString() as DateISOString;
 
-export type DateISOString =
-  `${string}-${string}-${string}T${string}:${string}:${string}.${string}Z`;
+export type DateISOString = TaggedType<string, "date_iso_string">;
 
 export const minute1 = () => fromNow(1000 * 60);
 

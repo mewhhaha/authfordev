@@ -1,0 +1,25 @@
+{
+  "name": "@mewhhaha/authfor-client",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "prepublish": "pnpm -w build",
+    "build": "tsc -p tsconfig.json"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "sideEffects": false,
+  "devDependencies": {
+    "@internal/common": "workspace:^",
+    "@internal/jwt": "workspace:^",
+    "@mewhhaha/authfor-api": "workspace:^",
+    "@mewhhaha/little-fetcher": "^0.0.33",
+    "@passwordless-id/webauthn": "^1.3.0",
+    "typescript": "^5.2.2"
+  }
+}

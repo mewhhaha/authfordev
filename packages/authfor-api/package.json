@@ -1,0 +1,28 @@
+{
+  "name": "@mewhhaha/authfor-api",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/authfor-api.d.ts",
+  "scripts": {
+    "prepublish": "pnpm -w build",
+    "build": "tsc -p tsconfig.json && api-extractor run --local --verbose"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "sideEffects": false,
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20231025.0",
+    "@mewhhaha/json-string": "^0.0.33",
+    "@microsoft/api-extractor": "^7.38.0",
+    "@workers/user": "workspace:^",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "@mewhhaha/little-router": "^0.0.33",
+    "@mewhhaha/typed-response": "^0.0.33"
+  }
+}

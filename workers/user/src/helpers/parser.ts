@@ -1,6 +1,24 @@
-import { decode, decodeJwt, jwtTime } from "@internal/jwt";
+import { decode } from "@internal/common";
+import { decodeJwt, jwtTime } from "@internal/jwt";
 import { type } from "arktype";
-import { type Visitor } from "../passkey";
+
+export const parseVisitor = type({
+  "city?": "string",
+  "country?": "string",
+  "continent?": "string",
+  "longitude?": "string",
+  "latitude?": "string",
+  "region?": "string",
+  "regionCode?": "string",
+  "metroCode?": "string",
+  "postalCode?": "string",
+  "timezone?": "string",
+  timestamp: "string",
+});
+
+const inferredVisitor = parseVisitor.infer;
+/** @public */
+export type Visitor = typeof inferredVisitor;
 
 export const parseCredential = type({
   id: "string",

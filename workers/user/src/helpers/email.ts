@@ -3,6 +3,7 @@ import type { JSONString } from "@mewhhaha/json-string";
 import { fetcher } from "@mewhhaha/little-fetcher";
 import type { BodyResponse, JSONResponse } from "@mewhhaha/typed-response";
 import emailSendCode from "@internal/emails/dist/send-code.json";
+import { type Env } from "./env.js";
 
 export type BodySend = {
   personalizations: {
@@ -59,7 +60,7 @@ export const createBody = ({
   email: string;
   username: string;
   code: string;
-  dkim: string;
+  dkim: Env["DKIM_PRIVATE_KEY"];
 }): BodySend => {
   return {
     personalizations: [
@@ -85,4 +86,4 @@ const defaultEmail = ({ code }: { code: string }) =>
   ({
     type: "text/html",
     value: emailSendCode.html.replace("{{123456}}", code),
-  } as const);
+  }) as const;

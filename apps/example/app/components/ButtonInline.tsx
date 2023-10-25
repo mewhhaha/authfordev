@@ -1,9 +1,9 @@
 import type { JSXElementConstructor, ComponentProps } from "react";
 import { forwardRef } from "react";
-import { cn } from "~/css/cn";
+import { cn } from "~/css/cn.js";
 
 export type ButtonInlineProps<
-  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button"
+  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button",
 > = {
   as?: T;
   icon?: React.ReactNode;
@@ -42,7 +42,7 @@ export const ButtonInline = forwardRef<HTMLButtonElement, ButtonInlineProps>(
     );
   }
 ) as (<
-  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button"
+  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button",
 >(
   props: ButtonInlineProps<T>
 ) => JSX.Element) & { displayName?: string };

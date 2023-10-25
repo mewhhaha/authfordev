@@ -6,13 +6,16 @@ import {
 import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { error, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
-import { $any, storageLoader, storageSaver } from "./helpers/durable";
+import { $any, storageLoader, storageSaver } from "./helpers/durable.js";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
-import { parsedBoolean } from "./helpers/parser";
+import { parsedBoolean } from "./helpers/parser.js";
+import { type Env } from "./helpers/env.js";
+import { type ServerAppName } from "./plugins/server.js";
+export { type JSONString } from "@mewhhaha/json-string";
 
-export type GuardUser = `user:${string}`;
+export type GuardUser = `user:${ServerAppName}`;
 
-export const guardUser = (app: string) => {
+export const guardUser = (app: ServerAppName) => {
   return `user:${app}` as const;
 };
 
@@ -35,11 +38,11 @@ const occupied_ = ((
 ) => {
   const authorization = request.headers.get("Authorization");
   if (authorization === null) {
-    return error(401, "authorization_missing");
+    return error(401, { message: "authorization_missing" });
   }
 
   if (self.metadata === undefined) {
-    return error(404, "user_missing");
+    return error(404, { message: "user_missing" });
   }
 
   // First word is just user:
@@ -47,7 +50,7 @@ const occupied_ = ((
 
   if (app !== self.metadata?.app) {
     console.log(self.metadata);
-    return error(403, "app_mismatch");
+    return error(403, { message: "app_mismatch" });
   }
 
   return { metadata: self.metadata };
@@ -55,11 +58,13 @@ const occupied_ = ((
 
 // This should be #${app}:${userId}
 
+/** @public */
 export type Metadata = {
   app: string;
   aliases: string[];
 };
 
+/** @public */
 export type Recovery = {
   emails: { address: string; verified: boolean; primary: boolean }[];
 };
@@ -217,4 +222,4 @@ export class DurableObjectUser implements DurableObject {
   }
 }
 
-export const $user = $any<typeof DurableObjectUser>;
+export const $user = $any<typeof DurableObjectUser, Env["DO_USER"]>;

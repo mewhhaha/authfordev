@@ -1,11 +1,13 @@
 import type { JSXElementConstructor, ComponentProps } from "react";
 import { forwardRef } from "react";
-import { cn } from "~/css/cn";
+import { cn } from "~/css/cn.js";
+import { IconArrowPath } from "./IconArrowPath.js";
 
 export type ButtonProps<
-  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button"
+  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button",
 > = {
   as?: T;
+  loading?: boolean;
   icon?: React.ReactNode;
   kind?: "primary" | "secondary" | "tertiary";
 } & (T extends keyof JSX.IntrinsicElements
@@ -14,7 +16,14 @@ export type ButtonProps<
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
-    { icon, kind = "primary", as: Component = "button", children, ...props },
+    {
+      icon,
+      kind = "primary",
+      loading = false,
+      as: Component = "button",
+      children,
+      ...props
+    },
     ref
   ) => {
     return (
@@ -43,12 +52,17 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         <div className="flex items-center">
           {icon && <div className="mr-2">{icon}</div>}
           {children}
+          {loading && (
+            <div className="ml-2 animate-pulse">
+              <IconArrowPath className="h-6 w-6 animate-spin" />
+            </div>
+          )}
         </div>
       </Component>
     );
   }
 ) as (<
-  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button"
+  T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button",
 >(
   props: ButtonProps<T>
 ) => JSX.Element) & { displayName?: string };
