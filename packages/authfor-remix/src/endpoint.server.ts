@@ -54,7 +54,7 @@ export const endpoint = async (
           return json({ message: "form_data_missing", status: 422 });
         }
         const response = await api.post(
-          "/server/actions/verify-passkey",
+          "/actions/verify-passkey",
           jsonBody({ token: form.token, origin }, serverKey)
         );
 
@@ -80,7 +80,7 @@ export const endpoint = async (
         }
 
         const response = await api.post(
-          "/server/users",
+          "/users",
           jsonBody(
             { origin, aliases: [form.username], token: form.token },
             serverKey
@@ -109,7 +109,7 @@ export const endpoint = async (
         }
 
         const response = await api.post(
-          "/server/actions/check-aliases",
+          "/actions/check-aliases",
           jsonBody({ aliases: [form.username] }, serverKey)
         );
 
@@ -151,7 +151,7 @@ export const endpoint = async (
         }
 
         const response = await api.post(
-          `/server/users/${session.userId}/passkeys`,
+          `/users/${session.userId}/passkeys`,
           jsonBody({ token: form.token, origin }, serverKey)
         );
 
@@ -161,7 +161,7 @@ export const endpoint = async (
       }
       case Intent.RemovePasskey: {
         const response = await api.delete(
-          `/server/users/${session.userId}/passkeys/${form.passkeyId}`,
+          `/users/${session.userId}/passkeys/${form.passkeyId}`,
           { headers: { Authorization: serverKey } }
         );
         return { success: response.ok };
@@ -173,7 +173,7 @@ export const endpoint = async (
         }
 
         const response = await api.put(
-          `/server/users/${session.userId}/rename-passkey/${form.passkeyId}`,
+          `/users/${session.userId}/rename-passkey/${form.passkeyId}`,
           jsonBody({ name: form.passkeyName }, serverKey)
         );
 

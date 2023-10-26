@@ -35,10 +35,9 @@ export async function loader({ request, context: { env } }: DataFunctionArgs) {
   }
 
   const fetchPasskeys = async () => {
-    const response = await api.get(
-      `/server/users/${session.userId}?passkeys=true`,
-      { headers: { Authorization: env.AUTH_SERVER_KEY } }
-    );
+    const response = await api.get(`/users/${session.userId}?passkeys=true`, {
+      headers: { Authorization: env.AUTH_SERVER_KEY },
+    });
 
     if (!response.ok) {
       return [];
@@ -49,10 +48,9 @@ export async function loader({ request, context: { env } }: DataFunctionArgs) {
   };
 
   const fetchUser = async () => {
-    const response = await api.get(
-      `/server/users/${session.userId}?recovery=true`,
-      { headers: { Authorization: env.AUTH_SERVER_KEY } }
-    );
+    const response = await api.get(`/users/${session.userId}?recovery=true`, {
+      headers: { Authorization: env.AUTH_SERVER_KEY },
+    });
     if (!response.ok) {
       throw redirect("/auth");
     }
@@ -67,7 +65,7 @@ export async function loader({ request, context: { env } }: DataFunctionArgs) {
 
   const fetchDetails = async (p: { passkeyId: string }) => {
     const response = await api.get(
-      `/server/users/${session.userId}/passkeys/${p.passkeyId}?visitors=true`,
+      `/users/${session.userId}/passkeys/${p.passkeyId}?visitors=true`,
       { headers: { Authorization: env.AUTH_SERVER_KEY } }
     );
 
@@ -118,19 +116,16 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
       if (!form.token) {
         return { success: false, message: "form_data_missing" };
       }
-      const response = await api.post(
-        `/server/users/${session.userId}/passkeys`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: env.AUTH_SERVER_KEY,
-          },
-          body: JSON.stringify({
-            token: form.token,
-            origin: env.ORIGIN,
-          }),
-        }
-      );
+      const response = await api.post(`/users/${session.userId}/passkeys`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: env.AUTH_SERVER_KEY,
+        },
+        body: JSON.stringify({
+          token: form.token,
+          origin: env.ORIGIN,
+        }),
+      });
 
       if (!response.ok) {
         return { success: false };
