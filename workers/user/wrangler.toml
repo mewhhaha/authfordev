@@ -1,7 +1,6 @@
 name = "authfordev-user"
 main = "app/worker.ts"
 compatibility_date = "2023-09-04"
-define = { PATTERN = "\"\"" }
 
 [vars]
 API_URL_MAILCHANNELS = "https://api.mailchannels.net/tx/v1"

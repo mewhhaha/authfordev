@@ -18,6 +18,16 @@ const files = await fs
   .then((files) => files.filter(isRouteFile).sort());
 
 const createDeclarations = async () => {
+  const pattern = `
+    declare global {
+      interface ServiceWorkerGlobalScope {
+        PATTERN: string;
+      }
+    }
+
+    self.PATTERN = "";
+  `;
+
   const declarations = files
     .map((f) => {
       return `declare module "./${fileToModule(f)}" { 
@@ -27,7 +37,10 @@ const createDeclarations = async () => {
     })
     .join("");
 
-  return declarations;
+  await fs.writeFile(
+    "app/routes/_pattern.ts",
+    await format(pattern + declarations, { parser: "typescript" })
+  );
 };
 
 const createRouter = async () => {
@@ -37,6 +50,7 @@ const createRouter = async () => {
   }
   const imports =
     "import { Router, type RouteData } from '@mewhhaha/little-router';" +
+    "import * as PATTERN from './_pattern.js';" +
     files.map((f) => `import ${vars[f]} from "./${fileToModule(f)}";`).join("");
 
   const routes = files
@@ -47,11 +61,19 @@ const createRouter = async () => {
     })
     .join("\n");
 
+  const pattern = `if (typeof PATTERN === "undefined") {
+      throw new Error("missing PATTERN import");
+    }`;
+
   const router =
     imports +
+    pattern +
     `export const router = Router<RouteData["arguments"] extends unknown[] ? RouteData["arguments"] : []>()\n${routes};`;
 
-  return router;
+  await fs.writeFile(
+    "app/routes/_router.ts",
+    await format(router, { parser: "typescript" })
+  );
 };
 
 const fileToModule = (file: string) => file.replace(tsRegex, ".js");
@@ -65,12 +87,4 @@ const fileToPath = (file: string) =>
     .replace(dotRegex, "/")
     .replace(dollarRegex, ":");
 
-const [declarations, router] = await Promise.all([
-  createDeclarations(),
-  createRouter(),
-]);
-
-await fs.writeFile(
-  "app/routes/_router.ts",
-  await format(router + declarations, { parser: "typescript" })
-);
+await Promise.all([createDeclarations(), createRouter()]);

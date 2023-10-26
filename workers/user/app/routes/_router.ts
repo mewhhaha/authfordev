@@ -1,4 +1,5 @@
 import { Router, type RouteData } from "@mewhhaha/little-router";
+import * as PATTERN from "./_pattern.js";
 import route_0 from "./delete.users.$userId.passkeys.$passkeyId.js";
 import route_1 from "./get.aliases.$alias.js";
 import route_2 from "./get.users.$userId.passkeys.$passkeyId.js";
@@ -11,6 +12,9 @@ import route_8 from "./post.client.challenge-passkey.js";
 import route_9 from "./post.users.$userId.passkeys.js";
 import route_10 from "./post.users.js";
 import route_11 from "./put.users.$userId.rename-passkey.$passkeyId.js";
+if (typeof PATTERN === "undefined") {
+  throw new Error("missing PATTERN import");
+}
 export const router = Router<
   RouteData["arguments"] extends unknown[] ? RouteData["arguments"] : []
 >()
@@ -26,51 +30,3 @@ export const router = Router<
   .post("/users/:userId/passkeys", route_9[1], route_9[2])
   .post("/users", route_10[1], route_10[2])
   .put("/users/:userId/rename-passkey/:passkeyId", route_11[1], route_11[2]);
-declare module "./delete.users.$userId.passkeys.$passkeyId.js" {
-  /** This is an ephemeral value and can only be used as a type */
-  const PATTERN = "/users/:userId/passkeys/:passkeyId";
-}
-declare module "./get.aliases.$alias.js" {
-  /** This is an ephemeral value and can only be used as a type */
-  const PATTERN = "/aliases/:alias";
-}
-declare module "./get.users.$userId.passkeys.$passkeyId.js" {
-  /** This is an ephemeral value and can only be used as a type */
-  const PATTERN = "/users/:userId/passkeys/:passkeyId";
-}
-declare module "./get.users.$userId.js" {
-  /** This is an ephemeral value and can only be used as a type */
-  const PATTERN = "/users/:userId";
-}
-declare module "./post.actions.check-aliases.js" {
-  /** This is an ephemeral value and can only be used as a type */
-  const PATTERN = "/actions/check-aliases";
-}
-declare module "./post.actions.send-email-code.js" {
-  /** This is an ephemeral value and can only be used as a type */
-  const PATTERN = "/actions/send-email-code";
-}
-declare module "./post.actions.verify-email-code.js" {
-  /** This is an ephemeral value and can only be used as a type */
-  const PATTERN = "/actions/verify-email-code";
-}
-declare module "./post.actions.verify-passkey.js" {
-  /** This is an ephemeral value and can only be used as a type */
-  const PATTERN = "/actions/verify-passkey";
-}
-declare module "./post.client.challenge-passkey.js" {
-  /** This is an ephemeral value and can only be used as a type */
-  const PATTERN = "/client/challenge-passkey";
-}
-declare module "./post.users.$userId.passkeys.js" {
-  /** This is an ephemeral value and can only be used as a type */
-  const PATTERN = "/users/:userId/passkeys";
-}
-declare module "./post.users.js" {
-  /** This is an ephemeral value and can only be used as a type */
-  const PATTERN = "/users";
-}
-declare module "./put.users.$userId.rename-passkey.$passkeyId.js" {
-  /** This is an ephemeral value and can only be used as a type */
-  const PATTERN = "/users/:userId/rename-passkey/:passkeyId";
-}
