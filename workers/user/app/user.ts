@@ -8,8 +8,7 @@ import { error, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { $any, storageLoader, storageSaver } from "./helpers/durable.js";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
-import { parsedBoolean } from "./helpers/parser.js";
-import { type Env } from "./helpers/env.js";
+import { type Credential, parsedBoolean } from "./helpers/parser.js";
 import { type ServerAppName } from "./plugins/server.js";
 export { type JSONString } from "@mewhhaha/json-string";
 
@@ -223,3 +222,21 @@ export class DurableObjectUser implements DurableObject {
 }
 
 export const $user = $any<typeof DurableObjectUser, Env["DO_USER"]>;
+
+export const makePasskeyLink = ({
+  passkeyId,
+  credential,
+  userId,
+}: {
+  passkeyId: DurableObjectId | string;
+  credential: Credential;
+  userId: DurableObjectId | string;
+}): PasskeyLink => {
+  const passkeyIdString = passkeyId.toString();
+  return {
+    passkeyId: passkeyIdString,
+    credentialId: credential.id,
+    userId: userId.toString(),
+    name: `passkey-${passkeyIdString.slice(0, 3) + passkeyIdString.slice(-3)}`,
+  };
+};

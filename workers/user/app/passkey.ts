@@ -18,7 +18,6 @@ import {
 import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { now } from "./helpers/time.js";
 import { server } from "@passwordless-id/webauthn";
-import { type Env } from "./helpers/env.js";
 import { type ServerAppName } from "./plugins/server.js";
 import { encode } from "@internal/common";
 export type { JSONString, JSONOf } from "@mewhhaha/json-string";

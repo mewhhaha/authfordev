@@ -3,7 +3,6 @@ import { empty, error, text } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { $any, storageLoader, storageSaver } from "./helpers/durable.js";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
-import { type Env } from "./helpers/env.js";
 export { type JSONString } from "@mewhhaha/json-string";
 
 const code_ = (_: PluginContext<{ init?: { body?: string } }>) => {
@@ -31,8 +30,8 @@ export class DurableObjectChallenge implements DurableObject {
   static router = Router<[DurableObjectChallenge]>()
     .post(
       "/start",
-      [data_(type({ "ms?": "number", "code?": "string", "value?": "string" }))],
-      async ({ data: { ms = 60000, code, value } }, self) => {
+      [data_(type({ ms: "number", "code?": "string", "value?": "string" }))],
+      async ({ data: { ms, code, value } }, self) => {
         self.save("valid", true);
 
         if (code !== undefined) {
