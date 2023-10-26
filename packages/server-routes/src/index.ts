@@ -36,7 +36,7 @@ const createRouter = async () => {
     vars[files[i]] = `route_${i}`;
   }
   const imports =
-    "import { Router, RouteData } from '@mewhhaha/little-router';" +
+    "import { Router, type RouteData } from '@mewhhaha/little-router';" +
     files.map((f) => `import ${vars[f]} from "./${fileToModule(f)}";`).join("");
 
   const routes = files

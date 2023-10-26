@@ -1,4 +1,4 @@
-import { Router } from "@mewhhaha/little-router";
+import { Router, type RouteData } from "@mewhhaha/little-router";
 import route_0 from "./delete.users.$userId.passkeys.$passkeyId.js";
 import route_1 from "./get.aliases.$alias.js";
 import route_2 from "./get.users.$userId.passkeys.$passkeyId.js";
@@ -11,7 +11,9 @@ import route_8 from "./post.client.challenge-passkey.js";
 import route_9 from "./post.users.$userId.passkeys.js";
 import route_10 from "./post.users.js";
 import route_11 from "./put.users.$userId.rename-passkey.$passkeyId.js";
-export const router = Router()
+export const router = Router<
+  RouteData["arguments"] extends unknown[] ? RouteData["arguments"] : []
+>()
   .delete("/users/:userId/passkeys/:passkeyId", route_0[1], route_0[2])
   .get("/aliases/:alias", route_1[1], route_1[2])
   .get("/users/:userId/passkeys/:passkeyId", route_2[1], route_2[2])

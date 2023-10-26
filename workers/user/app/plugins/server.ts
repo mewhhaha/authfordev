@@ -1,7 +1,6 @@
 import { decodeHeader } from "@internal/keys";
 import { type PluginContext, type Plugin } from "@mewhhaha/little-router";
 import { error } from "@mewhhaha/typed-response";
-import { type Env } from "../helpers/env.js";
 import { type TaggedType } from "@internal/common";
 
 export const server_ = (async (

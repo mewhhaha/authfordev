@@ -3,7 +3,6 @@ import type { JSONString } from "@mewhhaha/json-string";
 import { fetcher } from "@mewhhaha/little-fetcher";
 import type { BodyResponse, JSONResponse } from "@mewhhaha/typed-response";
 import emailSendCode from "@internal/emails/dist/send-code.json";
-import { type Env } from "./env.js";
 
 export type BodySend = {
   personalizations: {
