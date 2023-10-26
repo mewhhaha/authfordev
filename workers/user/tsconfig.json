@@ -20,5 +20,5 @@
     "noUnusedParameters": true,
     "preserveSymlinks": false
   },
-  "include": ["src"]
+  "include": ["app"]
 }
