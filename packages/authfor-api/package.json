@@ -16,13 +16,13 @@
   "sideEffects": false,
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20231025.0",
-    "@mewhhaha/json-string": "^0.0.33",
+    "@mewhhaha/json-string": "^0.0.35",
     "@microsoft/api-extractor": "^7.38.0",
     "@workers/user": "workspace:^",
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@mewhhaha/little-router": "^0.0.33",
-    "@mewhhaha/typed-response": "^0.0.33"
+    "@mewhhaha/little-router": "^0.0.35",
+    "@mewhhaha/typed-response": "^0.0.35"
   }
 }

@@ -23,12 +23,12 @@
   "sideEffects": false,
   "devDependencies": {
     "@mewhhaha/authfor-api": "workspace:^",
-    "@mewhhaha/json-string": "^0.0.33",
+    "@mewhhaha/json-string": "^0.0.35",
     "@remix-run/eslint-config": "^2.1.0",
     "@remix-run/react": "^2.1.0",
     "@remix-run/router": "^1.10.0",
     "@remix-run/server-runtime": "^2.1.0",
-    "@types/react": "^18.2.32",
+    "@types/react": "^18.2.33",
     "eslint": "^8.52.0",
     "prettier": "^3.0.3",
     "react": "^18.2.0",
@@ -42,6 +42,6 @@
   },
   "dependencies": {
     "@mewhhaha/authfor-client": "workspace:^",
-    "@mewhhaha/little-fetcher": "^0.0.33"
+    "@mewhhaha/little-fetcher": "^0.0.35"
   }
 }

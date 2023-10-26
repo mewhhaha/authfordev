@@ -30,10 +30,6 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
   });
 }
 
-export function shouldRevalidate() {
-  return false;
-}
-
 export default function Page() {
   const { clientKey } = useLoaderData<typeof loader>();
 
@@ -80,7 +76,7 @@ export default function Page() {
           }}
         </FormSignUp>
         <DividerText>or</DividerText>
-        <FormSignIn immediately clientKey={clientKey} method="POST">
+        <FormSignIn immediately clientKey={clientKey}>
           {({ state, error }) => {
             return (
               <>

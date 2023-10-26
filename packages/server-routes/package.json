@@ -1,9 +1,12 @@
 {
-  "name": "@internal/common",
+  "name": "@internal/server-routes",
   "private": true,
   "version": "1.0.0",
   "description": "",
   "type": "module",
+  "bin": {
+    "server-routes": "dist/index.js"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -14,11 +17,11 @@
   "license": "ISC",
   "sideEffects": false,
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20231025.0",
-    "@mewhhaha/json-string": "^0.0.35",
+    "@types/node": "^20.8.9",
+    "prettier": "^3.0.3",
     "typescript": "^5.2.2"
   },
-  "dependencies": {
-    "@mewhhaha/typed-response": "^0.0.35"
+  "peerDependencies": {
+    "prettier": "^3.0.3"
   }
 }
