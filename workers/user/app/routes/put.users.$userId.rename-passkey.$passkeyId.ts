@@ -1,7 +1,7 @@
 import { jsonBody, tryResult } from "@internal/common";
 import { route } from "@mewhhaha/little-router";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
-import { error, ok } from "@mewhhaha/typed-response";
+import { err, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { server_ } from "../plugins/server.js";
 import { $user, guardUser } from "../user.js";
@@ -21,7 +21,7 @@ export default route(
       .then(tryResult);
 
     if (!success) {
-      return error(404, { message: "passkey_missing" });
+      return err(404, { message: "passkey_missing" });
     }
 
     return ok(200, data);

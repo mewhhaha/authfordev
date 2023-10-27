@@ -1,7 +1,7 @@
 import { jsonBody, tryResult } from "@internal/common";
 import { route } from "@mewhhaha/little-router";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
-import { error, ok } from "@mewhhaha/typed-response";
+import { err, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { $challenge } from "../challenge.js";
 import { parseAuthenticationToken } from "../helpers/parser.js";
@@ -20,17 +20,17 @@ export default route(
         secret: env.SECRET_FOR_PASSKEY,
       });
     if (message === "token_invalid") {
-      return error(401, "token_invalid");
+      return err(401, "token_invalid");
     }
 
     if (message !== undefined) {
-      return error(403, message);
+      return err(403, message);
     }
 
     const challenge = $challenge(env.DO_CHALLENGE, challengeId);
     const { success: passed } = await finishChallenge(challenge);
     if (!passed) {
-      return error(410, { message: "challenge_expired" });
+      return err(410, { message: "challenge_expired" });
     }
 
     const passkeyId = jurisdiction.passkey.idFromName(
@@ -42,7 +42,7 @@ export default route(
     const response = await passkey.post("/authenticate", jsonBody(payload));
 
     if (!response.ok) {
-      return error(403, { message: "passkey_invalid" });
+      return err(403, { message: "passkey_invalid" });
     }
 
     const { metadata } = await response.json();

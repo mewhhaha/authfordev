@@ -3,6 +3,7 @@ import {
   type HttpStatus2XX,
   type HttpStatus4XX,
   type TextResponse,
+  BodyResponse,
 } from "@mewhhaha/typed-response";
 
 type Result<RESPONSE extends Response> = RESPONSE extends JSONResponse<
@@ -57,7 +58,7 @@ export const tryResult = async <RESPONSE extends Response>(
     return {
       success: false,
       status: r.status,
-      error: await r.json(),
+      errors: [await r.json()],
     };
   }
 

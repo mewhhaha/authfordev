@@ -3,10 +3,10 @@ import { route } from "@mewhhaha/little-router";
 import { ok } from "@mewhhaha/typed-response";
 import { $challenge } from "../challenge.js";
 import { minute1 } from "../helpers/time.js";
-import { makeVisitor } from "../passkey.js";
+import { makeVisitorHeaders } from "../passkey.js";
 import { client_ } from "../plugins/client.js";
-import { type Visitor } from "../worker.js";
 import { jsonBody } from "@internal/common";
+import { type VisitorHeaders } from "../helpers/parser.js";
 
 export default route(PATTERN, [client_], async ({ request, app }, env, ctx) => {
   const id = env.DO_CHALLENGE.newUniqueId();
@@ -15,11 +15,11 @@ export default route(PATTERN, [client_], async ({ request, app }, env, ctx) => {
     jti: id.toString(),
     sub: "anonymous",
     exp: jwtTime(minute1()),
-    vis: makeVisitor(request),
+    vis: makeVisitorHeaders(request),
     aud: app,
   };
 
-  const token = await encodeJwt<{ vis: Visitor }>(
+  const token = await encodeJwt<{ vis: VisitorHeaders }>(
     env.SECRET_FOR_PASSKEY,
     claim
   );

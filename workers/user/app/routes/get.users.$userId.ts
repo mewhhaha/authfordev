@@ -2,7 +2,7 @@ import { route } from "@mewhhaha/little-router";
 import { server_ } from "../plugins/server.js";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { tryResult } from "@internal/common";
-import { error, ok } from "@mewhhaha/typed-response";
+import { err, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { parsedBoolean } from "../helpers/parser.js";
 import { $user, guardUser } from "../user.js";
@@ -30,7 +30,7 @@ export default route(
       .then(tryResult);
 
     if (!success) {
-      return error(404, { message: "user_missing" });
+      return err(404, { message: "user_missing" });
     }
 
     return ok(200, result);

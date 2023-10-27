@@ -17,7 +17,7 @@ const files = await fs
   .readdir("app/routes")
   .then((files) => files.filter(isRouteFile).sort());
 
-const createDeclarations = () => {
+const createDeclarations = async () => {
   const pattern = `
     declare global {
       interface ServiceWorkerGlobalScope {
@@ -37,44 +37,40 @@ const createDeclarations = () => {
     })
     .join("");
 
-  return pattern + declarations;
+  await fs.writeFile(
+    "app/routes/_pattern.ts",
+    await format(pattern + declarations + "export {};", {
+      parser: "typescript",
+    })
+  );
 };
 
 const createRouter = async () => {
   const vars: Record<string, string> = {};
   for (let i = 0; i < files.length; i++) {
-    vars[files[i]] = `route${i}`;
+    vars[files[i]] = `route_${i}`;
   }
-
-  const declarations = createDeclarations();
-
   const imports =
-    "import { Router, type RouteData } from '@mewhhaha/little-router';";
-  const asyncImports =
-    "const d = <T>(r: { default: T }) => r.default;" +
-    files
-      .map((f) => `const ${vars[f]} = import("./${fileToModule(f)}").then(d);`)
-      .join("");
+    "import { Router, type RouteData } from '@mewhhaha/little-router';" +
+    "import * as PATTERN from './_pattern.js';" +
+    files.map((f) => `import ${vars[f]} from "./${fileToModule(f)}";`).join("");
 
   const routes = files
     .map((f) => {
-      return `\t.${fileToMethod(f)}("${fileToPath(f)}", (await ${
+      return `\t.${fileToMethod(f)}("${fileToPath(f)}", ${vars[f]}[1], ${
         vars[f]
-      })[1], (await ${vars[f]})[2])`;
+      }[2])`;
     })
     .join("\n");
 
-  const type = `
-    const routes = router.infer;
-    export type Routes = typeof routes;
-  `;
+  const pattern = `if (typeof PATTERN === "undefined") {
+      throw new Error("missing PATTERN import");
+    }`;
 
   const router =
     imports +
-    declarations +
-    asyncImports +
-    `export const router = Router<RouteData["arguments"] extends unknown[] ? RouteData["arguments"] : []>()${routes};` +
-    type;
+    pattern +
+    `export const router = Router<RouteData["arguments"] extends unknown[] ? RouteData["arguments"] : []>()\n${routes};`;
 
   await fs.writeFile(
     "app/routes/_router.ts",
@@ -93,4 +89,4 @@ const fileToPath = (file: string) =>
     .replace(dotRegex, "/")
     .replace(dollarRegex, ":");
 
-await createRouter();
+await Promise.all([createDeclarations(), createRouter()]);

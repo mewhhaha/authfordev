@@ -1,6 +1,6 @@
 import { decodeHeader } from "@internal/keys";
 import { type PluginContext, type Plugin } from "@mewhhaha/little-router";
-import { error } from "@mewhhaha/typed-response";
+import { err } from "@mewhhaha/typed-response";
 import { type TaggedType } from "@internal/common";
 
 export const client_ = (async (
@@ -14,12 +14,12 @@ export const client_ = (async (
   const clientKey = await request.text();
 
   if (clientKey === "") {
-    return error(401, { message: "body_missing" });
+    return err(401, { message: "body_missing" });
   }
 
   const app = await decodeHeader(env.SECRET_FOR_CLIENT, "client", clientKey);
   if (app === undefined || app === "") {
-    return error(403, { message: "authorization_invalid" });
+    return err(403, { message: "authorization_invalid" });
   }
 
   return { app: app as ClientAppName };

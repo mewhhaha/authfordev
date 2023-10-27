@@ -20,8 +20,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/authfor-remix
       '@mewhhaha/little-fetcher':
-        specifier: ^0.0.35
-        version: 0.0.35
+        specifier: ^0.0.36
+        version: 0.0.36
       '@remix-run/cloudflare':
         specifier: ^2.1.0
         version: 2.1.0(@cloudflare/workers-types@4.20231025.0)(typescript@5.2.2)
@@ -57,8 +57,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/authfor-api
       '@mewhhaha/json-string':
-        specifier: ^0.0.35
-        version: 0.0.35
+        specifier: ^0.0.36
+        version: 0.0.36
       '@remix-run/dev':
         specifier: ^2.1.0
         version: 2.1.0(typescript@5.2.2)
@@ -90,8 +90,8 @@ importers:
         specifier: ^5.0.4
         version: 5.2.2
       wrangler:
-        specifier: ^3.14.0
-        version: 3.14.0
+        specifier: ^3.15.0
+        version: 3.15.0
 
   apps/web:
     dependencies:
@@ -166,24 +166,24 @@ importers:
         specifier: ^5.2.2
         version: 5.2.2
       wrangler:
-        specifier: ^3.14.0
-        version: 3.14.0
+        specifier: ^3.15.0
+        version: 3.15.0
 
   packages/authfor-api:
     dependencies:
       '@mewhhaha/little-router':
-        specifier: ^0.0.35
-        version: 0.0.35
+        specifier: ^0.0.36
+        version: 0.0.36
       '@mewhhaha/typed-response':
-        specifier: ^0.0.35
-        version: 0.0.35
+        specifier: ^0.0.36
+        version: 0.0.36
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20231025.0
         version: 4.20231025.0
       '@mewhhaha/json-string':
-        specifier: ^0.0.35
-        version: 0.0.35
+        specifier: ^0.0.36
+        version: 0.0.36
       '@microsoft/api-extractor':
         specifier: ^7.38.0
         version: 7.38.0
@@ -206,8 +206,8 @@ importers:
         specifier: workspace:^
         version: link:../authfor-api
       '@mewhhaha/little-fetcher':
-        specifier: ^0.0.35
-        version: 0.0.35
+        specifier: ^0.0.36
+        version: 0.0.36
       '@passwordless-id/webauthn':
         specifier: ^1.3.0
         version: 1.3.0
@@ -221,15 +221,15 @@ importers:
         specifier: workspace:^
         version: link:../authfor-client
       '@mewhhaha/little-fetcher':
-        specifier: ^0.0.35
-        version: 0.0.35
+        specifier: ^0.0.36
+        version: 0.0.36
     devDependencies:
       '@mewhhaha/authfor-api':
         specifier: workspace:^
         version: link:../authfor-api
       '@mewhhaha/json-string':
-        specifier: ^0.0.35
-        version: 0.0.35
+        specifier: ^0.0.36
+        version: 0.0.36
       '@remix-run/eslint-config':
         specifier: ^2.1.0
         version: 2.1.0(eslint@8.52.0)(react@18.2.0)(typescript@5.2.2)
@@ -261,15 +261,15 @@ importers:
   packages/common:
     dependencies:
       '@mewhhaha/typed-response':
-        specifier: ^0.0.35
-        version: 0.0.35
+        specifier: ^0.0.36
+        version: 0.0.36
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20231025.0
         version: 4.20231025.0
       '@mewhhaha/json-string':
-        specifier: ^0.0.35
-        version: 0.0.35
+        specifier: ^0.0.36
+        version: 0.0.36
       typescript:
         specifier: ^5.2.2
         version: 5.2.2
@@ -351,6 +351,18 @@ importers:
         specifier: ^0.34.6
         version: 0.34.6
 
+  packages/server-api:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.8.9
+        version: 20.8.9
+      prettier:
+        specifier: ^3.0.3
+        version: 3.0.3
+      typescript:
+        specifier: ^5.2.2
+        version: 5.2.2
+
   packages/server-routes:
     devDependencies:
       '@types/node':
@@ -384,23 +396,23 @@ importers:
         specifier: workspace:^
         version: link:../../packages/server-routes
       '@mewhhaha/json-string':
-        specifier: ^0.0.35
-        version: 0.0.35
+        specifier: ^0.0.36
+        version: 0.0.36
       '@mewhhaha/little-fetcher':
-        specifier: ^0.0.35
-        version: 0.0.35
+        specifier: ^0.0.36
+        version: 0.0.36
       '@mewhhaha/little-router':
-        specifier: ^0.0.35
-        version: 0.0.35
+        specifier: ^0.0.36
+        version: 0.0.36
       '@mewhhaha/little-router-plugin-data':
-        specifier: ^0.0.35
-        version: 0.0.35(@mewhhaha/little-router@0.0.35)(arktype@1.0.25-alpha)
+        specifier: ^0.0.36
+        version: 0.0.36(@mewhhaha/little-router@0.0.36)(arktype@1.0.25-alpha)
       '@mewhhaha/little-router-plugin-query':
-        specifier: ^0.0.35
-        version: 0.0.35(@mewhhaha/little-router@0.0.35)(arktype@1.0.25-alpha)
+        specifier: ^0.0.36
+        version: 0.0.36(@mewhhaha/little-router@0.0.36)(arktype@1.0.25-alpha)
       '@mewhhaha/typed-response':
-        specifier: ^0.0.35
-        version: 0.0.35
+        specifier: ^0.0.36
+        version: 0.0.36
       '@passwordless-id/webauthn':
         specifier: ^1.3.0
         version: 1.3.0
@@ -450,8 +462,8 @@ importers:
         specifier: ^5.2.2
         version: 5.2.2
       wrangler:
-        specifier: ^3.14.0
-        version: 3.14.0
+        specifier: ^3.15.0
+        version: 3.15.0
 
 packages:
 
@@ -896,8 +908,8 @@ packages:
       mime: 3.0.0
     dev: true
 
-  /@cloudflare/workerd-darwin-64@1.20231016.0:
-    resolution: {integrity: sha512-rPAnF8Q25+eHEsAopihWeftPW/P0QapY9d7qaUmtOXztWdd6YPQ7JuiWVj4Nvjphge1BleehxAbo4I3Z4L2H1g==}
+  /@cloudflare/workerd-darwin-64@1.20231025.0:
+    resolution: {integrity: sha512-MYRYTbSl+tjGg6su7savlLIb8cOcKJfdGpA+WdtgqT2OF7O+89Lag0l1SA/iyVlUkT31Jc6OLHqvzsXgmg+niQ==}
     engines: {node: '>=16'}
     cpu: [x64]
     os: [darwin]
@@ -905,8 +917,8 @@ packages:
     dev: true
     optional: true
 
-  /@cloudflare/workerd-darwin-arm64@1.20231016.0:
-    resolution: {integrity: sha512-MvydDdiLXt+jy57vrVZ2lU6EQwCdpieyZoN8uBXSWzfG3zR/6dxU1+okvPQPlHN0jtlufqPeHrpJyAqqgLHUKA==}
+  /@cloudflare/workerd-darwin-arm64@1.20231025.0:
+    resolution: {integrity: sha512-BszjtBDR84TVa6oWe74dePJSAukWlTmLw9zR4KeWuwZLJGV7RMm6AmwGStetjnwZrecZaaOFELfBCAHtsebV0Q==}
     engines: {node: '>=16'}
     cpu: [arm64]
     os: [darwin]
@@ -914,8 +926,8 @@ packages:
     dev: true
     optional: true
 
-  /@cloudflare/workerd-linux-64@1.20231016.0:
-    resolution: {integrity: sha512-y6Sj37yTzM8QbAghG9LRqoSBrsREnQz8NkcmpjSxeK6KMc2g0L5A/OemCdugNlIiv+zRv9BYX1aosaoxY5JbeQ==}
+  /@cloudflare/workerd-linux-64@1.20231025.0:
+    resolution: {integrity: sha512-AT9dxgKXOa9xZxZ3k2a432axPJJ58KpoNWnPiPYGpuAuLoWnfcYwwh6mr9sZVcTdAdTAK9Xu9c81tp0YABanUw==}
     engines: {node: '>=16'}
     cpu: [x64]
     os: [linux]
@@ -923,8 +935,8 @@ packages:
     dev: true
     optional: true
 
-  /@cloudflare/workerd-linux-arm64@1.20231016.0:
-    resolution: {integrity: sha512-LqMIRUHD1YeRg2TPIfIQEhapSKMFSq561RypvJoXZvTwSbaROxGdW6Ku+PvButqTkEvuAtfzN/kGje7fvfQMHg==}
+  /@cloudflare/workerd-linux-arm64@1.20231025.0:
+    resolution: {integrity: sha512-EIjex5o2k80YZWPix1btGybL/vNZ3o6vqKX9ptS0JcFkHV5aFX5/kcMwSBRjiIC+w04zVjmGQx3N1Vh3njuncg==}
     engines: {node: '>=16'}
     cpu: [arm64]
     os: [linux]
@@ -932,8 +944,8 @@ packages:
     dev: true
     optional: true
 
-  /@cloudflare/workerd-windows-64@1.20231016.0:
-    resolution: {integrity: sha512-96ojBwIHyiUAbsWlzBqo9P/cvH8xUh8SuBboFXtwAeXcJ6/urwKN2AqPa/QzOGUTCdsurWYiieARHT5WWWPhKw==}
+  /@cloudflare/workerd-windows-64@1.20231025.0:
+    resolution: {integrity: sha512-7vtq0mO22A2v0OOsKXa760r9a84Gg8CK0gDu5uNWlj6hojmt011iz7jJt76I7oo/XrVwVlVfu69GnA3ljx6U8w==}
     engines: {node: '>=16'}
     cpu: [x64]
     os: [win32]
@@ -1932,39 +1944,39 @@ packages:
       - supports-color
     dev: true
 
-  /@mewhhaha/json-string@0.0.35:
-    resolution: {integrity: sha512-q9SOl2VBakQirH0SPjxKp4mhh8AGNNWNbvYMhYimcZEAaCt8L8deoL50tsDrkbkA2+mUjwbx/8Y5+b/3iBh9OA==}
+  /@mewhhaha/json-string@0.0.36:
+    resolution: {integrity: sha512-Sv9IfrJY3l36pzWO6b5RZ2HiMp85oW9yWiBpCx3Wons8Ejn5oLlMyRcHcTiA1ZJAW4B9Ewa0Ghxw8j98MCqpxA==}
     dev: true
 
-  /@mewhhaha/little-fetcher@0.0.35:
-    resolution: {integrity: sha512-K3QLk68Dvwmg/AImdUGrCARPcENDIR7wDpO692FErgyR8IBobjTdaVPAq5yrjFoXcIBu87WCsoKVo+Et4DDogg==}
+  /@mewhhaha/little-fetcher@0.0.36:
+    resolution: {integrity: sha512-Nhwnhf4rsw66IEDvjZuA18iiREdCDENG1Owxyt2lUtjAESgoV4w+YstnHwzs/20U8FoUXjdtJ6cUgcNAhcP+yQ==}
 
-  /@mewhhaha/little-router-plugin-data@0.0.35(@mewhhaha/little-router@0.0.35)(arktype@1.0.25-alpha):
-    resolution: {integrity: sha512-EV5pc3PItsXX/sxADkDk5W/U6l1DFO/X0ocaf8+1tMu3vt1rcc19V31FPeFavEM6wmZ/v6IC/r/33PAz4bjo1Q==}
+  /@mewhhaha/little-router-plugin-data@0.0.36(@mewhhaha/little-router@0.0.36)(arktype@1.0.25-alpha):
+    resolution: {integrity: sha512-RNx+lolqk8+xETzeNswMVNjhRuW/vYkkWV6ahUsENSG4yFsLpnoncyUYbeUAvsMCww1Z0b58lNKUQLtwU6SIDA==}
     peerDependencies:
-      '@mewhhaha/little-router': ^0.0.35
+      '@mewhhaha/little-router': ^0.0.36
       arktype: '*'
     dependencies:
-      '@mewhhaha/json-string': 0.0.35
-      '@mewhhaha/little-router': 0.0.35
+      '@mewhhaha/json-string': 0.0.36
+      '@mewhhaha/little-router': 0.0.36
       arktype: 1.0.25-alpha
     dev: true
 
-  /@mewhhaha/little-router-plugin-query@0.0.35(@mewhhaha/little-router@0.0.35)(arktype@1.0.25-alpha):
-    resolution: {integrity: sha512-nmCT48QU7l867wZXRQEUcxWWfu+oDdka8+60Zn7bUOrvZmp/xEhGQR4T6bZ1MHbqkoBAGiq5QnZpL1T8oaLJtA==}
+  /@mewhhaha/little-router-plugin-query@0.0.36(@mewhhaha/little-router@0.0.36)(arktype@1.0.25-alpha):
+    resolution: {integrity: sha512-L+P4CoW6iv4cAMyGN/DkN+FutK4N+sgExYj3Acja18PPKxSqXq/CCziQpoqLYl9O/4TsNiJ6mPp6mnKuTWXCHA==}
     peerDependencies:
-      '@mewhhaha/little-router': ^0.0.35
+      '@mewhhaha/little-router': ^0.0.36
       arktype: '*'
     dependencies:
-      '@mewhhaha/little-router': 0.0.35
+      '@mewhhaha/little-router': 0.0.36
       arktype: 1.0.25-alpha
     dev: true
 
-  /@mewhhaha/little-router@0.0.35:
-    resolution: {integrity: sha512-VlTAmLMNe3Z4DUryo5h6UX7fYnZtHMP7zamJUB8xLWU63shvPXEiJ85v0g5763ReYkfkcK8oCXoki2eawsd+jQ==}
+  /@mewhhaha/little-router@0.0.36:
+    resolution: {integrity: sha512-Rg6e7NfnVK7MzSqY+sYhT7DFS12WH6rFNhXCer7qaHKkzjFoLmwOv/VR8nguDAizPHSWOAoNYW9RyKI7x5uGKg==}
 
-  /@mewhhaha/typed-response@0.0.35:
-    resolution: {integrity: sha512-OncXnZyQ2j9h4HtbE6wnkc87swCoCiVisdL17Qn7s6TzYzThnBSvusHrpy8jE5Uwlc3imfKaAIMbYHAzNDdUHg==}
+  /@mewhhaha/typed-response@0.0.36:
+    resolution: {integrity: sha512-MNhiwA80CRpAsrQaE+5VcfVuOHZqqKcLQQYwu6wh+Sa6lK5B9Ve6v82B285MLma53NxvXMq6AeXffK5XM4ajww==}
 
   /@microsoft/api-extractor-model@7.28.2:
     resolution: {integrity: sha512-vkojrM2fo3q4n4oPh4uUZdjJ2DxQ2+RnDQL/xhTWSRUNPF6P4QyrvY357HBxbnltKcYu+nNNolVqc6TIGQ73Ig==}
@@ -3016,6 +3028,12 @@ packages:
     resolution: {integrity: sha512-AuHIyzR5Hea7ij0P9q7vx7xu4z0C28ucwjAZC0ja7JhINyCnOw8/DnvAPQQ9TfOlCtZAmCERKQX9+o1mgQhuOQ==}
     dev: true
 
+  /@types/node-forge@1.3.8:
+    resolution: {integrity: sha512-vGXshY9vim9CJjrpcS5raqSjEfKlJcWy2HNdgUasR66fAnVEYarrf1ULV4nfvpC1nZq/moA9qyqBcu83x+Jlrg==}
+    dependencies:
+      '@types/node': 20.8.9
+    dev: true
+
   /@types/node@20.8.7:
     resolution: {integrity: sha512-21TKHHh3eUHIi2MloeptJWALuCu5H7HQTdTrWIFReA8ad+aggoX+lRes3ex7/FtpC+sVUpFMQ+QTfYr74mruiQ==}
     dependencies:
@@ -3472,6 +3490,11 @@ packages:
     engines: {node: '>=0.4.0'}
     dev: true
 
+  /acorn-walk@8.3.0:
+    resolution: {integrity: sha512-FS7hV565M5l1R08MXqo8odwMTB02C2UqzB17RVgu9EyuYFBqJZ3/ZY97sQD5FewVu1UyDFc1yztUDrAwT0EypA==}
+    engines: {node: '>=0.4.0'}
+    dev: true
+
   /acorn@7.4.1:
     resolution: {integrity: sha512-nQyp0o1/mNdbTO1PO6kHkwSrmgZ0MT/jCCpNiwbUjGoRN4dlBhqJtoQuCnEOKzgTVwg0ZWiCoQy6SxMebQVh8A==}
     engines: {node: '>=0.4.0'}
@@ -3480,6 +3503,12 @@ packages:
 
   /acorn@8.10.0:
     resolution: {integrity: sha512-F0SAmZ8iUtS//m8DmCTA0jlh6TDKkHQyK6xc6V4KDTyZKA9dnvX9/3sRTVQrWm79glUAZbnmmNcdYwUIHWVybw==}
+    engines: {node: '>=0.4.0'}
+    hasBin: true
+    dev: true
+
+  /acorn@8.11.2:
+    resolution: {integrity: sha512-nc0Axzp/0FILLEVsm4fNwLCwMttvhEI263QtVPQcbpfZZ3ts0hLsZGOpE6czNlid7CJ9MlyH8reXkpsf3YUY4w==}
     engines: {node: '>=0.4.0'}
     hasBin: true
     dev: true
@@ -5423,7 +5452,7 @@ packages:
     resolution: {integrity: sha512-EzV94NYKoO09GLXGjXj9JIlXijVck4ONSr5wiCWDvhsvj5jxSrzTmRU/9C1DyB6uToszLs8aifA6NQ7lEQdvFw==}
     engines: {node: '>= 0.8'}
     dependencies:
-      '@types/node': 20.8.7
+      '@types/node': 20.8.9
       require-like: 0.1.2
     dev: true
 
@@ -7268,19 +7297,19 @@ packages:
     hasBin: true
     dev: true
 
-  /miniflare@3.20231016.0:
-    resolution: {integrity: sha512-AmlqI89zsnBJfC+nKKZdCB/fuu0q/br24Kqt9NZwcT6yJEpO5NytNKfjl6nJROHROwuJSRQR1T3yopCtG1/0DA==}
+  /miniflare@3.20231025.0:
+    resolution: {integrity: sha512-pFcr2BRaGIQ26UfdDo8BMJ6kkd/Jo/FkQ/4K7UG/eORlDepsLrR/sTJddcSSIGl07MA+MGjhzopFTPpFskkS+g==}
     engines: {node: '>=16.13'}
     dependencies:
-      acorn: 8.10.0
-      acorn-walk: 8.2.0
+      acorn: 8.11.2
+      acorn-walk: 8.3.0
       capnp-ts: 0.7.0
       exit-hook: 2.2.1
       glob-to-regexp: 0.4.1
       source-map-support: 0.5.21
       stoppable: 1.1.0
-      undici: 5.26.4
-      workerd: 1.20231016.0
+      undici: 5.27.0
+      workerd: 1.20231025.0
       ws: 8.14.2
       youch: 3.3.2
       zod: 3.22.4
@@ -8648,10 +8677,11 @@ packages:
       parseley: 0.11.0
     dev: true
 
-  /selfsigned@2.1.1:
-    resolution: {integrity: sha512-GSL3aowiF7wa/WtSFwnUrludWFoNhftq8bUkH9pkzjpN2XSPOAYEgg6e0sS9s0rZwgJzJiQRPU18A6clnoW5wQ==}
+  /selfsigned@2.4.1:
+    resolution: {integrity: sha512-th5B4L2U+eGLq1TVh7zNRGBapioSORUeymIydxgFpwww9d2qyKvtuPU2jJuHvYAwwqi2Y596QBL3eEqcPEYL8Q==}
     engines: {node: '>=10'}
     dependencies:
+      '@types/node-forge': 1.3.8
       node-forge: 1.3.1
     dev: true
 
@@ -9404,8 +9434,8 @@ packages:
     resolution: {integrity: sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA==}
     dev: true
 
-  /undici@5.26.4:
-    resolution: {integrity: sha512-OG+QOf0fTLtazL9P9X7yqWxQ+Z0395Wk6DSkyTxtaq3wQEjIroVe7Y4asCX/vcCxYpNGMnwz8F0qbRYUoaQVMw==}
+  /undici@5.27.0:
+    resolution: {integrity: sha512-l3ydWhlhOJzMVOYkymLykcRRXqbUaQriERtR70B9LzNkZ4bX52Fc8wbTDneMiwo8T+AemZXvXaTx+9o5ROxrXg==}
     engines: {node: '>=14.0'}
     dependencies:
       '@fastify/busboy': 2.0.0
@@ -9881,22 +9911,22 @@ packages:
       stackback: 0.0.2
     dev: true
 
-  /workerd@1.20231016.0:
-    resolution: {integrity: sha512-v2GDb5XitSqgub/xm7EWHVAlAK4snxQu3itdMQxXstGtUG9hl79fQbXS/8fNFbmms2R2bAxUwSv47q8k5T5Erw==}
+  /workerd@1.20231025.0:
+    resolution: {integrity: sha512-W1PFtpMFfvmm+ozBf+u70TE3Pviv7WA4qzDeejHDC4z+PFDq4+3KJCkgffaGBO86h+akWO0hSsc0uXL2zAqofQ==}
     engines: {node: '>=16'}
     hasBin: true
     requiresBuild: true
     optionalDependencies:
-      '@cloudflare/workerd-darwin-64': 1.20231016.0
-      '@cloudflare/workerd-darwin-arm64': 1.20231016.0
-      '@cloudflare/workerd-linux-64': 1.20231016.0
-      '@cloudflare/workerd-linux-arm64': 1.20231016.0
-      '@cloudflare/workerd-windows-64': 1.20231016.0
+      '@cloudflare/workerd-darwin-64': 1.20231025.0
+      '@cloudflare/workerd-darwin-arm64': 1.20231025.0
+      '@cloudflare/workerd-linux-64': 1.20231025.0
+      '@cloudflare/workerd-linux-arm64': 1.20231025.0
+      '@cloudflare/workerd-windows-64': 1.20231025.0
     dev: true
 
-  /wrangler@3.14.0:
-    resolution: {integrity: sha512-4vzw11yG1/KXpYKbumvRJ61Iyhm/yKXb/ayOw/2xiIRdKdpsfN9/796d2l525+CDaGwZWswpLENe6ZMS0p/Ghg==}
-    engines: {node: '>=16.13.0'}
+  /wrangler@3.15.0:
+    resolution: {integrity: sha512-kxzK62rD+LRrDeZZzw8cP6FBub71vJCbfAAb594XobXajgXYh3pFjv18Vm8YLxHzoGMhmAOJPA5b4DHq4HEUCw==}
+    engines: {node: '>=16.17.0'}
     hasBin: true
     dependencies:
       '@cloudflare/kv-asset-handler': 0.2.0
@@ -9905,10 +9935,11 @@ packages:
       blake3-wasm: 2.1.5
       chokidar: 3.5.3
       esbuild: 0.17.19
-      miniflare: 3.20231016.0
+      miniflare: 3.20231025.0
       nanoid: 3.3.6
       path-to-regexp: 6.2.1
-      selfsigned: 2.1.1
+      resolve.exports: 2.0.2
+      selfsigned: 2.4.1
       source-map: 0.6.1
       source-map-support: 0.5.21
       xxhash-wasm: 1.0.2

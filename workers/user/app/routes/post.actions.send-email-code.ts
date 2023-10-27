@@ -2,7 +2,7 @@ import { tryResult, invariant, encode, jsonBody } from "@internal/common";
 import { encodeJwt, jwtTime } from "@internal/jwt";
 import { route } from "@mewhhaha/little-router";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
-import { error, ok } from "@mewhhaha/typed-response";
+import { err, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { $challenge } from "../challenge.js";
 import { hashAlias, kvAlias } from "../helpers/alias.js";
@@ -20,7 +20,7 @@ export default route(
     const hashedAlias = await hashAlias(env.SECRET_FOR_ALIAS, alias);
     const userId = await env.KV_ALIAS.get(kvAlias(app, hashedAlias));
     if (userId === null) {
-      return error(404, { message: "user_missing" });
+      return err(404, { message: "user_missing" });
     }
 
     const { success: foundUser, result } = await $user(jurisdiction, userId)
@@ -30,7 +30,7 @@ export default route(
       .then(tryResult);
     if (!foundUser) {
       console.log("Alias didn't result in a proper user for some reason");
-      return error(404, { message: "user_missing" });
+      return err(404, { message: "user_missing" });
     }
 
     invariant(result.recovery, "included because of query param");
@@ -44,7 +44,7 @@ export default route(
     })?.address;
 
     if (address === undefined) {
-      return error(400, { message: "email_missing" });
+      return err(400, { message: "email_missing" });
     }
 
     const body = createBody({

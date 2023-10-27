@@ -4,11 +4,11 @@ import {
   Router,
 } from "@mewhhaha/little-router";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
-import { error, ok } from "@mewhhaha/typed-response";
+import { err, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { $any, storageLoader, storageSaver } from "./helpers/durable.js";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
-import { type Credential, parsedBoolean } from "./helpers/parser.js";
+import { parsedBoolean } from "./helpers/parser.js";
 import { type ServerAppName } from "./plugins/server.js";
 export { type JSONString } from "@mewhhaha/json-string";
 
@@ -20,7 +20,7 @@ export const guardUser = (app: ServerAppName) => {
 
 const unoccupied_ = ((_: PluginContext<any>, self) => {
   if (self.metadata !== undefined) {
-    return error(409, "user_exists");
+    return err(409, "user_exists");
   }
 
   return {};
@@ -37,11 +37,11 @@ const occupied_ = ((
 ) => {
   const authorization = request.headers.get("Authorization");
   if (authorization === null) {
-    return error(401, { message: "authorization_missing" });
+    return err(401, { message: "authorization_missing" });
   }
 
   if (self.metadata === undefined) {
-    return error(404, { message: "user_missing" });
+    return err(404, { message: "user_missing" });
   }
 
   // First word is just user:
@@ -49,7 +49,7 @@ const occupied_ = ((
 
   if (app !== self.metadata?.app) {
     console.log(self.metadata);
-    return error(403, { message: "app_mismatch" });
+    return err(403, { message: "app_mismatch" });
   }
 
   return { metadata: self.metadata };
@@ -125,31 +125,31 @@ export class DurableObjectUser implements DurableObject {
     .post(
       "/occupy",
       [unoccupied_, data_(parseOccupyData)],
-      async ({ data }, self) => {
-        self.occupy(data);
+      async ({ data }, object) => {
+        object.occupy(data);
         return ok(200);
       }
     )
     .post(
       "/verify-email",
       [occupied_, data_(type({ email: "email" }))],
-      async ({ data }, self) => {
-        const { emails } = self.recovery;
+      async ({ data }, object) => {
+        const { emails } = object.recovery;
         const email = emails.find((e) => e.address === data.email);
         if (email === undefined) {
-          return error(404, { message: "email_not_found" });
+          return err(404, { message: "email_not_found" });
         }
         email.verified = true;
-        self.save("recovery", { emails });
+        object.save("recovery", { emails });
         return ok(200);
       }
     )
     .post(
       "/link-passkey",
       [occupied_, data_(parsePasskeyLink)],
-      async ({ data }, self) => {
-        self.save("passkeys", [...self.passkeys, data]);
-        return ok(200, { passkeys: self.passkeys });
+      async ({ data }, object) => {
+        object.save("passkeys", [...object.passkeys, data]);
+        return ok(200, { passkeys: object.passkeys });
       }
     )
     .put(
@@ -158,7 +158,7 @@ export class DurableObjectUser implements DurableObject {
       async ({ params: { passkeyId }, data: { name } }, self) => {
         const passkey = self.passkeys.find((p) => p.passkeyId === passkeyId);
         if (passkey === undefined) {
-          return error(404, { message: "passkey_missing" });
+          return err(404, { message: "passkey_missing" });
         }
 
         passkey.name = name;
@@ -170,13 +170,15 @@ export class DurableObjectUser implements DurableObject {
     .delete(
       "/remove-passkey/:passkeyId",
       [occupied_],
-      async ({ params: { passkeyId } }, self) => {
-        const removed = self.passkeys.filter((p) => p.passkeyId !== passkeyId);
-        if (removed.length === self.passkeys.length) {
-          return error(404, { message: "passkey_not_found" });
+      async ({ params: { passkeyId } }, object) => {
+        const removed = object.passkeys.filter(
+          (p) => p.passkeyId !== passkeyId
+        );
+        if (removed.length === object.passkeys.length) {
+          return err(404, { message: "passkey_not_found" });
         }
-        self.save("passkeys", removed);
-        return ok(200, { passkeys: self.passkeys });
+        object.save("passkeys", removed);
+        return ok(200, { passkeys: object.passkeys });
       }
     )
     .get(
@@ -189,7 +191,7 @@ export class DurableObjectUser implements DurableObject {
       ],
       async (
         { metadata, query: { recovery = false, passkeys = false } },
-        self
+        object
       ) => {
         const data: {
           metadata: Metadata;
@@ -200,11 +202,11 @@ export class DurableObjectUser implements DurableObject {
         };
 
         if (recovery) {
-          data.recovery = self.recovery;
+          data.recovery = object.recovery;
         }
 
         if (passkeys) {
-          data.passkeys = self.passkeys;
+          data.passkeys = object.passkeys;
         }
 
         return ok(200, data);
@@ -225,17 +227,17 @@ export const $user = $any<typeof DurableObjectUser, Env["DO_USER"]>;
 
 export const makePasskeyLink = ({
   passkeyId,
-  credential,
+  credentialId,
   userId,
 }: {
   passkeyId: DurableObjectId | string;
-  credential: Credential;
+  credentialId: string;
   userId: DurableObjectId | string;
 }): PasskeyLink => {
   const passkeyIdString = passkeyId.toString();
   return {
     passkeyId: passkeyIdString,
-    credentialId: credential.id,
+    credentialId,
     userId: userId.toString(),
     name: `passkey-${passkeyIdString.slice(0, 3) + passkeyIdString.slice(-3)}`,
   };

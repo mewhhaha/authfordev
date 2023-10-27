@@ -1,5 +1,5 @@
 import { route } from "@mewhhaha/little-router";
-import { error, ok } from "@mewhhaha/typed-response";
+import { err, ok } from "@mewhhaha/typed-response";
 import { $passkey, type GuardPasskey, guardPasskey } from "../passkey.js";
 import { server_ } from "../plugins/server.js";
 import { $user, type GuardUser, guardUser } from "../user.js";
@@ -22,7 +22,7 @@ export default route(
     ]);
 
     if (!removedLink || !removedPasskey) {
-      return error(404, { message: "passkey_missing" });
+      return err(404, { message: "passkey_missing" });
     }
 
     return ok(200, removedPasskey);

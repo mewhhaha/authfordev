@@ -20,12 +20,12 @@
     "@internal/jwt": "workspace:^",
     "@internal/keys": "workspace:^",
     "@internal/server-routes": "workspace:^",
-    "@mewhhaha/json-string": "^0.0.35",
-    "@mewhhaha/little-fetcher": "^0.0.35",
-    "@mewhhaha/little-router": "^0.0.35",
-    "@mewhhaha/little-router-plugin-data": "^0.0.35",
-    "@mewhhaha/little-router-plugin-query": "^0.0.35",
-    "@mewhhaha/typed-response": "^0.0.35",
+    "@mewhhaha/json-string": "^0.0.36",
+    "@mewhhaha/little-fetcher": "^0.0.36",
+    "@mewhhaha/little-router": "^0.0.36",
+    "@mewhhaha/little-router-plugin-data": "^0.0.36",
+    "@mewhhaha/little-router-plugin-query": "^0.0.36",
+    "@mewhhaha/typed-response": "^0.0.36",
     "@passwordless-id/webauthn": "^1.3.0",
     "@types/invariant": "^2.2.36",
     "@typescript-eslint/eslint-plugin": "^6.9.0",
@@ -42,7 +42,7 @@
     "invariant": "^2.2.4",
     "prettier": "^3.0.3",
     "typescript": "^5.2.2",
-    "wrangler": "^3.14.0"
+    "wrangler": "^3.15.0"
   },
   "sideEffects": false
 }

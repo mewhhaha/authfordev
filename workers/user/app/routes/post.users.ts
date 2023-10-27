@@ -1,19 +1,14 @@
-import { encode, jsonBody, tryResult } from "@internal/common";
+import { jsonBody, tryResult } from "@internal/common";
 import { route } from "@mewhhaha/little-router";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
-import { error, ok } from "@mewhhaha/typed-response";
+import { err, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { kvAlias, type HashedAlias, hashAliases } from "../helpers/alias.js";
-import { $passkey } from "../passkey.js";
+import { $passkey, guardPasskey } from "../passkey.js";
 import { type ServerAppName, server_ } from "../plugins/server.js";
 import { $user, makePasskeyLink } from "../user.js";
-import { server } from "@passwordless-id/webauthn";
 import { $challenge } from "../challenge.js";
-import {
-  parseRegistrationToken,
-  type Credential,
-  type Visitor,
-} from "../helpers/parser.js";
+import { parseRegistrationToken } from "../helpers/parser.js";
 import { now } from "../helpers/time.js";
 
 export default route(
@@ -35,17 +30,41 @@ export default route(
       passkey: env.DO_PASSKEY.jurisdiction("eu"),
     };
 
-    const { message, credential, visitor } = await verifyRegistration(
+    const { registration, claim, message } = await parseRegistrationToken(
       token,
-      env.DO_CHALLENGE,
-      { app, origin, secret: env.SECRET_FOR_PASSKEY }
+      { app, secret: env.SECRET_FOR_PASSKEY }
     );
     if (message !== undefined) {
-      return error(403, { message });
+      return err(403, { message });
     }
 
-    const passkeyId = jurisdiction.passkey.idFromName(credential.id);
+    const challenge = $challenge(env.DO_CHALLENGE, claim.jti);
+    const { success: passed } = await finishChallenge(challenge);
+    if (!passed) {
+      return err(403, { message: "challenge_expired" });
+    }
+
+    const credentialId = registration.credential.id;
+    const passkeyId = jurisdiction.passkey.idFromName(credentialId);
+    const passkey = $passkey(jurisdiction.passkey, passkeyId);
     const userId = jurisdiction.user.newUniqueId();
+    const user = $user(jurisdiction.user, userId);
+
+    const data = {
+      app,
+      userId: userId.toString(),
+      registration,
+      origin,
+      challengeId: claim.jti,
+      visitor: claim.vis,
+    };
+    const { success: registered } = await passkey
+      .post("/start-register", jsonBody(data))
+      .then(tryResult);
+
+    if (!registered) {
+      return err(403, { message: "passkey_exists" });
+    }
 
     const hashedAliases = await hashAliases(env.SECRET_FOR_ALIAS, aliases);
 
@@ -55,28 +74,30 @@ export default route(
       aliases: hashedAliases,
     });
     if (!userInserted) {
-      return error(409, { message: "aliases_taken" });
+      return err(409, { message: "aliases_taken" });
     }
 
-    const passkeyLink = makePasskeyLink({ passkeyId, credential, userId });
+    const passkeyLink = makePasskeyLink({ passkeyId, credentialId, userId });
 
     // This is intentionally not hashed aliases so a user can read its aliases in plain text
     const payload = { email, app, aliases, passkey: passkeyLink };
-    const { success: userCreated } = await $user(jurisdiction.user, userId)
+    const { success: userCreated } = await user
       .post("/occupy", jsonBody(payload))
       .then(tryResult);
     if (!userCreated) {
-      return error(403, { message: "user_exists" });
+      return err(403, { message: "user_exists" });
     }
 
     const postUpdate = async () => {
-      const passkey = $passkey(jurisdiction.passkey, passkeyId);
-      await Promise.all([
-        createPasskey(passkey, { app, visitor, userId, credential }),
+      const finishPasskey = passkey.post("/finish-register", {
+        headers: { Authorization: guardPasskey(app, userId) },
+      });
+      const cacheAliases = Promise.all(
         hashedAliases.map(async (alias) => {
           await env.KV_ALIAS.put(kvAlias(app, alias), userId.toString());
-        }),
-      ]);
+        })
+      );
+      await Promise.all([finishPasskey, cacheAliases]);
     };
 
     ctx.waitUntil(postUpdate());
@@ -90,48 +111,6 @@ export default route(
 
 const finishChallenge = async (challenge: ReturnType<typeof $challenge>) => {
   return await challenge.post("/finish").then(tryResult);
-};
-
-const verifyRegistration = async (
-  token: string,
-  namespace: Env["DO_CHALLENGE"],
-  {
-    app,
-    origin,
-    secret,
-  }: { app: ServerAppName; origin: string; secret: Env["SECRET_FOR_PASSKEY"] }
-) => {
-  try {
-    const { registrationEncoded, claim, message } =
-      await parseRegistrationToken(token, {
-        app,
-        secret,
-      });
-    if (message !== undefined) {
-      return { message } as const;
-    }
-
-    const challenge = $challenge(namespace, claim.jti);
-    const { success: passed } = await finishChallenge(challenge);
-    if (!passed) {
-      return { message: "challenge_expired" } as const;
-    }
-
-    const registrationParsed = await server.verifyRegistration(
-      registrationEncoded,
-      { challenge: encode(claim.jti), origin }
-    );
-
-    const { credential } = registrationParsed;
-
-    return {
-      credential,
-
-      visitor: claim.vis,
-    } as const;
-  } catch {
-    return { message: "passkey_invalid" } as const;
-  }
 };
 
 const insertUser = async (
@@ -170,19 +149,4 @@ const insertUser = async (
   } catch (e) {
     return { success: false };
   }
-};
-
-const createPasskey = async (
-  passkey: ReturnType<typeof $passkey>,
-  data: {
-    userId: DurableObjectId | string;
-    app: ServerAppName;
-    credential: Credential;
-    visitor: Visitor;
-  }
-) => {
-  return await passkey.post(
-    "/occupy",
-    jsonBody({ ...data, userId: `${data.userId.toString()}` })
-  );
 };

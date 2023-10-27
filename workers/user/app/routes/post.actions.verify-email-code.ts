@@ -1,7 +1,7 @@
 import { decode, tryResult } from "@internal/common";
 import { route } from "@mewhhaha/little-router";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
-import { error, ok } from "@mewhhaha/typed-response";
+import { err, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { $challenge } from "../challenge.js";
 import { parseClaim } from "../helpers/parser.js";
@@ -17,18 +17,18 @@ export default route(
       token
     );
     if (message !== undefined) {
-      return error(403, message);
+      return err(403, message);
     }
 
     const challenge = $challenge(env.DO_CHALLENGE, claim.jti);
     const { success: passed, result } = await finishChallenge(challenge, code);
     if (!passed) {
-      return error(403, { message: "challenge_expired" });
+      return err(403, { message: "challenge_expired" });
     }
 
     const [userId, email] = result.split(":");
     if (userId === undefined || email === undefined) {
-      return error(401, { message: "challenge_invalid" });
+      return err(401, { message: "challenge_invalid" });
     }
 
     return ok(200, { userId, email: decode(email) });

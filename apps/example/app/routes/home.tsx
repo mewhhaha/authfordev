@@ -306,7 +306,7 @@ type PasskeyProps = {
 };
 
 const Passkey = ({
-  metadata: { createdAt },
+  metadata: { createdAt, authenticator },
   visitors: [lastVisitor],
   passkeyId,
   current,
@@ -376,6 +376,13 @@ const Passkey = ({
               The date when this passkey was last used at.
             </p>
             <Time dateTime={lastVisitor.timestamp} />
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium">Authenticator</dt>
+          <dd>
+            <p>The authenticator device that was used</p>
+            <p>{authenticator}</p>
           </dd>
         </div>
         {lastVisitor.country && (

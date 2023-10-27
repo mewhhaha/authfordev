@@ -14,11 +14,28 @@ export const parseVisitor = type({
   "postalCode?": "string",
   "timezone?": "string",
   timestamp: "string",
+  authenticator: "string",
+});
+
+export const parseVisitorHeaders = type({
+  "city?": "string",
+  "country?": "string",
+  "continent?": "string",
+  "longitude?": "string",
+  "latitude?": "string",
+  "region?": "string",
+  "regionCode?": "string",
+  "metroCode?": "string",
+  "postalCode?": "string",
+  "timezone?": "string",
 });
 
 const inferredVisitor = parseVisitor.infer;
 /** @public */
 export type Visitor = typeof inferredVisitor;
+
+const inferredVisitorHeaders = parseVisitorHeaders.infer;
+export type VisitorHeaders = typeof inferredVisitorHeaders;
 
 export const parseCredential = type({
   id: "string",
@@ -104,7 +121,7 @@ export const parseAuthenticationToken = async (
   { app, secret }: { app: string; secret: string }
 ) => {
   const [tokenRaw, signinRaw] = token.split("#");
-  const { claim, message } = await parseClaim<{ vis: Visitor }>(
+  const { claim, message } = await parseClaim<{ vis: VisitorHeaders }>(
     secret,
     app,
     tokenRaw
@@ -128,7 +145,7 @@ export const parseRegistrationToken = async (
   { app, secret }: { app: string; secret: string }
 ) => {
   const [tokenRaw, registrationRaw] = token.split("#");
-  const { claim, message } = await parseClaim<{ vis: Visitor }>(
+  const { claim, message } = await parseClaim<{ vis: VisitorHeaders }>(
     secret,
     app,
     tokenRaw
@@ -144,7 +161,7 @@ export const parseRegistrationToken = async (
     return { message: "token_invalid" } as const;
   }
 
-  return { registrationEncoded, claim };
+  return { registration: registrationEncoded, claim };
 };
 
 export const parseClaim = async <T>(
