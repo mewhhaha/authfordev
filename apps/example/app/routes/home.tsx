@@ -4,9 +4,14 @@ import {
   redirect,
   defer,
 } from "@remix-run/cloudflare";
-import { Await, useLoaderData } from "@remix-run/react";
-import { Suspense } from "react";
-import type { PasskeyMetadata, Visitor } from "@mewhhaha/authfor-api";
+import { Await, useFetcher, useLoaderData } from "@remix-run/react";
+import { Suspense, useEffect, useState } from "react";
+import {
+  Authenticator,
+  AuthenticatorRoutes,
+  type PasskeyMetadata,
+  type Visitor,
+} from "@mewhhaha/authfor-api";
 import {
   FormAddPasskey,
   FormRemovePasskey,
@@ -20,6 +25,7 @@ import { ButtonInline } from "~/components/ButtonInline.js";
 import { IconArrowPath } from "~/components/IconArrowPath.js";
 import { Button } from "~/components/Button.js";
 import { cn } from "~/css/cn.js";
+import { fetcher } from "@mewhhaha/little-fetcher";
 
 export const meta: MetaFunction = () => {
   return [
@@ -218,6 +224,9 @@ export default function Page() {
                     >
                       <Await resolve={data}>
                         {(resolved) => {
+                          (async () => {
+                            console.log(await data);
+                          })();
                           const d = resolved.find(
                             (p) => p?.metadata.passkeyId === passkeyId
                           );
@@ -306,7 +315,7 @@ type PasskeyProps = {
 };
 
 const Passkey = ({
-  metadata: { createdAt, authenticator },
+  metadata: { createdAt },
   visitors: [lastVisitor],
   passkeyId,
   current,
@@ -375,14 +384,22 @@ const Passkey = ({
             <p className="mb-2 text-sm">
               The date when this passkey was last used at.
             </p>
-            <Time dateTime={lastVisitor.timestamp} />
+            <Time
+              className="text-sm font-bold"
+              dateTime={lastVisitor.timestamp}
+            />
           </dd>
         </div>
         <div>
           <dt className="font-medium">Authenticator</dt>
           <dd>
-            <p>The authenticator device that was used</p>
-            <p>{authenticator}</p>
+            <p className="mb-2 text-sm">
+              The authenticator device that was used
+            </p>
+            <Authenticator
+              className="text-sm font-bold"
+              value={lastVisitor.authenticator}
+            />
           </dd>
         </div>
         {lastVisitor.country && (
@@ -392,13 +409,49 @@ const Passkey = ({
               <p className="mb-2 text-sm">
                 The country this passkey was last used from.
               </p>
-              <Region value={lastVisitor.country} />
+              <Region
+                className="text-sm font-bold"
+                value={lastVisitor.country}
+              />
             </dd>
           </div>
         )}
       </dl>
     </div>
   );
+};
+
+const Authenticator = (
+  props: Omit<JSX.IntrinsicElements["data"], "children" | "value"> & {
+    value: string;
+  }
+) => {
+  const [data, setData] = useState<Authenticator>();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const api = fetcher<AuthenticatorRoutes>("fetch", {
+      base: "https//authenticator.authfor.dev",
+    });
+
+    const f = async () => {
+      const response = await api.get(`/authenticators/${props.value}`, {
+        signal: controller.signal,
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setData(data);
+      }
+    };
+
+    f();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  return <data {...props}>{data || props.value}</data>;
 };
 
 const Time = (props: Omit<JSX.IntrinsicElements["time"], "children">) => {
@@ -409,7 +462,7 @@ const Time = (props: Omit<JSX.IntrinsicElements["time"], "children">) => {
   });
 
   return (
-    <time {...props} className="text-sm font-bold">
+    <time {...props}>
       {props.dateTime && formatter.format(new Date(props.dateTime))}
     </time>
   );

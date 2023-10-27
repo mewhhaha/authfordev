@@ -18,7 +18,7 @@
     "@internal/common": "workspace:^",
     "@internal/jwt": "workspace:^",
     "@mewhhaha/authfor-api": "workspace:^",
-    "@mewhhaha/little-fetcher": "^0.0.36",
+    "@mewhhaha/little-fetcher": "^0.0.37",
     "@passwordless-id/webauthn": "^1.3.0",
     "typescript": "^5.2.2"
   }

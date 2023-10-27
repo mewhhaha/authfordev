@@ -67,10 +67,16 @@ const createRouter = async () => {
       throw new Error("missing PATTERN import");
     }`;
 
+  const type = `
+    const routes = router.infer;
+    export type Routes = typeof routes;
+  `;
+
   const router =
     imports +
     pattern +
-    `export const router = Router<RouteData["arguments"] extends unknown[] ? RouteData["arguments"] : []>()\n${routes};`;
+    `export const router = Router<RouteData["arguments"] extends unknown[] ? RouteData["arguments"] : []>()\n${routes};` +
+    type;
 
   await fs.writeFile(
     "app/routes/_router.ts",

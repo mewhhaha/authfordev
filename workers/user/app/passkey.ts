@@ -153,7 +153,7 @@ export class DurableObjectPasskey implements DurableObject {
           object.save("credential", credential);
           object.save("metadata", metadata);
 
-          const visitors = [makeVisitor(visitor, authenticator.name)];
+          const visitors = [makeVisitor(visitor, authenticator.aaguid)];
 
           object.save("visitors", visitors);
 
@@ -211,7 +211,7 @@ export class DurableObjectPasskey implements DurableObject {
           object.save("counter", counter === 0 ? -1 : counter);
 
           const visitors = [
-            makeVisitor(visitor, authenticator.name),
+            makeVisitor(visitor, authenticator.aaguid),
             ...object.visitors,
           ].slice(0, 10);
           object.save("visitors", visitors);

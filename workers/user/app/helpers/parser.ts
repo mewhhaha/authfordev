@@ -13,8 +13,8 @@ export const parseVisitor = type({
   "metroCode?": "string",
   "postalCode?": "string",
   "timezone?": "string",
-  timestamp: "string",
   authenticator: "string",
+  timestamp: "string",
 });
 
 export const parseVisitorHeaders = type({
@@ -74,7 +74,7 @@ export const parseRegistrationParsed = type(
       },
       counter: "number",
       aaguid: "string",
-      name: "string",
+      "name?": "string",
     },
     client: {
       type: "'webauthn.create' | 'webauthn.get'",

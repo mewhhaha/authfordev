@@ -2,6 +2,8 @@ import * as ts from "typescript";
 import * as fs from "fs";
 import * as path from "path";
 
+const filename = process.argv[1];
+
 let output = "";
 
 let entryTypes: string[] = [];
@@ -20,7 +22,7 @@ function visitNode(node: ts.Node, checker: ts.TypeChecker, filename: string) {
         true
       );
 
-      if (filename === "src/index.ts") {
+      if (filename) {
         entryTypes.push(importPath);
       }
 

@@ -4,6 +4,7 @@
   "mainEntryPointFilePath": "<projectFolder>/dist/index.d.ts",
   "bundledPackages": [
     "@workers/user",
+    "@workers/authenticator",
     "@mewhhaha/little-router",
     "@mewhhaha/typed-response",
     "@mewhhaha/json-string"

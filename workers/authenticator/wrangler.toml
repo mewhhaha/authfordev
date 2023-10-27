@@ -1,0 +1,11 @@
+name = "authfordev-authenticator"
+main = "app/worker.ts"
+compatibility_date = "2023-09-04"
+
+[[kv_namespaces]]
+binding = "KV_AUTHENTICATOR"
+id = "5c7ab4567b294aab8d6b8ac3ea5eb49e"
+
+[triggers]
+# Second day every month
+crons = ["0 0 2 * *"]

@@ -13,7 +13,7 @@
     "@internal/common": "workspace:^",
     "@mewhhaha/authfor-client": "workspace:^",
     "@mewhhaha/authfor-remix": "workspace:^",
-    "@mewhhaha/little-fetcher": "^0.0.36",
+    "@mewhhaha/little-fetcher": "^0.0.37",
     "@remix-run/cloudflare": "^2.1.0",
     "@remix-run/cloudflare-pages": "^2.1.0",
     "@remix-run/css-bundle": "^2.1.0",
@@ -27,7 +27,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20231025.0",
     "@mewhhaha/authfor-api": "workspace:^",
-    "@mewhhaha/json-string": "^0.0.36",
+    "@mewhhaha/json-string": "^0.0.37",
     "@remix-run/dev": "^2.1.0",
     "@remix-run/eslint-config": "^2.1.0",
     "@tailwindcss/forms": "^0.5.6",
