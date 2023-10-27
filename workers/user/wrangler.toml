@@ -37,6 +37,3 @@ new_classes = [
     "DurableObjectChallenge",
     "DurableObjectPasskey",
 ]
-
-[placement]
-mode = "smart"
