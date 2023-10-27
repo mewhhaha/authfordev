@@ -5,11 +5,11 @@ import { type Authenticator } from "../types";
 
 export default route(PATTERN, [], async ({ request, params }, env, ctx) => {
   const cache = caches.default;
-  //   const cachedResponse = await cache.match(request);
-  //   if (cachedResponse !== undefined) {
-  //     // eslint-disable-next-line @typescript-eslint/no-throw-literal
-  //     throw cachedResponse;
-  //   }
+  const cachedResponse = await cache.match(request);
+  if (cachedResponse !== undefined) {
+    // eslint-disable-next-line @typescript-eslint/no-throw-literal
+    throw cachedResponse;
+  }
 
   const value = await env.KV_AUTHENTICATOR.get<Authenticator>(
     params.aaguid,
