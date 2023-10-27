@@ -9,7 +9,7 @@ export const createCacheHeaders = (request: Request) => {
   const headers = {
     "Cache-Control": `public, max-age=${maxAge} stale-while-revalidate=${staleAge}`,
     Expires: expireDate,
-    "Access-Control-Allow-Origin": new URL(request.url).origin,
+    "Access-Control-Allow-Origin": request.headers.get("Origin") ?? "",
     "Access-Control-Allow-Method": "GET",
   };
 

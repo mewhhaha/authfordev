@@ -4,11 +4,11 @@ import {
   redirect,
   defer,
 } from "@remix-run/cloudflare";
-import { Await, useFetcher, useLoaderData } from "@remix-run/react";
-import { Suspense, useEffect, useState } from "react";
+import { Await, useLoaderData } from "@remix-run/react";
+import { Suspense, useEffect, useId, useState } from "react";
 import {
   Authenticator,
-  AuthenticatorRoutes,
+  type AuthenticatorRoutes,
   type PasskeyMetadata,
   type Visitor,
 } from "@mewhhaha/authfor-api";
@@ -391,13 +391,11 @@ const Passkey = ({
           </dd>
         </div>
         <div>
-          <dt className="font-medium">Authenticator</dt>
+          <dt className="font-medium">Last authenticated with</dt>
           <dd>
-            <p className="mb-2 text-sm">
-              The authenticator device that was used
-            </p>
+            <p className="mb-2 text-sm">The last authenticator that was used</p>
             <Authenticator
-              className="text-sm font-bold"
+              className="flex items-center text-sm font-bold"
               value={lastVisitor.authenticator}
             />
           </dd>
@@ -426,15 +424,17 @@ const Authenticator = (
     value: string;
   }
 ) => {
+  const id = useId();
   const [data, setData] = useState<Authenticator>();
 
   useEffect(() => {
     const controller = new AbortController();
     const api = fetcher<AuthenticatorRoutes>("fetch", {
-      base: "https//authenticator.authfor.dev",
+      base: "https://authenticator.authfor.dev",
     });
 
     const f = async () => {
+      if (!props.value) return;
       const response = await api.get(`/authenticators/${props.value}`, {
         signal: controller.signal,
       });
@@ -449,9 +449,27 @@ const Authenticator = (
     return () => {
       controller.abort();
     };
-  }, []);
+  }, [props.value]);
 
-  return <data {...props}>{data || props.value}</data>;
+  const authenticatorName = data?.name || props.value;
+
+  if (
+    authenticatorName === "00000000-0000-0000-0000-000000000000" ||
+    !authenticatorName
+  ) {
+    return <data {...props}>Unknown authenticator</data>;
+  }
+
+  return (
+    <data {...props}>
+      {data?.icon.light && (
+        <span className="mr-1">
+          <img src={data.icon.light} aria-labelledby={id} />
+        </span>
+      )}
+      <span id={id}>{authenticatorName}</span>
+    </data>
+  );
 };
 
 const Time = (props: Omit<JSX.IntrinsicElements["time"], "children">) => {

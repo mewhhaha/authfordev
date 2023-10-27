@@ -1,15 +1,20 @@
 import { route } from "@mewhhaha/little-router";
 import { err, ok } from "@mewhhaha/typed-response";
 import { createCacheHeaders } from "../cache";
+import { type Authenticator } from "../types";
 
 export default route(PATTERN, [], async ({ request, params }, env, ctx) => {
   const cache = caches.default;
-  const cachedResponse = await cache.match(request);
-  if (cachedResponse !== undefined) {
-    return cachedResponse;
-  }
+  //   const cachedResponse = await cache.match(request);
+  //   if (cachedResponse !== undefined) {
+  //     // eslint-disable-next-line @typescript-eslint/no-throw-literal
+  //     throw cachedResponse;
+  //   }
 
-  const value = await env.KV_AUTHENTICATOR.get(params.aaguid, "text");
+  const value = await env.KV_AUTHENTICATOR.get<Authenticator>(
+    params.aaguid,
+    "json"
+  );
 
   if (value === null) {
     return err(404, { message: "aaguid_missing" });

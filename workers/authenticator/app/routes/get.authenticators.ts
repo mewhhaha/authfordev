@@ -31,7 +31,8 @@ export default route(
     const cache = caches.default;
     const cachedResponse = await cache.match(request);
     if (cachedResponse !== undefined) {
-      return cachedResponse;
+      // eslint-disable-next-line @typescript-eslint/no-throw-literal
+      throw cachedResponse;
     }
 
     let response: JSONResponse<

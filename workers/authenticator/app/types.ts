@@ -1,12 +1,26 @@
-/** @public */
 export type Authenticator = {
+  aaguid: string;
+  name: string;
+  icon: {
+    /** base64 encoded image */
+    light?: string;
+    /** base64 encoded image */
+    dark?: string;
+  };
+};
+
+export type AuthenticatorMetadata = {
+  aaguid: string;
+  name: string;
+};
+
+export type FIDO2Authenticator = {
   aaguid: string;
   metadataStatement: MetadataStatement;
   statusReports: StatusReport[];
   timeOfLastStatusChange: Date;
 };
 
-/** @public */
 export type MetadataStatement = {
   legalHeader: string;
   aaguid: string;
@@ -30,7 +44,6 @@ export type MetadataStatement = {
   authenticatorGetInfo: AuthenticatorGetInfo;
 };
 
-/** @public */
 export type AuthenticatorGetInfo = {
   versions: string[];
   extensions: string[];
@@ -40,7 +53,6 @@ export type AuthenticatorGetInfo = {
   pinUvAuthProtocols: number[];
 };
 
-/** @public */
 export type Options = {
   plat: boolean;
   rk: boolean;
@@ -48,18 +60,15 @@ export type Options = {
   up: boolean;
 };
 
-/** @public */
 export type Upv = {
   major: number;
   minor: number;
 };
 
-/** @public */
 export type UserVerificationDetail = {
   userVerificationMethod: string;
 };
 
-/** @public */
 export type StatusReport = {
   status: string;
   effectiveDate: Date;
