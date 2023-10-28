@@ -5,9 +5,7 @@
   "bundledPackages": [
     "@workers/user",
     "@workers/authenticator",
-    "@mewhhaha/little-router",
-    "@mewhhaha/typed-response",
-    "@mewhhaha/json-string"
+    "@mewhhaha/little-worker"
   ],
 
   "compiler": {},

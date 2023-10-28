@@ -262,15 +262,14 @@ importers:
         version: 5.2.2
 
   packages/common:
-    dependencies:
-      '@mewhhaha/typed-response':
-        specifier: ^0.0.38
-        version: 0.0.38
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20231025.0
         version: 4.20231025.0
       '@mewhhaha/json-string':
+        specifier: ^0.0.38
+        version: 0.0.38
+      '@mewhhaha/typed-response':
         specifier: ^0.0.38
         version: 0.0.38
       typescript:
@@ -353,18 +352,6 @@ importers:
       vitest:
         specifier: ^0.34.6
         version: 0.34.6
-
-  packages/server-routes:
-    devDependencies:
-      '@types/node':
-        specifier: ^20.8.9
-        version: 20.8.9
-      prettier:
-        specifier: ^3.0.3
-        version: 3.0.3
-      typescript:
-        specifier: ^5.2.2
-        version: 5.2.2
 
   workers/authenticator:
     devDependencies:
