@@ -1,4 +1,4 @@
-import { type JSONString } from "@mewhhaha/little-worker";
+import { type JSONString } from "@mewhhaha/json-string";
 
 type JSONBody = {
   <T>(
