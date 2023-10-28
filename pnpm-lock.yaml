@@ -427,10 +427,6 @@ importers:
         version: 3.15.0
 
   workers/user:
-    dependencies:
-      '@mewhhaha/little-worker':
-        specifier: ^0.0.37
-        version: 0.0.37(prettier@3.0.3)
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20231025.0
@@ -453,6 +449,9 @@ importers:
       '@mewhhaha/little-router-plugin-query':
         specifier: ^0.0.38
         version: 0.0.38(@mewhhaha/little-router@0.0.38)(arktype@1.0.25-alpha)
+      '@mewhhaha/little-worker':
+        specifier: ^0.0.37
+        version: 0.0.37(prettier@3.0.3)
       '@passwordless-id/webauthn':
         specifier: ^1.3.0
         version: 1.3.0
@@ -1980,6 +1979,7 @@ packages:
 
   /@mewhhaha/json-string@0.0.38:
     resolution: {integrity: sha512-PwLnPyD3ttuW0RmdmuJCdtRuiiEHdpvLqPLy2N9O3jt9U03oGZkXgIyMHeT5dpHRaWpC71uP1T5Ial/t4QeVgQ==}
+    dev: true
 
   /@mewhhaha/little-fetcher@0.0.38:
     resolution: {integrity: sha512-8cK6vCdQKHDrraOvUuzfl0rFEmRmI42gnPzVnlJ0XBgXRycrOdQZLiVsHRxV6Qm+3uAOjT6vIj6Zsk8ZQeDfVA==}
@@ -2020,9 +2020,11 @@ packages:
       '@mewhhaha/typed-request': 0.0.38
       '@mewhhaha/typed-response': 0.0.38
       prettier: 3.0.3
+    dev: true
 
   /@mewhhaha/typed-request@0.0.38:
     resolution: {integrity: sha512-x+GbqhZl/ciG8WAzhSPYeOlsRiL/XsGvrmz0chQQVBuUqMafXxNlL1a8kPemw71Pc7IPLBiWx/pwSTT8psNJQw==}
+    dev: true
 
   /@mewhhaha/typed-response@0.0.38:
     resolution: {integrity: sha512-+AzFZYsQmAJMHOAVdXxUkHgYYuX3u9qC3AAjpmTN3s8LDaUDTEQFBFuYkBQCRshf0CUyMJNKa8Rt0y+bHnaN6A==}
@@ -8054,6 +8056,7 @@ packages:
     resolution: {integrity: sha512-L/4pUDMxcNa8R/EthV08Zt42WBO4h1rarVtK0K+QJG0X187OLo7l699jWw0GKuwzkPQ//jMFA/8Xm6Fh3J/DAg==}
     engines: {node: '>=14'}
     hasBin: true
+    dev: true
 
   /pretty-bytes@5.6.0:
     resolution: {integrity: sha512-FFw039TmrBqFK8ma/7OL3sDz/VytdtJr044/QUJtH0wK9lb9jLq9tJyIxUwtQJHwar2BqtiA4iCWSwo9JLkzFg==}
