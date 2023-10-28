@@ -1,9 +1,8 @@
-import { route } from "@mewhhaha/little-router";
-import { data_ } from "@mewhhaha/little-router-plugin-data";
-import { ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { hashAlias, kvAlias } from "../helpers/alias.js";
 import { server_ } from "../plugins/server.js";
+import { data_ } from "@mewhhaha/little-router-plugin-data";
+import { route, ok } from "@mewhhaha/little-worker";
 
 export default route(
   PATTERN,

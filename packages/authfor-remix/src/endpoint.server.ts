@@ -4,7 +4,7 @@ import type {
 } from "./authenticate.server.js";
 import { redirect, json } from "@remix-run/router";
 import { Intent, api } from "./api.js";
-import type { JSONString } from "@mewhhaha/json-string";
+import type { JSONString } from "@mewhhaha/little-worker";
 export { createSimpleCookieSessionStorage } from "./authenticate.server.js";
 
 export const endpoint = async (

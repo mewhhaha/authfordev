@@ -1,5 +1,5 @@
 import { createCookieSessionStorage } from "@remix-run/cloudflare";
-import { createSimpleCookieSessionStorage } from "@mewhhaha/authfor-remix/endpoint.server";
+import { createSimpleCookieSessionStorage } from "@mewhhaha/little-worker";
 
 export const cookieStorage = createSimpleCookieSessionStorage(
   createCookieSessionStorage

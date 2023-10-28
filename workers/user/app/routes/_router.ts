@@ -1,4 +1,4 @@
-import { Router, type RouteData } from "@mewhhaha/little-router";
+import { Router, type RouteData } from "@mewhhaha/little-worker";
 import * as PATTERN from "./_pattern.js";
 import route_0 from "./delete.users.$userId.passkeys.$passkeyId.js";
 import route_1 from "./get.aliases.$alias.js";
@@ -30,3 +30,5 @@ export const router = Router<
   .post("/users/:userId/passkeys", route_9[1], route_9[2])
   .post("/users", route_10[1], route_10[2])
   .put("/users/:userId/rename-passkey/:passkeyId", route_11[1], route_11[2]);
+const routes = router.infer;
+export type Routes = typeof routes;

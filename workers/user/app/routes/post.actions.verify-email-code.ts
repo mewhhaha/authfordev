@@ -1,11 +1,10 @@
 import { decode, tryResult } from "@internal/common";
-import { route } from "@mewhhaha/little-router";
-import { data_ } from "@mewhhaha/little-router-plugin-data";
-import { err, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { $challenge } from "../challenge.js";
 import { parseClaim } from "../helpers/parser.js";
 import { server_ } from "../plugins/server.js";
+import { data_ } from "@mewhhaha/little-router-plugin-data";
+import { route, err, ok } from "@mewhhaha/little-worker";
 
 export default route(
   PATTERN,

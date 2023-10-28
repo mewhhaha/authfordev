@@ -1,6 +1,6 @@
-import { fetcher } from "@mewhhaha/little-fetcher";
+import { fetcher } from "@mewhhaha/little-worker";
 import { client } from "@passwordless-id/webauthn";
-import { Routes } from "@mewhhaha/authfor-api";
+import { Routes } from "@mewhhaha/little-worker";
 import { encode, decode } from "@internal/common";
 
 export const Client = ({

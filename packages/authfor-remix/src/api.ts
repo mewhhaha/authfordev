@@ -1,27 +1,15 @@
-import type { FetcherOf } from "@mewhhaha/little-fetcher";
-import { fetcher } from "@mewhhaha/little-fetcher";
-import type { Routes } from "@mewhhaha/authfor-api";
-import type { SubmitOptions } from "@remix-run/react";
-
-export const api: FetcherOf<Routes> = fetcher<Routes>("fetch", {
-  base: "https://user.authfor.dev",
-});
-
-export enum Intent {
-  SignOut = "sign-out",
-  SignIn = "sign-in",
-  SignUp = "sign-up",
-  CheckAliases = "check-aliases",
-  AddPasskey = "add-passkey",
-  RemovePasskey = "remove-passkey",
-  RenamePasskey = "rename-passkey",
+import { Router, type RouteData } from "@mewhhaha/little-worker";
+import * as PATTERN from "./_pattern.js";
+import route_0 from "./get.authenticators.$aaguid.js";
+import route_1 from "./get.authenticators.js";
+if (typeof PATTERN === "undefined") {
+  throw new Error("missing PATTERN import");
 }
-
-export const formOptions = (element: HTMLFormElement) =>
-  ({
-    method: element.method,
-    encType: element.enctype,
-    action: element.action.startsWith("http")
-      ? new URL(element.action).pathname
-      : element.action,
-  }) as SubmitOptions;
+export const router = Router<
+  RouteData["arguments"] extends unknown[] ? RouteData["arguments"] : []
+>()
+  .get("/authenticators/:aaguid", route_0[1], route_0[2])
+  .get("/authenticators", route_1[1], route_1[2]);
+const routes = router.infer;
+/** @public */
+export type Routes = typeof routes;

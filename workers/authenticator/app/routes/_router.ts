@@ -1,4 +1,4 @@
-import { Router, type RouteData } from "@mewhhaha/little-router";
+import { Router, type RouteData } from "@mewhhaha/little-worker";
 import * as PATTERN from "./_pattern.js";
 import route_0 from "./get.authenticators.$aaguid.js";
 import route_1 from "./get.authenticators.js";

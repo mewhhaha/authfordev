@@ -4,7 +4,7 @@ import {
   type HttpStatus4XX,
   type TextResponse,
   BodyResponse,
-} from "@mewhhaha/typed-response";
+} from "@mewhhaha/little-worker";
 
 type Result<RESPONSE extends Response> = RESPONSE extends JSONResponse<
   infer C extends HttpStatus2XX,

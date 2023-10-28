@@ -1,7 +1,11 @@
-import type { FetchDefinition, Queries } from "@mewhhaha/little-router";
-import type { JSONString } from "@mewhhaha/json-string";
-import { fetcher } from "@mewhhaha/little-fetcher";
-import type { BodyResponse, JSONResponse } from "@mewhhaha/typed-response";
+import {
+  type BodyResponse,
+  type FetchDefinition,
+  type JSONResponse,
+  type JSONString,
+  type Queries,
+  fetcher,
+} from "@mewhhaha/little-worker";
 import emailSendCode from "@internal/emails/dist/send-code.json";
 
 export type BodySend = {

@@ -1,9 +1,6 @@
-import { route } from "@mewhhaha/little-router";
 import { server_ } from "../plugins/server.js";
-import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { type } from "arktype";
 import { jsonBody, tryResult } from "@internal/common";
-import { err, ok } from "@mewhhaha/typed-response";
 import { $challenge } from "../challenge.js";
 import { parseRegistrationToken } from "../helpers/parser.js";
 import { $passkey, guardPasskey } from "../passkey.js";
@@ -14,6 +11,8 @@ import {
   type GuardUser,
   type PasskeyLink,
 } from "../user.js";
+import { data_ } from "@mewhhaha/little-router-plugin-data";
+import { route, err, ok } from "@mewhhaha/little-worker";
 
 export default route(
   PATTERN,

@@ -1,10 +1,14 @@
-declare global {
-  interface ServiceWorkerGlobalScope {
-    PATTERN: string;
-  }
-}
+declare const self: any;
+declare const global: any;
+declare const window: any;
 
-self.PATTERN = "";
+if (typeof self !== "undefined") {
+  self.PATTERN = "";
+} else if (typeof global !== "undefined") {
+  global.PATTERN = "";
+} else if (typeof window !== "undefined") {
+  window.PATTERN = "";
+}
 declare module "./delete.users.$userId.passkeys.$passkeyId.js" {
   /** This is an ephemeral value and can only be used as a type */
   const PATTERN = "/users/:userId/passkeys/:passkeyId";

@@ -1,5 +1,4 @@
-import { fetcher } from "@mewhhaha/little-fetcher";
-import { type RoutesOf } from "@mewhhaha/little-router";
+import { fetcher, type RoutesOf } from "@mewhhaha/little-worker";
 
 type KeyofValues<T extends Record<any, any>> = {
   [K in keyof T]: T[K] extends (...args: any[]) => any

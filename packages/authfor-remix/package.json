@@ -23,7 +23,7 @@
   "sideEffects": false,
   "devDependencies": {
     "@mewhhaha/authfor-api": "workspace:^",
-    "@mewhhaha/json-string": "^0.0.37",
+    "@mewhhaha/json-string": "^0.0.38",
     "@remix-run/eslint-config": "^2.1.0",
     "@remix-run/react": "^2.1.0",
     "@remix-run/router": "^1.10.0",
@@ -42,6 +42,6 @@
   },
   "dependencies": {
     "@mewhhaha/authfor-client": "workspace:^",
-    "@mewhhaha/little-fetcher": "^0.0.37"
+    "@mewhhaha/little-fetcher": "^0.0.38"
   }
 }

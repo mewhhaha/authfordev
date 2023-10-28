@@ -1,7 +1,6 @@
 import { decodeHeader } from "@internal/keys";
-import { type PluginContext, type Plugin } from "@mewhhaha/little-router";
-import { err } from "@mewhhaha/typed-response";
 import { type TaggedType } from "@internal/common";
+import { type PluginContext, err, type Plugin } from "@mewhhaha/little-worker";
 
 export const server_ = (async (
   {

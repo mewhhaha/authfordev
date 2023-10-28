@@ -1,14 +1,13 @@
 import { tryResult, invariant, encode, jsonBody } from "@internal/common";
 import { encodeJwt, jwtTime } from "@internal/jwt";
-import { route } from "@mewhhaha/little-router";
-import { data_ } from "@mewhhaha/little-router-plugin-data";
-import { err, ok } from "@mewhhaha/typed-response";
 import { type } from "arktype";
 import { $challenge } from "../challenge.js";
 import { hashAlias, kvAlias } from "../helpers/alias.js";
 import { createBody, sendEmail } from "../helpers/email.js";
 import { server_ } from "../plugins/server.js";
 import { $user, guardUser } from "../user.js";
+import { data_ } from "@mewhhaha/little-router-plugin-data";
+import { route, err, ok } from "@mewhhaha/little-worker";
 
 export default route(
   PATTERN,

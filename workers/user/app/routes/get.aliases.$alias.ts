@@ -1,7 +1,6 @@
-import { route } from "@mewhhaha/little-router";
-import { ok } from "@mewhhaha/typed-response";
 import { server_ } from "../plugins/server.js";
 import { hashAlias, kvAlias } from "../helpers/alias.js";
+import { route, ok } from "@mewhhaha/little-worker";
 
 export default route(
   PATTERN,

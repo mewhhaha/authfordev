@@ -1,5 +1,5 @@
 import { type TaggedType } from "@internal/common";
-import "@mewhhaha/little-router";
+import "@mewhhaha/little-worker";
 
 type TaggedDurableObjectNamespace<T extends string> = TaggedType<
   Omit<DurableObjectNamespace, "jurisdiction"> & {
@@ -27,7 +27,7 @@ declare global {
   };
 }
 
-declare module "@mewhhaha/little-router" {
+declare module "@mewhhaha/little-worker" {
   interface RouteData {
     arguments: [Env, ExecutionContext];
   }

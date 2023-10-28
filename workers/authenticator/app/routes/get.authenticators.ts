@@ -1,5 +1,4 @@
-import { route } from "@mewhhaha/little-router";
-import { type JSONResponse, ok } from "@mewhhaha/typed-response";
+import { type JSONResponse, ok, route } from "@mewhhaha/little-worker";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { scope } from "arktype";
 import { type Authenticator } from "../types";
@@ -42,9 +41,9 @@ export default route(
     if (query.ids !== undefined) {
       const values = (
         await Promise.all(
-          query.ids.map((id) =>
-            env.KV_AUTHENTICATOR.get<Authenticator>(id, "json")
-          )
+          query.ids.map(async (id) => {
+            return await env.KV_AUTHENTICATOR.get<Authenticator>(id, "json");
+          })
         )
       ).filter(isAuthenticator);
 
@@ -60,9 +59,12 @@ export default route(
       });
       const values = (
         await Promise.all(
-          items.keys.map((key) =>
-            env.KV_AUTHENTICATOR.get<Authenticator>(key.name, "json")
-          )
+          items.keys.map(async (key) => {
+            return await env.KV_AUTHENTICATOR.get<Authenticator>(
+              key.name,
+              "json"
+            );
+          })
         )
       ).filter(isAuthenticator);
 
@@ -70,7 +72,7 @@ export default route(
         200,
         {
           items: values,
-          cursor: items.list_complete === true ? undefined : items.cursor,
+          cursor: items.list_complete ? undefined : items.cursor,
           complete: items.list_complete,
         },
         { headers: createCacheHeaders(request) }

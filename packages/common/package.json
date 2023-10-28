@@ -15,10 +15,10 @@
   "sideEffects": false,
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20231025.0",
-    "@mewhhaha/json-string": "^0.0.37",
+    "@mewhhaha/json-string": "^0.0.38",
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@mewhhaha/typed-response": "^0.0.37"
+    "@mewhhaha/typed-response": "^0.0.38"
   }
 }

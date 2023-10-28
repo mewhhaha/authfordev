@@ -16,14 +16,14 @@
   "sideEffects": false,
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20231025.0",
-    "@mewhhaha/json-string": "^0.0.37",
+    "@mewhhaha/json-string": "^0.0.38",
     "@microsoft/api-extractor": "^7.38.0",
     "@workers/authenticator": "workspace:^",
     "@workers/user": "workspace:^",
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@mewhhaha/little-router": "^0.0.37",
-    "@mewhhaha/typed-response": "^0.0.37"
+    "@mewhhaha/little-router": "^0.0.38",
+    "@mewhhaha/typed-response": "^0.0.38"
   }
 }

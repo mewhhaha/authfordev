@@ -20,8 +20,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/authfor-remix
       '@mewhhaha/little-fetcher':
-        specifier: ^0.0.37
-        version: 0.0.37
+        specifier: ^0.0.38
+        version: 0.0.38
       '@remix-run/cloudflare':
         specifier: ^2.1.0
         version: 2.1.0(@cloudflare/workers-types@4.20231025.0)(typescript@5.2.2)
@@ -57,8 +57,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/authfor-api
       '@mewhhaha/json-string':
-        specifier: ^0.0.37
-        version: 0.0.37
+        specifier: ^0.0.38
+        version: 0.0.38
       '@remix-run/dev':
         specifier: ^2.1.0
         version: 2.1.0(typescript@5.2.2)
@@ -172,18 +172,18 @@ importers:
   packages/authfor-api:
     dependencies:
       '@mewhhaha/little-router':
-        specifier: ^0.0.37
-        version: 0.0.37
+        specifier: ^0.0.38
+        version: 0.0.38
       '@mewhhaha/typed-response':
-        specifier: ^0.0.37
-        version: 0.0.37
+        specifier: ^0.0.38
+        version: 0.0.38
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20231025.0
         version: 4.20231025.0
       '@mewhhaha/json-string':
-        specifier: ^0.0.37
-        version: 0.0.37
+        specifier: ^0.0.38
+        version: 0.0.38
       '@microsoft/api-extractor':
         specifier: ^7.38.0
         version: 7.38.0
@@ -209,8 +209,8 @@ importers:
         specifier: workspace:^
         version: link:../authfor-api
       '@mewhhaha/little-fetcher':
-        specifier: ^0.0.37
-        version: 0.0.37
+        specifier: ^0.0.38
+        version: 0.0.38
       '@passwordless-id/webauthn':
         specifier: ^1.3.0
         version: 1.3.0
@@ -224,15 +224,15 @@ importers:
         specifier: workspace:^
         version: link:../authfor-client
       '@mewhhaha/little-fetcher':
-        specifier: ^0.0.37
-        version: 0.0.37
+        specifier: ^0.0.38
+        version: 0.0.38
     devDependencies:
       '@mewhhaha/authfor-api':
         specifier: workspace:^
         version: link:../authfor-api
       '@mewhhaha/json-string':
-        specifier: ^0.0.37
-        version: 0.0.37
+        specifier: ^0.0.38
+        version: 0.0.38
       '@remix-run/eslint-config':
         specifier: ^2.1.0
         version: 2.1.0(eslint@8.52.0)(react@18.2.0)(typescript@5.2.2)
@@ -264,15 +264,15 @@ importers:
   packages/common:
     dependencies:
       '@mewhhaha/typed-response':
-        specifier: ^0.0.37
-        version: 0.0.37
+        specifier: ^0.0.38
+        version: 0.0.38
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20231025.0
         version: 4.20231025.0
       '@mewhhaha/json-string':
-        specifier: ^0.0.37
-        version: 0.0.37
+        specifier: ^0.0.38
+        version: 0.0.38
       typescript:
         specifier: ^5.2.2
         version: 5.2.2
@@ -320,7 +320,7 @@ importers:
         version: 3.3.5
       vite:
         specifier: ^4.5.0
-        version: 4.5.0(@types/node@20.8.7)
+        version: 4.5.0(@types/node@20.8.9)
 
   packages/jwt:
     dependencies:
@@ -354,18 +354,6 @@ importers:
         specifier: ^0.34.6
         version: 0.34.6
 
-  packages/server-api:
-    devDependencies:
-      '@types/node':
-        specifier: ^20.8.9
-        version: 20.8.9
-      prettier:
-        specifier: ^3.0.3
-        version: 3.0.3
-      typescript:
-        specifier: ^5.2.2
-        version: 5.2.2
-
   packages/server-routes:
     devDependencies:
       '@types/node':
@@ -386,18 +374,15 @@ importers:
       '@internal/common':
         specifier: workspace:^
         version: link:../../packages/common
-      '@internal/server-routes':
-        specifier: workspace:^
-        version: link:../../packages/server-routes
-      '@mewhhaha/little-router':
-        specifier: ^0.0.37
-        version: 0.0.37
       '@mewhhaha/little-router-plugin-query':
+        specifier: ^0.0.38
+        version: 0.0.38(@mewhhaha/little-router@0.0.38)(arktype@1.0.25-alpha)
+      '@mewhhaha/little-worker':
         specifier: ^0.0.37
-        version: 0.0.37(@mewhhaha/little-router@0.0.37)(arktype@1.0.25-alpha)
+        version: 0.0.37(prettier@3.0.3)
       '@mewhhaha/typed-response':
-        specifier: ^0.0.37
-        version: 0.0.37
+        specifier: ^0.0.38
+        version: 0.0.38
       '@types/invariant':
         specifier: ^2.2.36
         version: 2.2.36
@@ -419,12 +404,6 @@ importers:
       eslint-config-standard-with-typescript:
         specifier: ^39.1.1
         version: 39.1.1(@typescript-eslint/eslint-plugin@6.9.0)(eslint-plugin-import@2.29.0)(eslint-plugin-n@16.2.0)(eslint-plugin-promise@6.1.1)(eslint@8.52.0)(typescript@5.2.2)
-      eslint-config-xo:
-        specifier: ^0.43.1
-        version: 0.43.1(eslint@8.52.0)
-      eslint-config-xo-typescript:
-        specifier: ^1.0.1
-        version: 1.0.1(@typescript-eslint/eslint-plugin@6.9.0)(@typescript-eslint/parser@6.9.0)(eslint@8.52.0)(typescript@5.2.2)
       eslint-plugin-import:
         specifier: ^2.29.0
         version: 2.29.0(@typescript-eslint/parser@6.9.0)(eslint@8.52.0)
@@ -448,6 +427,10 @@ importers:
         version: 3.15.0
 
   workers/user:
+    dependencies:
+      '@mewhhaha/little-worker':
+        specifier: ^0.0.37
+        version: 0.0.37(prettier@3.0.3)
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20231025.0
@@ -464,27 +447,12 @@ importers:
       '@internal/keys':
         specifier: workspace:^
         version: link:../../packages/keys
-      '@internal/server-routes':
-        specifier: workspace:^
-        version: link:../../packages/server-routes
-      '@mewhhaha/json-string':
-        specifier: ^0.0.37
-        version: 0.0.37
-      '@mewhhaha/little-fetcher':
-        specifier: ^0.0.37
-        version: 0.0.37
-      '@mewhhaha/little-router':
-        specifier: ^0.0.37
-        version: 0.0.37
       '@mewhhaha/little-router-plugin-data':
-        specifier: ^0.0.37
-        version: 0.0.37(@mewhhaha/little-router@0.0.37)(arktype@1.0.25-alpha)
+        specifier: ^0.0.38
+        version: 0.0.38(@mewhhaha/little-router@0.0.38)(arktype@1.0.25-alpha)
       '@mewhhaha/little-router-plugin-query':
-        specifier: ^0.0.37
-        version: 0.0.37(@mewhhaha/little-router@0.0.37)(arktype@1.0.25-alpha)
-      '@mewhhaha/typed-response':
-        specifier: ^0.0.37
-        version: 0.0.37
+        specifier: ^0.0.38
+        version: 0.0.38(@mewhhaha/little-router@0.0.38)(arktype@1.0.25-alpha)
       '@passwordless-id/webauthn':
         specifier: ^1.3.0
         version: 1.3.0
@@ -509,12 +477,6 @@ importers:
       eslint-config-standard-with-typescript:
         specifier: ^39.1.1
         version: 39.1.1(@typescript-eslint/eslint-plugin@6.9.0)(eslint-plugin-import@2.29.0)(eslint-plugin-n@16.2.0)(eslint-plugin-promise@6.1.1)(eslint@8.52.0)(typescript@5.2.2)
-      eslint-config-xo:
-        specifier: ^0.43.1
-        version: 0.43.1(eslint@8.52.0)
-      eslint-config-xo-typescript:
-        specifier: ^1.0.1
-        version: 1.0.1(@typescript-eslint/eslint-plugin@6.9.0)(@typescript-eslint/parser@6.9.0)(eslint@8.52.0)(typescript@5.2.2)
       eslint-plugin-import:
         specifier: ^2.29.0
         version: 2.29.0(@typescript-eslint/parser@6.9.0)(eslint@8.52.0)
@@ -2016,39 +1978,54 @@ packages:
       - supports-color
     dev: true
 
-  /@mewhhaha/json-string@0.0.37:
-    resolution: {integrity: sha512-SpQUCZfSBZ1v904zZhQMM2s5hZPa4cQEf5Nt30wF5PPcHUjOebnBau15fznxlrQ+Xg4KvZk3L8xAWd7p60iyQQ==}
-    dev: true
+  /@mewhhaha/json-string@0.0.38:
+    resolution: {integrity: sha512-PwLnPyD3ttuW0RmdmuJCdtRuiiEHdpvLqPLy2N9O3jt9U03oGZkXgIyMHeT5dpHRaWpC71uP1T5Ial/t4QeVgQ==}
 
-  /@mewhhaha/little-fetcher@0.0.37:
-    resolution: {integrity: sha512-P3a6r5fEbAqSAi4SXzChAOIDo1RszQyPIiJEGCI0vHh1HqDGSJvJK7HSSst8IuwbfyTERFBB3hPRi9SeRxxlIg==}
+  /@mewhhaha/little-fetcher@0.0.38:
+    resolution: {integrity: sha512-8cK6vCdQKHDrraOvUuzfl0rFEmRmI42gnPzVnlJ0XBgXRycrOdQZLiVsHRxV6Qm+3uAOjT6vIj6Zsk8ZQeDfVA==}
 
-  /@mewhhaha/little-router-plugin-data@0.0.37(@mewhhaha/little-router@0.0.37)(arktype@1.0.25-alpha):
-    resolution: {integrity: sha512-jTMcdEsYlNDLaNkRARcAznpF1uyP+6XwNUUetHyn6rjbx7c3u52va08dsNDC5cm/hFlx/65I7WF+CeIlIgvMXw==}
+  /@mewhhaha/little-router-plugin-data@0.0.38(@mewhhaha/little-router@0.0.38)(arktype@1.0.25-alpha):
+    resolution: {integrity: sha512-MOTfhQamF6F/pcQPwHd2c2M8+ueTFhb1UmK/Y8z8+R/x/5SdrFIkh6lxd6+BO5Itw/dZK+9M9ObJQjnJ4lvVVg==}
     peerDependencies:
-      '@mewhhaha/little-router': ^0.0.37
+      '@mewhhaha/little-router': ^0.0.38
       arktype: '*'
     dependencies:
-      '@mewhhaha/json-string': 0.0.37
-      '@mewhhaha/little-router': 0.0.37
+      '@mewhhaha/json-string': 0.0.38
+      '@mewhhaha/little-router': 0.0.38
       arktype: 1.0.25-alpha
     dev: true
 
-  /@mewhhaha/little-router-plugin-query@0.0.37(@mewhhaha/little-router@0.0.37)(arktype@1.0.25-alpha):
-    resolution: {integrity: sha512-nCf33H0FaShion8H1fFSNx1uXXGjkF4wdeS0tQ2tXEv3V+cmlN64YZtbsv+ST3w81n3FoybX22XtgG1ubVWGUw==}
+  /@mewhhaha/little-router-plugin-query@0.0.38(@mewhhaha/little-router@0.0.38)(arktype@1.0.25-alpha):
+    resolution: {integrity: sha512-Ut9mRnz9PJqp95iAuew7KW88jvO7Aika0IceCLyENmVujPREN/o+4ettmNY+Z9C+8tSjx+fq8Q58DG4fKkIcTQ==}
     peerDependencies:
-      '@mewhhaha/little-router': ^0.0.37
+      '@mewhhaha/little-router': ^0.0.38
       arktype: '*'
     dependencies:
-      '@mewhhaha/little-router': 0.0.37
+      '@mewhhaha/little-router': 0.0.38
       arktype: 1.0.25-alpha
     dev: true
 
-  /@mewhhaha/little-router@0.0.37:
-    resolution: {integrity: sha512-dSlSOWYwPDrQQhsV7I31p+/8zSKvfqOeHQyZNQQ9FPLklJuY6uRsRZg+FLgNJBoOAU7SZJSwe9VR0K824qkP3Q==}
+  /@mewhhaha/little-router@0.0.38:
+    resolution: {integrity: sha512-64PvP8CND4fuYZfoWvyezK+ypVTrYbWHOXPaY2MCZW2NHdALBqQcBoUPEWhVeBcjhjBkgYaceT0VR/HL0kviFA==}
 
-  /@mewhhaha/typed-response@0.0.37:
-    resolution: {integrity: sha512-ulnbDzI3WLkh4ho4Et2wvPcR+qZgn+V48FjW691JsDXEgMKHh1F07BYsWbdj7gVFuj/yrUwx9EAkBcYHqORfGg==}
+  /@mewhhaha/little-worker@0.0.37(prettier@3.0.3):
+    resolution: {integrity: sha512-12xZrnv/0KyB36Zs+zw6ZDmIWvN8DQo1weeM9FFn+d2EwT799WC/5IK6eAfpOadzeQ/yC+J5PSdGUpjd1EUVFw==}
+    hasBin: true
+    peerDependencies:
+      prettier: ^3.0.3
+    dependencies:
+      '@mewhhaha/json-string': 0.0.38
+      '@mewhhaha/little-fetcher': 0.0.38
+      '@mewhhaha/little-router': 0.0.38
+      '@mewhhaha/typed-request': 0.0.38
+      '@mewhhaha/typed-response': 0.0.38
+      prettier: 3.0.3
+
+  /@mewhhaha/typed-request@0.0.38:
+    resolution: {integrity: sha512-x+GbqhZl/ciG8WAzhSPYeOlsRiL/XsGvrmz0chQQVBuUqMafXxNlL1a8kPemw71Pc7IPLBiWx/pwSTT8psNJQw==}
+
+  /@mewhhaha/typed-response@0.0.38:
+    resolution: {integrity: sha512-+AzFZYsQmAJMHOAVdXxUkHgYYuX3u9qC3AAjpmTN3s8LDaUDTEQFBFuYkBQCRshf0CUyMJNKa8Rt0y+bHnaN6A==}
 
   /@microsoft/api-extractor-model@7.28.2:
     resolution: {integrity: sha512-vkojrM2fo3q4n4oPh4uUZdjJ2DxQ2+RnDQL/xhTWSRUNPF6P4QyrvY357HBxbnltKcYu+nNNolVqc6TIGQ73Ig==}
@@ -3106,12 +3083,6 @@ packages:
       '@types/node': 20.8.9
     dev: true
 
-  /@types/node@20.8.7:
-    resolution: {integrity: sha512-21TKHHh3eUHIi2MloeptJWALuCu5H7HQTdTrWIFReA8ad+aggoX+lRes3ex7/FtpC+sVUpFMQ+QTfYr74mruiQ==}
-    dependencies:
-      undici-types: 5.25.3
-    dev: true
-
   /@types/node@20.8.9:
     resolution: {integrity: sha512-UzykFsT3FhHb1h7yD4CA4YhBHq545JC0YnEz41xkipN88eKQtL6rSgocL5tbAP6Ola9Izm/Aw4Ora8He4x0BHg==}
     dependencies:
@@ -3455,7 +3426,7 @@ packages:
       lodash: 4.17.21
       mlly: 1.4.2
       outdent: 0.8.0
-      vite: 4.5.0(@types/node@20.8.7)
+      vite: 4.5.0(@types/node@20.8.9)
       vite-node: 0.28.5
     transitivePeerDependencies:
       - '@types/node'
@@ -3478,7 +3449,7 @@ packages:
       vite: ^4
     dependencies:
       '@swc/core': 1.3.90
-      vite: 4.5.0(@types/node@20.8.7)
+      vite: 4.5.0(@types/node@20.8.9)
     transitivePeerDependencies:
       - '@swc/helpers'
     dev: true
@@ -3745,8 +3716,8 @@ packages:
       call-bind: 1.0.5
       define-properties: 1.2.1
       es-abstract: 1.22.3
-      es-shim-unscopables: 1.0.0
-      get-intrinsic: 1.2.1
+      es-shim-unscopables: 1.0.2
+      get-intrinsic: 1.2.2
     dev: true
 
   /arraybuffer.prototype.slice@1.0.2:
@@ -4189,10 +4160,6 @@ packages:
       proto-list: 1.2.4
     dev: true
 
-  /confusing-browser-globals@1.0.11:
-    resolution: {integrity: sha512-JsPKdmh8ZkmnHxDk55FZ1TqVLvEQTvoByJZRN9jzI0UjxK/QgAmsphz7PGtqgPieQZ/CQcHWXCR7ATDNhGe+YA==}
-    dev: true
-
   /content-disposition@0.5.4:
     resolution: {integrity: sha512-FveZTNuGw04cxlAiWbzi6zTAL/lhehaWbTtgluJh4/E95DqMwTmha3KZN1aAWA8cFIhHzMZUvLevkw5Rqk+tSQ==}
     engines: {node: '>= 0.6'}
@@ -4325,7 +4292,7 @@ packages:
       side-channel: 1.0.4
       which-boxed-primitive: 1.0.2
       which-collection: 1.0.1
-      which-typed-array: 1.1.11
+      which-typed-array: 1.1.13
     dev: true
 
   /deep-is@0.1.4:
@@ -4353,7 +4320,7 @@ packages:
     dependencies:
       get-intrinsic: 1.2.2
       gopd: 1.0.1
-      has-property-descriptors: 1.0.0
+      has-property-descriptors: 1.0.1
     dev: true
 
   /define-properties@1.2.1:
@@ -4647,12 +4614,6 @@ packages:
       hasown: 2.0.0
     dev: true
 
-  /es-shim-unscopables@1.0.0:
-    resolution: {integrity: sha512-Jm6GPcCdC30eMLbZ2x8z2WuRwAws3zTBBKuusffYVUrNj/GVSUAZ+xKMaUpfNDR5IbyNA5LJbaecoUVbmUcB1w==}
-    dependencies:
-      has: 1.0.4
-    dev: true
-
   /es-shim-unscopables@1.0.2:
     resolution: {integrity: sha512-J3yBRXCzDu4ULnQwxyToo/OjdMx6akgVC7K6few0a7F/0wLtmKKN7I73AH5T2836UuXRqN7Qg+IIUw/+YJksRw==}
     dependencies:
@@ -4863,31 +4824,6 @@ packages:
       eslint-plugin-import: 2.29.0(@typescript-eslint/parser@6.9.0)(eslint@8.52.0)
       eslint-plugin-n: 16.2.0(eslint@8.52.0)
       eslint-plugin-promise: 6.1.1(eslint@8.52.0)
-    dev: true
-
-  /eslint-config-xo-typescript@1.0.1(@typescript-eslint/eslint-plugin@6.9.0)(@typescript-eslint/parser@6.9.0)(eslint@8.52.0)(typescript@5.2.2):
-    resolution: {integrity: sha512-vPQssnRSUgBFOEfB/KY12CXwltwFSn4RSCfa+w7gjBC2PFQ7Yfgmyei+1XUZ3K+8LRGef2NMJUcxts7PldhDjg==}
-    engines: {node: '>=16'}
-    peerDependencies:
-      '@typescript-eslint/eslint-plugin': '>=6.0.0'
-      '@typescript-eslint/parser': '>=6.0.0'
-      eslint: '>=8.0.0'
-      typescript: '>=4.7'
-    dependencies:
-      '@typescript-eslint/eslint-plugin': 6.9.0(@typescript-eslint/parser@6.9.0)(eslint@8.52.0)(typescript@5.2.2)
-      '@typescript-eslint/parser': 6.9.0(eslint@8.52.0)(typescript@5.2.2)
-      eslint: 8.52.0
-      typescript: 5.2.2
-    dev: true
-
-  /eslint-config-xo@0.43.1(eslint@8.52.0):
-    resolution: {integrity: sha512-azv1L2PysRA0NkZOgbndUpN+581L7wPqkgJOgxxw3hxwXAbJgD6Hqb/SjHRiACifXt/AvxCzE/jIKFAlI7XjvQ==}
-    engines: {node: '>=12'}
-    peerDependencies:
-      eslint: '>=8.27.0'
-    dependencies:
-      confusing-browser-globals: 1.0.11
-      eslint: 8.52.0
     dev: true
 
   /eslint-import-resolver-node@0.3.7:
@@ -5777,15 +5713,6 @@ packages:
     resolution: {integrity: sha512-8vXOvuE167CtIc3OyItco7N/dpRtBbYOsPsXCz7X/PMnlGjYjSGuZJgM1Y7mmew7BKf9BqvLX2tnOVy1BBUsxQ==}
     dev: true
 
-  /get-intrinsic@1.2.1:
-    resolution: {integrity: sha512-2DcsyfABl+gVHEfCOaTrWgyt+tb6MSEGmKq+kI5HwLbIYgjgmMcV8KQ41uaKz1xxUcn9tJtgFbQUEVcEbd0FYw==}
-    dependencies:
-      function-bind: 1.1.2
-      has: 1.0.4
-      has-proto: 1.0.1
-      has-symbols: 1.0.3
-    dev: true
-
   /get-intrinsic@1.2.2:
     resolution: {integrity: sha512-0gSo4ml/0j98Y3lngkFEot/zhiCeWsbYIlZ+uZOVgzLyLaUw7wxUL+nCTP0XJvJg1AXulJRI3UJi8GsbDuxdGA==}
     dependencies:
@@ -5969,12 +5896,6 @@ packages:
   /has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
     engines: {node: '>=8'}
-    dev: true
-
-  /has-property-descriptors@1.0.0:
-    resolution: {integrity: sha512-62DVLZGoiEBDHQyqG4w9xCuZ7eJEwNmJRWw2VY84Oedb7WFcA27fiEVe8oUQx9hAUJ4ekurquucTGwsyO1XGdQ==}
-    dependencies:
-      get-intrinsic: 1.2.2
     dev: true
 
   /has-property-descriptors@1.0.1:
@@ -8133,7 +8054,6 @@ packages:
     resolution: {integrity: sha512-L/4pUDMxcNa8R/EthV08Zt42WBO4h1rarVtK0K+QJG0X187OLo7l699jWw0GKuwzkPQ//jMFA/8Xm6Fh3J/DAg==}
     engines: {node: '>=14'}
     hasBin: true
-    dev: true
 
   /pretty-bytes@5.6.0:
     resolution: {integrity: sha512-FFw039TmrBqFK8ma/7OL3sDz/VytdtJr044/QUJtH0wK9lb9jLq9tJyIxUwtQJHwar2BqtiA4iCWSwo9JLkzFg==}
@@ -8757,7 +8677,7 @@ packages:
     dependencies:
       define-data-property: 1.1.1
       functions-have-names: 1.2.3
-      has-property-descriptors: 1.0.0
+      has-property-descriptors: 1.0.1
     dev: true
 
   /setimmediate@1.0.5:
@@ -8948,7 +8868,7 @@ packages:
       call-bind: 1.0.5
       define-properties: 1.2.1
       es-abstract: 1.22.3
-      get-intrinsic: 1.2.1
+      get-intrinsic: 1.2.2
       has-symbols: 1.0.3
       internal-slot: 1.0.5
       regexp.prototype.flags: 1.5.1
@@ -9428,10 +9348,6 @@ packages:
       which-boxed-primitive: 1.0.2
     dev: true
 
-  /undici-types@5.25.3:
-    resolution: {integrity: sha512-Ga1jfYwRn7+cP9v8auvEXN1rX3sWqlayd4HP7OKk4mZWylEmu3KzXDUGrQUN6Ol7qo1gPvB2e5gX6udnyEPgdA==}
-    dev: true
-
   /undici-types@5.26.5:
     resolution: {integrity: sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA==}
     dev: true
@@ -9642,7 +9558,7 @@ packages:
       picocolors: 1.0.0
       source-map: 0.6.1
       source-map-support: 0.5.21
-      vite: 4.5.0(@types/node@20.8.7)
+      vite: 4.5.0(@types/node@20.8.9)
     transitivePeerDependencies:
       - '@types/node'
       - less
@@ -9654,7 +9570,7 @@ packages:
       - terser
     dev: true
 
-  /vite-node@0.34.6(@types/node@20.8.7):
+  /vite-node@0.34.6(@types/node@20.8.9):
     resolution: {integrity: sha512-nlBMJ9x6n7/Amaz6F3zJ97EBwR2FkzhBRxF5e+jE6LA3yi6Wtc2lyTij1OnDMIr34v5g/tVQtsVAzhT0jc5ygA==}
     engines: {node: '>=v14.18.0'}
     hasBin: true
@@ -9664,7 +9580,7 @@ packages:
       mlly: 1.4.2
       pathe: 1.1.1
       picocolors: 1.0.0
-      vite: 4.5.0(@types/node@20.8.7)
+      vite: 4.5.0(@types/node@20.8.9)
     transitivePeerDependencies:
       - '@types/node'
       - less
@@ -9676,7 +9592,7 @@ packages:
       - terser
     dev: true
 
-  /vite@4.5.0(@types/node@20.8.7):
+  /vite@4.5.0(@types/node@20.8.9):
     resolution: {integrity: sha512-ulr8rNLA6rkyFAlVWw2q5YJ91v098AFQ2R0PRFwPzREXOUJQPtFUG0t+/ZikhaOCDqFoDhN6/v8Sq0o4araFAw==}
     engines: {node: ^14.18.0 || >=16.0.0}
     hasBin: true
@@ -9704,7 +9620,7 @@ packages:
       terser:
         optional: true
     dependencies:
-      '@types/node': 20.8.7
+      '@types/node': 20.8.9
       esbuild: 0.18.20
       postcss: 8.4.31
       rollup: 3.29.4
@@ -9745,7 +9661,7 @@ packages:
     dependencies:
       '@types/chai': 4.3.6
       '@types/chai-subset': 1.3.3
-      '@types/node': 20.8.7
+      '@types/node': 20.8.9
       '@vitest/expect': 0.34.6
       '@vitest/runner': 0.34.6
       '@vitest/snapshot': 0.34.6
@@ -9764,8 +9680,8 @@ packages:
       strip-literal: 1.3.0
       tinybench: 2.5.1
       tinypool: 0.7.0
-      vite: 4.5.0(@types/node@20.8.7)
-      vite-node: 0.34.6(@types/node@20.8.7)
+      vite: 4.5.0(@types/node@20.8.9)
+      vite-node: 0.34.6(@types/node@20.8.9)
       why-is-node-running: 2.2.2
     transitivePeerDependencies:
       - less
@@ -9829,17 +9745,6 @@ packages:
       is-set: 2.0.2
       is-weakmap: 2.0.1
       is-weakset: 2.0.2
-    dev: true
-
-  /which-typed-array@1.1.11:
-    resolution: {integrity: sha512-qe9UWWpkeG5yzZ0tNYxDmd7vo58HDBc39mZ0xWWpolAGADdFOzkfamWLDxkOWcvHQKVmdTyQdLD4NOfjLWTKew==}
-    engines: {node: '>= 0.4'}
-    dependencies:
-      available-typed-arrays: 1.0.5
-      call-bind: 1.0.5
-      for-each: 0.3.3
-      gopd: 1.0.1
-      has-tostringtag: 1.0.0
     dev: true
 
   /which-typed-array@1.1.13:
