@@ -1,4 +1,4 @@
-import { tryResult, invariant, encode, jsonBody } from "@internal/common";
+import { invariant, encode, initJSON } from "@internal/common";
 import { encodeJwt, jwtTime } from "@internal/jwt";
 import { type } from "arktype";
 import { $challenge } from "../challenge.js";
@@ -22,19 +22,19 @@ export default route(
       return err(404, { message: "user_missing" });
     }
 
-    const { success: foundUser, result } = await $user(jurisdiction, userId)
-      .get("/data?recovery=true", {
-        headers: { Authorization: guardUser(app) },
-      })
-      .then(tryResult);
-    if (!foundUser) {
+    const response = await $user(jurisdiction, userId).get(
+      "/data?recovery=true",
+      { headers: { Authorization: guardUser(app) } }
+    );
+    if (!response.ok) {
       console.log("Alias didn't result in a proper user for some reason");
       return err(404, { message: "user_missing" });
     }
 
-    invariant(result.recovery, "included because of query param");
+    const { recovery } = await response.json();
+    invariant(recovery, "included because of query param");
 
-    const address = result.recovery.emails.find((e) => {
+    const address = recovery.emails.find((e) => {
       if (specifiedAddress === undefined) {
         return e.primary && e.verified;
       } else {
@@ -97,4 +97,4 @@ const CHARACTERS =
 const startChallenge = async (
   challenge: ReturnType<typeof $challenge>,
   data: { ms: number; code: string; value: string }
-) => await challenge.post(`/start`, jsonBody(data));
+) => await challenge.post(`/start`, initJSON(data));

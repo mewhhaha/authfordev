@@ -1,16 +1,10 @@
 import { server_ } from "../plugins/server.js";
 import { type } from "arktype";
-import { jsonBody, tryResult } from "@internal/common";
+import { initJSON } from "@internal/common";
 import { $challenge } from "../challenge.js";
 import { parseRegistrationToken } from "../helpers/parser.js";
 import { $passkey, guardPasskey } from "../passkey.js";
-import {
-  $user,
-  makePasskeyLink,
-  guardUser,
-  type GuardUser,
-  type PasskeyLink,
-} from "../user.js";
+import { $user, makePasskeyLink, guardUser } from "../user.js";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { route, err, ok } from "@mewhhaha/little-worker";
 
@@ -36,7 +30,7 @@ export default route(
     }
 
     const challenge = $challenge(env.DO_CHALLENGE, claim.jti);
-    const { success: passed } = await finishChallenge(challenge);
+    const { ok: passed } = await challenge.post("/finish");
     if (!passed) {
       return err(403, { message: "challenge_expired" });
     }
@@ -57,16 +51,20 @@ export default route(
       challengeId: claim.jti,
       visitor: claim.vis,
     };
-    const { success: registered } = await passkey
-      .post("/start-register", jsonBody(data))
-      .then(tryResult);
+    const { ok: registered } = await passkey.post(
+      "/start-register",
+      initJSON(data)
+    );
     if (!registered) {
       return err(403, { message: "passkey_exists" });
     }
 
     const passkeyLink = makePasskeyLink({ passkeyId, credentialId, userId });
     const guard = guardUser(app);
-    const linked = await linkPasskey(user, { passkeyLink, guard });
+    const linked = await user.post(
+      "/link-passkey",
+      initJSON(passkeyLink, { Authorization: guard })
+    );
     if (linked === undefined) {
       return err(404, { message: "user_missing" });
     }
@@ -83,22 +81,3 @@ export default route(
     });
   }
 );
-
-const linkPasskey = async (
-  user: ReturnType<typeof $user>,
-  {
-    guard,
-    passkeyLink,
-  }: {
-    guard: GuardUser;
-    passkeyLink: PasskeyLink;
-  }
-) => {
-  return await user
-    .post("/link-passkey", jsonBody(passkeyLink, guard))
-    .then(tryResult);
-};
-
-const finishChallenge = async (challenge: ReturnType<typeof $challenge>) => {
-  return await challenge.post("/finish").then(tryResult);
-};

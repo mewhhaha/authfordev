@@ -3,7 +3,7 @@ import { $challenge } from "../challenge.js";
 import { minute1 } from "../helpers/time.js";
 import { makeVisitorHeaders } from "../passkey.js";
 import { client_ } from "../plugins/client.js";
-import { jsonBody } from "@internal/common";
+import { initJSON } from "@internal/common";
 import { type VisitorHeaders } from "../helpers/parser.js";
 import { route, ok } from "@mewhhaha/little-worker";
 
@@ -30,7 +30,7 @@ export default route(PATTERN, [client_], async ({ request, app }, env, ctx) => {
 });
 
 const startChallenge = async (challenge: ReturnType<typeof $challenge>) =>
-  await challenge.post(`/start`, jsonBody({ ms: 60000 }));
+  await challenge.post(`/start`, initJSON({ ms: 60000 }));
 
 const cors = (request: Request) => ({
   "Access-Control-Allow-Origin": request.headers.get("Origin") ?? "",

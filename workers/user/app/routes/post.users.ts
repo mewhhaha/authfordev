@@ -1,4 +1,4 @@
-import { jsonBody, tryResult } from "@internal/common";
+import { initJSON } from "@internal/common";
 import { type } from "arktype";
 import { kvAlias, type HashedAlias, hashAliases } from "../helpers/alias.js";
 import { $passkey, guardPasskey } from "../passkey.js";
@@ -38,7 +38,7 @@ export default route(
     }
 
     const challenge = $challenge(env.DO_CHALLENGE, claim.jti);
-    const { success: passed } = await finishChallenge(challenge);
+    const { ok: passed } = await challenge.post("/finish");
     if (!passed) {
       return err(403, { message: "challenge_expired" });
     }
@@ -57,9 +57,10 @@ export default route(
       challengeId: claim.jti,
       visitor: claim.vis,
     };
-    const { success: registered } = await passkey
-      .post("/start-register", jsonBody(data))
-      .then(tryResult);
+    const { ok: registered } = await passkey.post(
+      "/start-register",
+      initJSON(data)
+    );
 
     if (!registered) {
       return err(403, { message: "passkey_exists" });
@@ -80,10 +81,8 @@ export default route(
 
     // This is intentionally not hashed aliases so a user can read its aliases in plain text
     const payload = { email, app, aliases, passkey: passkeyLink };
-    const { success: userCreated } = await user
-      .post("/occupy", jsonBody(payload))
-      .then(tryResult);
-    if (!userCreated) {
+    const { ok: created } = await user.post("/create", initJSON(payload));
+    if (!created) {
       return err(403, { message: "user_exists" });
     }
 
@@ -107,10 +106,6 @@ export default route(
     });
   }
 );
-
-const finishChallenge = async (challenge: ReturnType<typeof $challenge>) => {
-  return await challenge.post("/finish").then(tryResult);
-};
 
 const insertUser = async (
   db: D1Database,

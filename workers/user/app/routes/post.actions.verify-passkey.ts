@@ -1,4 +1,4 @@
-import { jsonBody, tryResult } from "@internal/common";
+import { initJSON } from "@internal/common";
 import { type } from "arktype";
 import { $challenge } from "../challenge.js";
 import { parseAuthenticationToken } from "../helpers/parser.js";
@@ -27,9 +27,9 @@ export default route(
     }
 
     const challenge = $challenge(env.DO_CHALLENGE, challengeId);
-    const { success: passed } = await finishChallenge(challenge);
+    const { ok: passed } = await challenge.post("/finish");
     if (!passed) {
-      return err(410, { message: "challenge_expired" });
+      return err(403, { message: "challenge_expired" });
     }
 
     const passkeyId = jurisdiction.passkey.idFromName(
@@ -38,7 +38,7 @@ export default route(
     const passkey = $passkey(jurisdiction.passkey, passkeyId);
 
     const payload = { app, origin, challengeId, visitor, authentication };
-    const response = await passkey.post("/authenticate", jsonBody(payload));
+    const response = await passkey.post("/authenticate", initJSON(payload));
 
     if (!response.ok) {
       return err(403, { message: "passkey_invalid" });
@@ -52,7 +52,3 @@ export default route(
     });
   }
 );
-
-const finishChallenge = async (challenge: ReturnType<typeof $challenge>) => {
-  return await challenge.post("/finish").then(tryResult);
-};

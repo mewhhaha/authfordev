@@ -1,30 +1,29 @@
 import { type JSONString } from "@mewhhaha/json-string";
 
-type JSONBody = {
-  <T>(
-    body: T,
-    authorization?: undefined
-  ): {
-    headers: { "Content-Type": "application/json" };
-    body: JSONString<T>;
-  };
-  <T, Y extends string>(
-    body: T,
-    authorization: Y
-  ): {
-    headers: { "Content-Type": "application/json"; Authorization: Y };
-    body: JSONString<T>;
-  };
-};
+type ExtractCaseInsensitive<
+  T extends Record<string, string>,
+  Y extends string,
+> = {
+  [KEY in Extract<keyof T, string>]: Lowercase<KEY> extends Lowercase<Y>
+    ? KEY
+    : never;
+}[Extract<keyof T, string>];
 
-export const jsonBody: JSONBody = <T, Y extends string>(
+export const initJSON = <T, Y extends Record<string, string> = {}>(
   body: T,
-  authorization?: Y
-) => {
+  headers: "content-type" extends Lowercase<Extract<keyof Y, string>>
+    ? Omit<Y, ExtractCaseInsensitive<Y, "content-type">> & {
+        [KEY in ExtractCaseInsensitive<Y, "content-type">]: "application/json";
+      }
+    : Y = {} as typeof headers
+): {
+  headers: { "Content-Type": "application/json" } & typeof headers;
+  body: JSONString<T>;
+} => {
   return {
     headers: {
       "Content-Type": "application/json" as const,
-      Authorization: authorization,
+      ...(headers || ({} as typeof headers)),
     },
     body: JSON.stringify(body),
   };

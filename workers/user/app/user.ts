@@ -104,7 +104,7 @@ export class DurableObjectUser implements DurableObject {
     });
   }
 
-  occupy({
+  create({
     email,
     passkey,
     aliases,
@@ -123,10 +123,10 @@ export class DurableObjectUser implements DurableObject {
 
   static router = Router<[DurableObjectUser]>()
     .post(
-      "/occupy",
+      "/create",
       [unoccupied_, data_(parseOccupyData)],
       async ({ data }, object) => {
-        object.occupy(data);
+        object.create(data);
         return ok(200);
       }
     )

@@ -1,4 +1,4 @@
-import { jsonBody, tryResult } from "@internal/common";
+import { initJSON } from "@internal/common";
 import { type } from "arktype";
 import { server_ } from "../plugins/server.js";
 import { $user, guardUser } from "../user.js";
@@ -15,11 +15,12 @@ export default route(
     };
 
     const user = $user(jurisdiction.user, userId);
-    const { success } = await user
-      .put(`/rename-passkey/${passkeyId}`, jsonBody(data, guardUser(app)))
-      .then(tryResult);
+    const response = await user.put(
+      `/rename-passkey/${passkeyId}`,
+      initJSON(data, { Authorization: guardUser(app) })
+    );
 
-    if (!success) {
+    if (!response.ok) {
       return err(404, { message: "passkey_missing" });
     }
 

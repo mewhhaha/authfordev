@@ -1,4 +1,4 @@
-import { decode, tryResult } from "@internal/common";
+import { decode } from "@internal/common";
 import { type } from "arktype";
 import { $challenge } from "../challenge.js";
 import { parseClaim } from "../helpers/parser.js";
@@ -20,12 +20,12 @@ export default route(
     }
 
     const challenge = $challenge(env.DO_CHALLENGE, claim.jti);
-    const { success: passed, result } = await finishChallenge(challenge, code);
-    if (!passed) {
+    const response = await challenge.post("/finish", { body: code });
+    if (!response.ok) {
       return err(403, { message: "challenge_expired" });
     }
 
-    const [userId, email] = result.split(":");
+    const [userId, email] = (await response.text()).split(":");
     if (userId === undefined || email === undefined) {
       return err(401, { message: "challenge_invalid" });
     }
@@ -33,10 +33,3 @@ export default route(
     return ok(200, { userId, email: decode(email) });
   }
 );
-
-const finishChallenge = async (
-  challenge: ReturnType<typeof $challenge>,
-  code: string
-) => {
-  return await challenge.post("/finish", { body: code }).then(tryResult);
-};
