@@ -20,11 +20,12 @@ import {
 } from "@mewhhaha/authfor-remix";
 import { authenticate } from "../auth/session.server.js";
 import { api } from "~/api/api.js";
-import { invariant } from "@internal/common";
+import { invariant } from "@mewhhaha/little-worker/invariant";
 import { ButtonInline } from "~/components/ButtonInline.js";
 import { IconArrowPath } from "~/components/IconArrowPath.js";
 import { Button } from "~/components/Button.js";
 import { cn } from "~/css/cn.js";
+import { initJSON } from "@mewhhaha/little-worker/init";
 import { fetcher } from "@mewhhaha/little-fetcher";
 
 export const meta: MetaFunction = () => {
@@ -122,16 +123,13 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
       if (!form.token) {
         return { success: false, message: "form_data_missing" };
       }
-      const response = await api.post(`/users/${session.userId}/passkeys`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: env.AUTH_SERVER_KEY,
-        },
-        body: JSON.stringify({
-          token: form.token,
-          origin: env.ORIGIN,
-        }),
-      });
+      const response = await api.post(
+        `/users/${session.userId}/passkeys`,
+        initJSON(
+          { token: form.token, origin: env.ORIGIN },
+          { Authorization: env.AUTH_SERVER_KEY }
+        )
+      );
 
       if (!response.ok) {
         return { success: false };

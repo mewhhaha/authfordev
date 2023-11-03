@@ -16,10 +16,8 @@
   "sideEffects": false,
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20231025.0",
+    "@mewhhaha/little-worker": "^0.0.45",
     "typescript": "^5.2.2",
     "vitest": "^0.34.6"
-  },
-  "dependencies": {
-    "@internal/common": "workspace:^"
   }
 }

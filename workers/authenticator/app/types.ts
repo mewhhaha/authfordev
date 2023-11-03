@@ -1,3 +1,6 @@
+import { type TaggedType } from "@mewhhaha/little-worker/tagged";
+import "@mewhhaha/little-worker";
+
 export type Authenticator = {
   aaguid: string;
   name: string;
@@ -73,3 +76,15 @@ export type StatusReport = {
   status: string;
   effectiveDate: Date;
 };
+
+declare global {
+  type Env = {
+    KV_AUTHENTICATOR: TaggedType<KVNamespace, "kv_authenticator">;
+  };
+}
+
+declare module "@mewhhaha/little-worker" {
+  interface RouteData {
+    extra: [Env, ExecutionContext];
+  }
+}

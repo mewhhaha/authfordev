@@ -1,4 +1,4 @@
-import { type TaggedType } from "@internal/common";
+import { type TaggedType } from "@mewhhaha/little-worker/tagged";
 import "@mewhhaha/little-worker";
 
 type TaggedDurableObjectNamespace<T extends string> = TaggedType<
@@ -29,6 +29,6 @@ declare global {
 
 declare module "@mewhhaha/little-worker" {
   interface RouteData {
-    arguments: [Env, ExecutionContext];
+    extra: [Env, ExecutionContext];
   }
 }

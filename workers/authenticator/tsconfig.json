@@ -19,5 +19,5 @@
     "noUnusedParameters": true,
     "preserveSymlinks": false
   },
-  "include": ["app", "global.d.ts"]
+  "include": ["app", "app/global.d.ts"]
 }

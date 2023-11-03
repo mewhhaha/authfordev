@@ -2,7 +2,7 @@ import { err, route } from "@mewhhaha/little-worker";
 import { server_ } from "../plugins/server.js";
 import { type } from "arktype";
 import { parsedBoolean } from "../helpers/parser.js";
-import { $user, guardUser } from "../user.js";
+import { $user, guardUser } from "../objects/user.js";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
 
 export default route(

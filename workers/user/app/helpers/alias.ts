@@ -1,4 +1,5 @@
-import { type TaggedType, encode, hmac } from "@internal/common";
+import { encode, hmac } from "@mewhhaha/little-worker/crypto";
+import { type TaggedType } from "@mewhhaha/little-worker/tagged";
 import { type ServerAppName } from "../plugins/server.js";
 
 export type HashedAlias = TaggedType<string, "hashed_alias">;

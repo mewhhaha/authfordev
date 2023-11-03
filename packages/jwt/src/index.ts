@@ -1,4 +1,4 @@
-import { decode, encode, hmac } from "@internal/common";
+import { decode, encode, hmac } from "@mewhhaha/little-worker/crypto";
 
 type JwtClaim<T = Record<never, never>> = {
   jti: string;

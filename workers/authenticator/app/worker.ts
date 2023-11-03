@@ -1,4 +1,4 @@
-import { decode } from "@internal/common";
+import { decode } from "@mewhhaha/little-worker/crypto";
 import { router } from "./routes/_router";
 import { type FIDO2Authenticator } from "./types";
 

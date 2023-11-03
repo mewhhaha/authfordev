@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { decodeHeader, encodeHeader } from ".";
+import { decodeHeader, encodeHeader } from "./index.js";
 import crypto from "node:crypto";
 
 // @ts-ignore
@@ -11,8 +11,8 @@ test("encode and decode is isomorphic", async () => {
   expect(
     await decodeHeader(
       "hello",
-      "public",
-      await encodeHeader("hello", "public", claim.app)
+      "client",
+      await encodeHeader("hello", "client", claim.app)
     )
   ).toEqual(claim.app);
 });

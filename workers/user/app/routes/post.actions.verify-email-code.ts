@@ -1,10 +1,10 @@
-import { decode } from "@internal/common";
 import { type } from "arktype";
-import { $challenge } from "../challenge.js";
+import { $challenge } from "../objects/challenge.js";
 import { parseClaim } from "../helpers/parser.js";
 import { server_ } from "../plugins/server.js";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { route, err, ok } from "@mewhhaha/little-worker";
+import { decode } from "@mewhhaha/little-worker/crypto";
 
 export default route(
   PATTERN,

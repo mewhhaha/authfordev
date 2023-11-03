@@ -1,5 +1,6 @@
 /// <reference types="@remix-run/dev" />
 /// <reference types="@cloudflare/workers-types" />
+/// <reference types="@mewhhaha/little-worker" />
 
 import "@remix-run/cloudflare";
 

@@ -1,8 +1,8 @@
-import { initJSON } from "@internal/common";
 import { type } from "arktype";
 import { server_ } from "../plugins/server.js";
-import { $user, guardUser } from "../user.js";
+import { $user, guardUser } from "../objects/user.js";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
+import { initJSON } from "@mewhhaha/little-worker/init";
 import { route, err, ok } from "@mewhhaha/little-worker";
 
 export default route(

@@ -1,5 +1,5 @@
 import { type } from "arktype";
-import { $any, storageLoader, storageSaver } from "./helpers/durable.js";
+import { $any, storageLoader, storageSaver } from "../helpers/durable.js";
 import {
   type Credential,
   parseAuthenticationEncoded,
@@ -8,11 +8,10 @@ import {
   type VisitorHeaders,
   parseVisitorHeaders,
   parseRegistrationEncoded,
-} from "./helpers/parser.js";
-import { now } from "./helpers/time.js";
+} from "../helpers/parser.js";
+import { now } from "../helpers/time.js";
 import { server } from "@passwordless-id/webauthn";
-import { type ServerAppName } from "./plugins/server.js";
-import { encode } from "@internal/common";
+import { type ServerAppName } from "../plugins/server.js";
 import {
   type PluginContext,
   err,
@@ -23,6 +22,7 @@ import {
 } from "@mewhhaha/little-worker";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
+import { encode } from "@mewhhaha/little-worker/crypto";
 
 const parseMetadata = type({
   passkeyId: "string",

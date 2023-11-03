@@ -1,4 +1,4 @@
-import { decode } from "@internal/common";
+import { decode } from "@mewhhaha/little-worker/crypto";
 import { decodeJwt, jwtTime } from "@internal/jwt";
 import { type } from "arktype";
 

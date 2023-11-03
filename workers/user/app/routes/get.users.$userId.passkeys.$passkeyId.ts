@@ -1,7 +1,7 @@
 import { server_ } from "../plugins/server.js";
 import { type } from "arktype";
 import { parsedBoolean } from "../helpers/parser.js";
-import { $passkey, guardPasskey } from "../passkey.js";
+import { $passkey, guardPasskey } from "../objects/passkey.js";
 import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { route, err } from "@mewhhaha/little-worker";
 

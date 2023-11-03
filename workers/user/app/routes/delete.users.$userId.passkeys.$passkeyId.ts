@@ -1,7 +1,11 @@
 import { route, err, ok } from "@mewhhaha/little-worker";
-import { $passkey, type GuardPasskey, guardPasskey } from "../passkey.js";
+import {
+  $passkey,
+  type GuardPasskey,
+  guardPasskey,
+} from "../objects/passkey.js";
 import { server_ } from "../plugins/server.js";
-import { $user, type GuardUser, guardUser } from "../user.js";
+import { $user, type GuardUser, guardUser } from "../objects/user.js";
 
 export default route(
   PATTERN,

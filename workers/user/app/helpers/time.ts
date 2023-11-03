@@ -1,4 +1,4 @@
-import { type TaggedType } from "@internal/common";
+import { type TaggedType } from "@mewhhaha/little-worker/tagged";
 
 export const now = () => new Date().toISOString() as DateISOString;
 

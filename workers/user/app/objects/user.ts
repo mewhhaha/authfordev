@@ -1,7 +1,7 @@
 import { type } from "arktype";
-import { $any, storageLoader, storageSaver } from "./helpers/durable.js";
-import { parsedBoolean } from "./helpers/parser.js";
-import { type ServerAppName } from "./plugins/server.js";
+import { $any, storageLoader, storageSaver } from "../helpers/durable.js";
+import { parsedBoolean } from "../helpers/parser.js";
+import { type ServerAppName } from "../plugins/server.js";
 import {
   type PluginContext,
   err,

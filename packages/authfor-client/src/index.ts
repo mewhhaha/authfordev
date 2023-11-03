@@ -1,7 +1,7 @@
 import { fetcher } from "@mewhhaha/little-fetcher";
 import { client } from "@passwordless-id/webauthn";
 import { Routes } from "@mewhhaha/authfor-api";
-import { encode, decode } from "@internal/common";
+import { encode, decode } from "@mewhhaha/little-worker/dist/helpers/crypto";
 
 export const Client = ({
   apiUrl = "https://user.authfor.dev",

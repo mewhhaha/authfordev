@@ -1,11 +1,11 @@
 import { jwtTime, encodeJwt } from "@internal/jwt";
-import { $challenge } from "../challenge.js";
+import { $challenge } from "../objects/challenge.js";
 import { minute1 } from "../helpers/time.js";
-import { makeVisitorHeaders } from "../passkey.js";
+import { makeVisitorHeaders } from "../objects/passkey.js";
 import { client_ } from "../plugins/client.js";
-import { initJSON } from "@internal/common";
 import { type VisitorHeaders } from "../helpers/parser.js";
 import { route, ok } from "@mewhhaha/little-worker";
+import { initJSON } from "@mewhhaha/little-worker/init";
 
 export default route(PATTERN, [client_], async ({ request, app }, env, ctx) => {
   const id = env.DO_CHALLENGE.newUniqueId();

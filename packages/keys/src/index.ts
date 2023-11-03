@@ -1,4 +1,4 @@
-import { hmac, encode } from "@internal/common";
+import { hmac, encode } from "@mewhhaha/little-worker/crypto";
 
 const encoder = new TextEncoder();
 

@@ -20,6 +20,6 @@
     "vitest": "^0.34.6"
   },
   "dependencies": {
-    "@internal/common": "workspace:^"
+    "@mewhhaha/little-worker": "^0.0.45"
   }
 }

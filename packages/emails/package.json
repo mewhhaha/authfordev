@@ -10,13 +10,13 @@
     "build": "node -r @swc-node/register src/build.tsx"
   },
   "devDependencies": {
-    "@react-email/components": "0.0.7",
-    "@react-email/tailwind": "^0.0.9",
-    "@remix-run/eslint-config": "^2.1.0",
+    "@react-email/components": "0.0.11",
+    "@react-email/tailwind": "^0.0.12",
+    "@remix-run/eslint-config": "^2.2.0",
     "@swc-node/register": "^1.6.8",
-    "@types/react": "^18.2.33",
+    "@types/react": "^18.2.34",
     "@types/react-dom": "^18.2.14",
-    "@vitejs/plugin-react-swc": "^3.4.0",
+    "@vitejs/plugin-react-swc": "^3.4.1",
     "eslint": "^8.52.0",
     "eslint-plugin-tailwindcss": "^3.13.0",
     "react": "^18.2.0",
