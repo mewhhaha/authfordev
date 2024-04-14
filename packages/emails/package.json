@@ -5,24 +5,30 @@
   "files": [
     "dist"
   ],
+  "exports": {
+    ".": {
+      "import": "./dist/send-code.json"
+    }
+  },
   "scripts": {
     "dev": "vite",
     "build": "node -r @swc-node/register src/build.tsx"
   },
   "devDependencies": {
-    "@react-email/components": "0.0.11",
-    "@react-email/tailwind": "^0.0.12",
-    "@remix-run/eslint-config": "^2.2.0",
-    "@swc-node/register": "^1.6.8",
-    "@types/react": "^18.2.34",
-    "@types/react-dom": "^18.2.14",
-    "@vitejs/plugin-react-swc": "^3.4.1",
-    "eslint": "^8.52.0",
-    "eslint-plugin-tailwindcss": "^3.13.0",
+    "@react-email/components": "0.0.16",
+    "@react-email/tailwind": "^0.0.15",
+    "@remix-run/eslint-config": "^2.8.1",
+    "@swc-node/register": "^1.9.0",
+    "@types/react": "^18.2.78",
+    "@types/react-dom": "^18.2.25",
+    "@vitejs/plugin-react-swc": "^3.6.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-tailwindcss": "^3.15.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-email": "1.9.5",
-    "tailwindcss": "^3.3.5",
-    "vite": "^4.5.0"
+    "react-email": "2.1.1",
+    "tailwindcss": "^3.4.3",
+    "vite": "^5.2.8",
+    "wrangler": "0.0.0-d27c287a"
   }
 }

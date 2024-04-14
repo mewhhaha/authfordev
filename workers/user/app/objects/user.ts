@@ -1,66 +1,16 @@
-import { type } from "arktype";
-import { $any, storageLoader, storageSaver } from "../helpers/durable.js";
-import { parsedBoolean } from "../helpers/parser.js";
-import { type ServerAppName } from "../plugins/server.js";
-import {
-  type PluginContext,
-  err,
-  type Plugin,
-  Router,
-  ok,
-} from "@mewhhaha/little-worker";
-import { data_ } from "@mewhhaha/little-router-plugin-data";
-import { query_ } from "@mewhhaha/little-router-plugin-query";
+import { DurableObject, RpcTarget } from "cloudflare:workers";
+import { store, storage, $get } from "../helpers/durable";
 
-export type GuardUser = `user:${ServerAppName}`;
-
-export const guardUser = (app: ServerAppName) => {
-  return `user:${app}` as const;
+type PasskeyLink = {
+  name: string;
+  credentialId: string;
+  userId: string;
+  passkeyId: string;
 };
-
-const unoccupied_ = ((_: PluginContext<any>, self) => {
-  if (self.metadata !== undefined) {
-    return err(409, "user_exists");
-  }
-
-  return {};
-}) satisfies Plugin<[DurableObjectUser]>;
-
-const occupied_ = ((
-  {
-    request,
-  }: PluginContext<{
-    // This should be `user:${app}`
-    init: { headers: { Authorization: GuardUser } };
-  }>,
-  self
-) => {
-  const authorization = request.headers.get("Authorization");
-  if (authorization === null) {
-    return err(401, { message: "authorization_missing" });
-  }
-
-  if (self.metadata === undefined) {
-    return err(404, { message: "user_missing" });
-  }
-
-  // First word is just user:
-  const [, app] = authorization.split(":");
-
-  if (app !== self.metadata?.app) {
-    console.log(self.metadata);
-    return err(403, { message: "app_mismatch" });
-  }
-
-  return { metadata: self.metadata };
-}) satisfies Plugin<[DurableObjectUser]>;
-
-// This should be #${app}:${userId}
 
 /** @public */
 export type Metadata = {
-  app: string;
-  aliases: string[];
+  username: string;
 };
 
 /** @public */
@@ -68,162 +18,125 @@ export type Recovery = {
   emails: { address: string; verified: boolean; primary: boolean }[];
 };
 
-const parsePasskeyLink = type({
-  name: "1<=string<=60",
-  credentialId: "1<=string<=256",
-  userId: "string",
-  passkeyId: "string",
-});
+export class DurableObjectUser extends DurableObject<Env> {
+  @storage
+  accessor #metadata = store<Metadata>();
 
-const parseOccupyData = type({
-  "email?": "email",
-  app: "string",
-  aliases: "string[]",
-  "passkey?": parsePasskeyLink,
-});
+  @storage
+  accessor #recovery = store<Recovery>({ emails: [] });
 
-export type PasskeyLink = typeof parsePasskeyLink.infer;
+  @storage
+  accessor #passkeys = store<PasskeyLink[]>([]);
 
-export class DurableObjectUser implements DurableObject {
-  metadata?: Metadata;
-  recovery: Recovery = { emails: [] };
-
-  passkeys: PasskeyLink[];
-
-  storage: DurableObjectStorage;
-
-  readonly save = storageSaver<DurableObjectUser>(this);
-  readonly load = storageLoader<DurableObjectUser>(this);
-
-  constructor(state: DurableObjectState) {
-    this.storage = state.storage;
-    this.passkeys = [];
-
-    void state.blockConcurrencyWhile(async () => {
-      await this.load("metadata", "recovery", "passkeys");
-    });
+  constructor(state: DurableObjectState, env: Env) {
+    super(state, env);
   }
 
-  create({
+  async exists() {
+    try {
+      await this.#assertUser();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async create({
     email,
     passkey,
-    aliases,
-    app,
+    username,
   }: Metadata & { email?: string; passkey?: PasskeyLink }) {
-    this.save("metadata", { aliases, app });
+    await this.#assertEmpty();
+
+    this.#metadata = Promise.resolve({ username });
     if (email !== undefined) {
-      this.save("recovery", {
+      this.#recovery = store({
         emails: [{ address: email, verified: false, primary: true }],
       });
     }
     if (passkey !== undefined) {
-      this.save("passkeys", [passkey]);
+      this.#passkeys = store([passkey]);
     }
   }
 
-  static router = Router<[DurableObjectUser]>()
-    .post(
-      "/create",
-      [unoccupied_, data_(parseOccupyData)],
-      async ({ data }, object) => {
-        object.create(data);
-        return ok(200);
-      }
-    )
-    .post(
-      "/verify-email",
-      [occupied_, data_(type({ email: "email" }))],
-      async ({ data }, object) => {
-        const { emails } = object.recovery;
-        const email = emails.find((e) => e.address === data.email);
-        if (email === undefined) {
-          return err(404, { message: "email_not_found" });
-        }
-        email.verified = true;
-        object.save("recovery", { emails });
-        return ok(200);
-      }
-    )
-    .post(
-      "/link-passkey",
-      [occupied_, data_(parsePasskeyLink)],
-      async ({ data }, object) => {
-        object.save("passkeys", [...object.passkeys, data]);
-        return ok(200, { passkeys: object.passkeys });
-      }
-    )
-    .put(
-      "/rename-passkey/:passkeyId",
-      [occupied_, data_(type({ name: "1<=string<=60" }))],
-      async ({ params: { passkeyId }, data: { name } }, self) => {
-        const passkey = self.passkeys.find((p) => p.passkeyId === passkeyId);
-        if (passkey === undefined) {
-          return err(404, { message: "passkey_missing" });
-        }
+  async data() {
+    return await this.#assertUser();
+  }
 
-        passkey.name = name;
-        self.save("passkeys", self.passkeys);
+  async verifyEmail(unverifiedEmail: string) {
+    await this.#assertUser();
 
-        return ok(200, { passkeys: self.passkeys });
+    const { emails } = await this.#recovery;
+    const email = emails.find((e) => e.address === unverifiedEmail);
+    if (email === undefined) {
+      return { error: true, message: "missing_email" } as const;
+    }
+
+    email.verified = true;
+    this.#recovery = store({ emails });
+    return { error: false } as const;
+  }
+
+  async addPasskey(link: PasskeyLink) {
+    const { passkeys } = await this.#assertUser();
+    const added = [...passkeys, link];
+
+    this.#passkeys = store(added);
+    return { passkeys: added };
+  }
+
+  async getPasskey(passkeyId: string) {
+    const { passkeys } = await this.#assertUser();
+    const passkey = passkeys.find((p) => p.passkeyId === passkeyId);
+    if (!passkey) {
+      throw new Error(`Missing passkey with id ${passkeyId}`);
+    }
+
+    const rename = async (name: string) => {
+      passkey.name = name;
+      this.#passkeys = store(passkeys);
+
+      return { passkeys } as const;
+    };
+
+    const remove = async () => {
+      const removed = passkeys.filter((p) => p.passkeyId !== passkeyId);
+      if (removed.length === passkeys.length) {
+        return { error: true, message: "missing_passkey" } as const;
       }
-    )
-    .delete(
-      "/remove-passkey/:passkeyId",
-      [occupied_],
-      async ({ params: { passkeyId } }, object) => {
-        const removed = object.passkeys.filter(
-          (p) => p.passkeyId !== passkeyId
-        );
-        if (removed.length === object.passkeys.length) {
-          return err(404, { message: "passkey_not_found" });
-        }
-        object.save("passkeys", removed);
-        return ok(200, { passkeys: object.passkeys });
-      }
-    )
-    .get(
-      "/data",
-      [
-        occupied_,
-        query_(
-          type({ "recovery?": parsedBoolean, "passkeys?": parsedBoolean })
-        ),
-      ],
-      async (
-        { metadata, query: { recovery = false, passkeys = false } },
-        object
-      ) => {
-        const data: {
-          metadata: Metadata;
-          recovery?: Recovery;
-          passkeys?: PasskeyLink[];
-        } = {
-          metadata,
-        };
 
-        if (recovery) {
-          data.recovery = object.recovery;
-        }
+      const passkey = $get(this.env.DO_PASSKEY, passkeyId);
+      this.ctx.waitUntil(passkey.destruct());
 
-        if (passkeys) {
-          data.passkeys = object.passkeys;
-        }
+      this.#passkeys = store(removed);
 
-        return ok(200, data);
-      }
-    )
-    .all("/*", [], () => {
-      return new Response("Not found", { status: 404 });
-    });
+      return { error: false, passkey: removed } as const;
+    };
 
-  fetch(
-    request: Request<unknown, CfProperties<unknown>>
-  ): Response | Promise<Response> {
-    return DurableObjectUser.router.handle(request, this);
+    class RpcTargetPasskey extends RpcTarget {
+      rename = rename;
+      remove = remove;
+    }
+
+    return new RpcTargetPasskey();
+  }
+
+  async #assertUser() {
+    const metadata = await this.#metadata;
+    const recovery = await this.#recovery;
+    const passkeys = await this.#passkeys;
+    if (metadata === undefined) {
+      throw new Error("Object is unoccupied");
+    }
+
+    return { metadata, recovery, passkeys };
+  }
+  async #assertEmpty() {
+    if ((await this.#metadata) !== undefined) {
+      throw new Error("Object is occupied");
+    }
   }
 }
-
-export const $user = $any<typeof DurableObjectUser, Env["DO_USER"]>;
 
 export const makePasskeyLink = ({
   passkeyId,

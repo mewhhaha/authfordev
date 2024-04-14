@@ -1,23 +1,16 @@
-import { type TaggedType } from "@mewhhaha/little-worker/tagged";
 import "@mewhhaha/little-worker";
-
-type TaggedDurableObjectNamespace<T extends string> = TaggedType<
-  Omit<DurableObjectNamespace, "jurisdiction"> & {
-    jurisdiction: (
-      ...params: Parameters<DurableObjectNamespace["jurisdiction"]>
-    ) => TaggedDurableObjectNamespace<T>;
-  },
-  T
->;
+import {
+  DurableObjectChallenge,
+  DurableObjectPasskey,
+  DurableObjectUser,
+} from "./worker";
 
 declare global {
   type Env = {
-    SECRET_KEY: TaggedDurableObjectNamespace<"secret_sign">;
-    DO_USER: TaggedDurableObjectNamespace<"do_user">;
-    DO_CHALLENGE: TaggedDurableObjectNamespace<"do_challenge">;
-    DO_PASSKEY: TaggedDurableObjectNamespace<"do_passkey">;
-    DO_ALIAS: TaggedDurableObjectNamespace<"do_alias">;
-    KV_CACHE: TaggedType<KVNamespace, "kv_cache">;
+    SECRET_KEY: string;
+    DO_USER: DurableObjectNamespace<DurableObjectUser>;
+    DO_CHALLENGE: DurableObjectNamespace<DurableObjectChallenge>;
+    DO_PASSKEY: DurableObjectNamespace<DurableObjectPasskey>;
   };
 }
 

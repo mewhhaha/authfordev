@@ -35,7 +35,7 @@ const inferredVisitor = parseVisitor.infer;
 export type Visitor = typeof inferredVisitor;
 
 const inferredVisitorHeaders = parseVisitorHeaders.infer;
-export type VisitedHeaders = typeof inferredVisitorHeaders;
+export type VisitorHeaders = typeof inferredVisitorHeaders;
 
 export const parseCredential = type({
   id: "string",
@@ -53,7 +53,7 @@ export const parseRegistrationEncoded = type(
     clientData: "string",
     "attestationData?": "string",
   },
-  { keys: "strict" },
+  { keys: "strict" }
 );
 
 export type RegistrationEncoded = typeof parseRegistrationEncoded.infer;
@@ -89,7 +89,7 @@ export const parseRegistrationParsed = type(
     },
     "attestation?": "unknown",
   },
-  { keys: "strict" },
+  { keys: "strict" }
 );
 
 export type RegistrationParsed = typeof parseRegistrationParsed.infer;
@@ -101,7 +101,7 @@ export const parseAuthenticationEncoded = type(
     clientData: "string",
     signature: "string",
   },
-  { keys: "strict" },
+  { keys: "strict" }
 );
 
 export type AuthenticationEncoded = typeof parseAuthenticationEncoded.infer;
@@ -118,43 +118,44 @@ export const parsedBoolean = type([
 
 export const parseAuthenticationToken = async (
   token: string,
-  { secret }: { secret: string },
+  { app, secret }: { app: string; secret: string }
 ) => {
   const [tokenRaw, signinRaw] = token.split("#");
-  const { claim, message } = await parseClaim<{ vis: VisitedHeaders }>(
+  const { claim, message } = await parseClaim<{ vis: VisitorHeaders }>(
     secret,
-    tokenRaw,
+    app,
+    tokenRaw
   );
   if (claim === undefined) {
     return { message };
   }
 
   const { data: authentication, problems } = parseAuthenticationEncoded(
-    JSON.parse(decode(signinRaw)),
+    JSON.parse(decode(signinRaw))
   );
   if (problems !== undefined) {
     return { message: "token_invalid" } as const;
   }
 
-  return { authentication, visited: claim.vis, challengeId: claim.jti };
+  return { authentication, visitor: claim.vis, challengeId: claim.jti };
 };
 
 export const parseRegistrationToken = async (
   token: string,
-  { secret }: { secret: string },
+  { app, secret }: { app: string; secret: string }
 ) => {
   const [tokenRaw, registrationRaw] = token.split("#");
-  const { claim, message } = await parseClaim<{ vis: VisitedHeaders }>(
+  const { claim, message } = await parseClaim<{ vis: VisitorHeaders }>(
     secret,
-
-    tokenRaw,
+    app,
+    tokenRaw
   );
   if (claim === undefined) {
     return { message } as const;
   }
 
   const { data: registrationEncoded, problems } = parseRegistrationEncoded(
-    JSON.parse(decode(registrationRaw)),
+    JSON.parse(decode(registrationRaw))
   );
   if (problems !== undefined) {
     return { message: "token_invalid" } as const;
@@ -165,8 +166,8 @@ export const parseRegistrationToken = async (
 
 export const parseClaim = async <T>(
   secret: string,
-  token: string,
-  aud?: string,
+  aud: string,
+  token: string
 ) => {
   const claim = await decodeJwt<T>(secret, token);
   if (claim === undefined) {
@@ -177,7 +178,7 @@ export const parseClaim = async <T>(
     return { message: "token_expired" } as const;
   }
 
-  if (aud !== undefined && claim.aud !== aud) {
+  if (claim.aud !== aud) {
     return { message: "audience_mismatch" } as const;
   }
 

@@ -1,83 +1,62 @@
 import { server_ } from "../plugins/server.js";
 import { type } from "arktype";
-import { $challenge } from "../objects/challenge.js";
 import { parseRegistrationToken } from "../helpers/parser.js";
-import { $passkey, guardPasskey } from "../objects/passkey.js";
-import { $user, makePasskeyLink, guardUser } from "../objects/user.js";
+import { makePasskeyLink } from "../objects/user.js";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { route, err, ok } from "@mewhhaha/little-worker";
-import { initJSON } from "@mewhhaha/little-worker/init";
+import { $get } from "../helpers/durable.js";
 
 export default route(
   PATTERN,
   [server_, data_(type({ token: "string", origin: "string" }))],
-  async (
-    { app, params: { userId: userIdString }, data: { token, origin } },
-    env,
-    ctx
-  ) => {
-    const jurisdiction = {
-      user: env.DO_USER.jurisdiction("eu"),
-      passkey: env.DO_PASSKEY.jurisdiction("eu"),
-    };
-
+  async ({ params: { userId }, data: { token, origin } }, env, ctx) => {
     const { registration, claim, message } = await parseRegistrationToken(
       token,
-      { app, secret: env.SECRET_FOR_PASSKEY }
+      { secret: env.SECRET_KEY },
     );
     if (message !== undefined) {
       return err(403, { message });
     }
 
-    const challenge = $challenge(env.DO_CHALLENGE, claim.jti);
-    const { ok: passed } = await challenge.post("/finish");
-    if (!passed) {
-      return err(403, { message: "challenge_expired" });
+    const challenge = $get(env.DO_CHALLENGE, claim.jti);
+    const finished = await challenge.finish();
+    if (finished.error) {
+      return err(403, { message: finished.message });
     }
 
     const credentialId = registration.credential.id;
 
-    const passkeyId = jurisdiction.passkey.idFromName(credentialId);
-    const passkey = $passkey(jurisdiction.passkey, passkeyId);
-
-    const userId = jurisdiction.user.idFromString(userIdString);
-    const user = $user(jurisdiction.user, userId);
+    const passkey = $get(
+      env.DO_PASSKEY,
+      env.DO_PASSKEY.idFromName(credentialId),
+    );
+    const user = $get(env.DO_USER, userId);
 
     const data = {
-      app,
-      userId: userId.toString(),
+      userId: userId,
       registration,
       origin,
       challengeId: claim.jti,
-      visitor: claim.vis,
+      visited: claim.vis,
     };
-    const { ok: registered } = await passkey.post(
-      "/start-register",
-      initJSON(data)
-    );
-    if (!registered) {
-      return err(403, { message: "passkey_exists" });
+    const started = await passkey.start(data);
+    if (started.error) {
+      return err(403, { message: started.message });
     }
 
-    const passkeyLink = makePasskeyLink({ passkeyId, credentialId, userId });
-    const guard = guardUser(app);
-    const linked = await user.post(
-      "/link-passkey",
-      initJSON(passkeyLink, { Authorization: guard })
-    );
-    if (linked === undefined) {
-      return err(404, { message: "user_missing" });
-    }
+    const passkeyLink = makePasskeyLink({
+      passkeyId: passkey.id,
+      credentialId,
+      userId,
+    });
 
-    ctx.waitUntil(
-      passkey.post("/finish-register", {
-        headers: { Authorization: guardPasskey(app, userId) },
-      })
-    );
+    await user.addPasskey(passkeyLink);
+
+    ctx.waitUntil(passkey.finish(userId));
 
     return ok(201, {
       userId,
-      passkeyId: passkeyId.toString(),
+      passkeyId: passkey.id.toString(),
     });
-  }
+  },
 );

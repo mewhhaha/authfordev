@@ -8,7 +8,7 @@ export const client_ = (async (
   }: PluginContext<{
     init: { body: string; headers?: { "Content-Type": "text/plain" } };
   }>,
-  env: Env,
+  env: Env
 ) => {
   const clientKey = await request.text();
 
@@ -16,7 +16,7 @@ export const client_ = (async (
     return err(401, { message: "body_missing" });
   }
 
-  const app = await decodeHeader(env.SECRET_KEY, clientKey);
+  const app = await decodeHeader(env.SECRET_FOR_CLIENT, "client", clientKey);
   if (app === undefined || app === "") {
     return err(403, { message: "authorization_invalid" });
   }

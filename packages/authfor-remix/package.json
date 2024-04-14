@@ -23,16 +23,17 @@
   "sideEffects": false,
   "devDependencies": {
     "@mewhhaha/authfor-api": "workspace:^",
-    "@mewhhaha/json-string": "^0.0.45",
-    "@remix-run/eslint-config": "^2.2.0",
-    "@remix-run/react": "^2.2.0",
-    "@remix-run/router": "^1.11.0",
-    "@remix-run/server-runtime": "^2.2.0",
-    "@types/react": "^18.2.34",
-    "eslint": "^8.52.0",
-    "prettier": "^3.0.3",
+    "@mewhhaha/json-string": "^0.0.50",
+    "@remix-run/eslint-config": "^2.8.1",
+    "@remix-run/react": "^2.8.1",
+    "@remix-run/router": "^1.15.3",
+    "@remix-run/server-runtime": "^2.8.1",
+    "@types/react": "^18.2.78",
+    "eslint": "^9.0.0",
+    "prettier": "^3.2.5",
     "react": "^18.2.0",
-    "typescript": "^5.2.2"
+    "typescript": "^5.4.5",
+    "wrangler": "0.0.0-d27c287a"
   },
   "peerDependencies": {
     "@remix-run/react": "^2.1.0",
@@ -42,6 +43,6 @@
   },
   "dependencies": {
     "@mewhhaha/authfor-client": "workspace:^",
-    "@mewhhaha/little-fetcher": "^0.0.45"
+    "@mewhhaha/little-fetcher": "^0.0.50"
   }
 }

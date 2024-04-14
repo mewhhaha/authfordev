@@ -1,22 +1,17 @@
 import { type } from "arktype";
-import { $challenge } from "../objects/challenge.js";
 import { parseAuthenticationToken } from "../helpers/parser.js";
-import { $passkey } from "../objects/passkey.js";
 import { server_ } from "../plugins/server.js";
 import { data_ } from "@mewhhaha/little-router-plugin-data";
 import { route, err, ok } from "@mewhhaha/little-worker";
-import { initJSON } from "@mewhhaha/little-worker/init";
+import { $get } from "../helpers/durable.js";
 
 export default route(
   PATTERN,
   [server_, data_(type({ token: "string", origin: "string" }))],
-  async ({ app, data: { origin, token } }, env) => {
-    const jurisdiction = { passkey: env.DO_PASSKEY.jurisdiction("eu") };
-
-    const { authentication, challengeId, visitor, message } =
+  async ({ data: { origin, token } }, env) => {
+    const { authentication, challengeId, visited, message } =
       await parseAuthenticationToken(token, {
-        app,
-        secret: env.SECRET_FOR_PASSKEY,
+        secret: env.SECRET_KEY,
       });
     if (message === "token_invalid") {
       return err(401, "token_invalid");
@@ -26,29 +21,26 @@ export default route(
       return err(403, message);
     }
 
-    const challenge = $challenge(env.DO_CHALLENGE, challengeId);
-    const { ok: passed } = await challenge.post("/finish");
-    if (!passed) {
-      return err(403, { message: "challenge_expired" });
+    const challenge = $get(env.DO_CHALLENGE, challengeId);
+    const finished = await challenge.finish();
+    if (finished.error) {
+      return err(403, { message: finished.message });
     }
 
-    const passkeyId = jurisdiction.passkey.idFromName(
-      authentication.credentialId
+    const passkey = $get(
+      env.DO_PASSKEY,
+      env.DO_PASSKEY.idFromName(authentication.credentialId),
     );
-    const passkey = $passkey(jurisdiction.passkey, passkeyId);
 
-    const payload = { app, origin, challengeId, visitor, authentication };
-    const response = await passkey.post("/authenticate", initJSON(payload));
-
-    if (!response.ok) {
-      return err(403, { message: "passkey_invalid" });
+    const payload = { origin, challengeId, visited, authentication };
+    const authenticated = await passkey.authenticate(payload);
+    if (authenticated.error) {
+      return err(403, { message: authenticated.message });
     }
-
-    const { metadata } = await response.json();
 
     return ok(200, {
-      userId: metadata.userId,
-      passkeyId: metadata.passkeyId,
+      userId: authenticated.data.userId,
+      passkeyId: authenticated.data.passkeyId,
     });
-  }
+  },
 );

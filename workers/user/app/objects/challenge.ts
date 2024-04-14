@@ -1,85 +1,55 @@
-import { type } from "arktype";
-import { $any, storageLoader, storageSaver } from "../helpers/durable.js";
-import { data_ } from "@mewhhaha/little-router-plugin-data";
-import {
-  type PluginContext,
-  Router,
-  empty,
-  err,
-  text,
-} from "@mewhhaha/little-worker";
+import { DurableObject } from "cloudflare:workers";
+import { storage, store } from "../helpers/durable";
 
-const code_ = (_: PluginContext<{ init?: { body?: string } }>) => {
-  return {};
+type Start = {
+  ms: number;
+  code?: string;
+  value?: string;
 };
 
-export class DurableObjectChallenge implements DurableObject {
-  valid = false;
-  code?: string;
-  value: string = "";
+export class DurableObjectChallenge extends DurableObject {
+  @storage
+  accessor #valid = store(false);
 
-  storage: DurableObjectStorage;
+  @storage
+  accessor #code = store<string>();
 
-  load = storageLoader<DurableObjectChallenge>(this);
-  save = storageSaver<DurableObjectChallenge>(this);
+  @storage
+  accessor #value = store<string>("");
 
-  constructor(state: DurableObjectState) {
-    this.storage = state.storage;
-
-    void state.blockConcurrencyWhile(async () => {
-      await this.load("valid", "code");
-    });
+  constructor(state: DurableObjectState, env: unknown) {
+    super(state, env);
   }
 
-  static router = Router<[DurableObjectChallenge]>()
-    .post(
-      "/start",
-      [data_(type({ ms: "number", "code?": "string", "value?": "string" }))],
-      async ({ data: { ms, code, value } }, object) => {
-        object.save("valid", true);
+  async start({ ms, code, value }: Start) {
+    this.#valid = store(true);
 
-        if (code !== undefined) {
-          object.save("code", code);
-        }
+    if (code !== undefined) this.#code = store(code);
+    if (value !== undefined) this.#value = store(value);
 
-        if (value !== undefined) {
-          object.save("value", value);
-        }
+    const expiry = new Date(Date.now() + ms);
+    void this.ctx.storage.setAlarm(expiry);
+  }
 
-        const expiry = new Date(Date.now() + ms);
-        void object.storage.setAlarm(expiry);
-        return empty(204);
-      }
-    )
-    .post("/finish", [code_], async ({ request }, object) => {
-      if (!object.valid) return err(403, { message: "challenge_expired" });
+  async finish(code?: string) {
+    const valid = await this.#valid;
+    if (!valid) {
+      return { error: true, message: "challenge_expired" } as const;
+    }
 
-      object.valid = false;
-      void object.storage.deleteAll();
-      void object.storage.deleteAlarm();
+    this.#valid = store(false);
+    void this.ctx.storage.deleteAll();
+    void this.ctx.storage.deleteAlarm();
 
-      if (object.code !== undefined && (await request.text()) !== object.code) {
-        return err(403, { message: "code_mismatch" });
-      }
-      return text(200, object.value);
-    })
-    .all("/*", [], () => {
-      return new Response("Not found", { status: 404 });
-    });
+    if (await this.#code.then((c) => c !== undefined && code !== c)) {
+      return { error: true, message: "code_mismatch" } as const;
+    }
+
+    return { error: false, data: await this.#value } as const;
+  }
 
   async alarm() {
-    this.valid = false;
-    await this.storage.deleteAll();
-  }
-
-  fetch(
-    request: Request<unknown, CfProperties<unknown>>
-  ): Response | Promise<Response> {
-    return DurableObjectChallenge.router.handle(request, this);
+    this.#valid = store(false);
+    await this.ctx.storage.deleteAll();
   }
 }
-
-export const $challenge = $any<
-  typeof DurableObjectChallenge,
-  Env["DO_CHALLENGE"]
->;

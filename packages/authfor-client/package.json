@@ -17,11 +17,12 @@
   "devDependencies": {
     "@internal/jwt": "workspace:^",
     "@mewhhaha/authfor-api": "workspace:^",
-    "@mewhhaha/little-fetcher": "^0.0.45",
-    "@passwordless-id/webauthn": "^1.3.0",
-    "typescript": "^5.2.2"
+    "@mewhhaha/little-fetcher": "^0.0.50",
+    "@passwordless-id/webauthn": "^1.5.0",
+    "typescript": "^5.4.5",
+    "wrangler": "0.0.0-d27c287a"
   },
   "dependencies": {
-    "@mewhhaha/little-worker": "^0.0.45"
+    "@mewhhaha/little-worker": "^0.0.50"
   }
 }

@@ -1,11 +1,10 @@
 import { jwtTime, encodeJwt } from "@internal/jwt";
-import { $challenge } from "../objects/challenge.js";
 import { minute1 } from "../helpers/time.js";
-import { makeVisitorHeaders } from "../objects/passkey.js";
+import { getVisitedHeaders } from "../objects/passkey.js";
 import { client_ } from "../plugins/client.js";
-import { type VisitorHeaders } from "../helpers/parser.js";
+import { type VisitedHeaders } from "../helpers/parser.js";
 import { route, ok } from "@mewhhaha/little-worker";
-import { initJSON } from "@mewhhaha/little-worker/init";
+import { $get } from "../helpers/durable.js";
 
 export default route(PATTERN, [client_], async ({ request, app }, env, ctx) => {
   const id = env.DO_CHALLENGE.newUniqueId();
@@ -14,23 +13,17 @@ export default route(PATTERN, [client_], async ({ request, app }, env, ctx) => {
     jti: id.toString(),
     sub: "anonymous",
     exp: jwtTime(minute1()),
-    vis: makeVisitorHeaders(request),
+    vis: getVisitedHeaders(request),
     aud: app,
   };
 
-  const token = await encodeJwt<{ vis: VisitorHeaders }>(
-    env.SECRET_FOR_PASSKEY,
-    claim
-  );
+  const token = await encodeJwt<{ vis: VisitedHeaders }>(env.SECRET_KEY, claim);
 
-  const challenge = $challenge(env.DO_CHALLENGE, id);
-  ctx.waitUntil(startChallenge(challenge));
+  const challenge = $get(env.DO_CHALLENGE, id);
+  ctx.waitUntil(challenge.start({ ms: 60000 }));
 
   return ok(200, { token }, { headers: cors(request) });
 });
-
-const startChallenge = async (challenge: ReturnType<typeof $challenge>) =>
-  await challenge.post(`/start`, initJSON({ ms: 60000 }));
 
 const cors = (request: Request) => ({
   "Access-Control-Allow-Origin": request.headers.get("Origin") ?? "",

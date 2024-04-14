@@ -1,44 +1,78 @@
-import { fetcher, type RoutesOf } from "@mewhhaha/little-worker";
+import { DurableObject } from "cloudflare:workers";
 
-type KeyofValues<T extends Record<any, any>> = {
-  [K in keyof T]: T[K] extends (...args: any[]) => any
-    ? never
-    : K extends "storage"
-    ? never
-    : K;
-}[keyof T];
+export const $get = <DURABLE_OBJECT extends DurableObject>(
+  namespace: DurableObjectNamespace<DURABLE_OBJECT>,
+  id: string | DurableObjectId,
+) => namespace.get(typeof id === "string" ? namespace.idFromString(id) : id);
 
-export const storageLoader =
-  <THIS extends Record<any, any>>(
-    t: { storage: DurableObjectStorage } & THIS
-  ) =>
-  async <KEY extends KeyofValues<THIS>>(...keys: KEY[]) => {
-    const promises = async () => {
-      const map = await t.storage.get<THIS[keyof THIS]>(keys as string[]);
-      for (const [key, value] of map.entries()) {
-        if (value !== undefined) t[key as keyof THIS] = value;
-      }
-    };
+/**
+ * A decorator that retrieves and sets the value in storage on the Durable Object. The key it sets it to is the same as the accessor name.
+ *
+ * @example
+ * ```ts
+ * import { DurableObject } from "cloudflare:workers";
+ * import { store, storage } from "../helpers/durable";
+ *
+ * class Foobar extends DurableObject {
+ *  \@storage
+ *  accessor #message = store("");
+ * }
+ * ```
+ */
+export const storage = <V, T extends DurableObject = DurableObject>(
+  target: ClassAccessorDecoratorTarget<T, Promise<V>>,
+  ctx: ClassAccessorDecoratorContext,
+): ClassAccessorDecoratorResult<T, Promise<V>> => {
+  return {
+    /**
+     * Initializes the Durable Object with the stored value, if available.
+     */
+    async init(this: T, value: Promise<V>): Promise<V> {
+      const storedValue = await this.ctx.storage.get<V>(ctx.name.toString());
+      return storedValue !== undefined ? storedValue : value;
+    },
 
-    await promises();
+    async get(this: T): Promise<V> {
+      return target.get.call(this);
+    },
+
+    /**
+     * Sets the value internally and also sets it in the storage as a side effect.
+     */
+    set(this: T, value: Promise<V>) {
+      this.ctx.waitUntil(
+        value.then((v) => {
+          void this.ctx.storage.put(ctx.name.toString(), v); // Make sure this value is awaited before storing it.
+        }),
+      );
+
+      target.set.call(this, value);
+    },
   };
+};
 
-export const storageSaver =
-  <THIS extends Record<any, any>>(
-    t: { storage: DurableObjectStorage } & THIS
-  ) =>
-  <KEY extends KeyofValues<THIS>>(key: KEY, value: THIS[KEY]) => {
-    t[key as keyof typeof t] = value;
-    void t.storage.put(key as string, value);
-  };
+type Store = {
+  <V>(value: V): Promise<V>;
+  <V>(): Promise<V | undefined>;
+};
 
-export const $any = <
-  OBJECT extends { router: any },
-  NAMESPACE extends DurableObjectNamespace = DurableObjectNamespace,
->(
-  namespace: NAMESPACE,
-  id: string | DurableObjectId
-) =>
-  fetcher<RoutesOf<OBJECT["router"]>>(
-    namespace.get(typeof id === "string" ? namespace.idFromString(id) : id)
-  );
+/**
+ * A shorthand for Promise.resolve to more easily set values in conjunction with \@storage
+ *
+ * @example
+ * ```ts
+ * import { DurableObject } from "cloudflare:workers";
+ * import { store, storage } from "../helpers/durable";
+ *
+ * class Foobar extends DurableObject {
+ *    \@storage
+ *    accessor #message: Promise<string> = store("");
+ *
+ *    async setMessage(message: string) {
+ *      // this.#message = Promise.resolve(message);
+ *      this.#message = store(message);
+ *    }
+ * }
+ * ```
+ */
+export const store: Store = <V>(value?: V) => Promise.resolve(value);

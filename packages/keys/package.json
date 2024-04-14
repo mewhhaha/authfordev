@@ -6,6 +6,12 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest"
@@ -15,9 +21,10 @@
   "license": "ISC",
   "sideEffects": false,
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20231025.0",
-    "@mewhhaha/little-worker": "^0.0.45",
-    "typescript": "^5.2.2",
-    "vitest": "^0.34.6"
+    "@cloudflare/workers-types": "^4.20240405.0",
+    "@mewhhaha/little-worker": "^0.0.50",
+    "typescript": "^5.4.5",
+    "vitest": "^1.5.0",
+    "wrangler": "0.0.0-d27c287a"
   }
 }

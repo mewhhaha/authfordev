@@ -12,19 +12,19 @@ export const server_ = (async (
       };
     };
   }>,
-  env: Env,
+  env: Env
 ) => {
   const header = request.headers.get("Authorization");
   if (header === null) {
     return err(401, { message: "authorization_missing" });
   }
 
-  const app = await decodeHeader(env.SECRET_KEY, "server");
+  const app = await decodeHeader(env.SECRET_FOR_SERVER, "server", header);
   if (app === undefined) {
     return err(403, { message: "authorization_invalid" });
   }
 
-  return {};
+  return { app: app as ServerAppName };
 }) satisfies Plugin<[Env]>;
 
 export type ServerAppName = TaggedType<string, "server_app_name">;

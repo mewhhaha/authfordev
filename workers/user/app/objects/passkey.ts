@@ -1,291 +1,197 @@
-import { type } from "arktype";
-import { $any, storageLoader, storageSaver } from "../helpers/durable.js";
 import {
   type Credential,
-  parseAuthenticationEncoded,
-  parsedBoolean,
   type Visitor,
-  type VisitorHeaders,
-  parseVisitorHeaders,
-  parseRegistrationEncoded,
+  type VisitedHeaders,
+  RegistrationEncoded,
+  AuthenticationEncoded,
 } from "../helpers/parser.js";
 import { now } from "../helpers/time.js";
 import { server } from "@passwordless-id/webauthn";
-import { type ServerAppName } from "../plugins/server.js";
-import {
-  type PluginContext,
-  err,
-  type Plugin,
-  Router,
-  ok,
-  empty,
-} from "@mewhhaha/little-worker";
-import { data_ } from "@mewhhaha/little-router-plugin-data";
-import { query_ } from "@mewhhaha/little-router-plugin-query";
 import { encode } from "@mewhhaha/little-worker/crypto";
+import { DurableObject } from "cloudflare:workers";
+import { storage, store } from "../helpers/durable.js";
 
-const parseMetadata = type({
-  passkeyId: "string",
-  credentialId: "string",
-  userId: "string",
-  app: "string",
-  createdAt: "string",
-});
+const VISITOR_HISTORY_LENGTH = 10;
 
-const inferredMetadata = parseMetadata.infer;
+type Registration = {
+  userId: string;
+  registration: RegistrationEncoded;
+  challengeId: string;
+  origin: string;
+  visited: VisitedHeaders;
+};
+
+type TryAuthenticate = {
+  challengeId: string;
+  origin: string;
+  authentication: AuthenticationEncoded;
+  visited: VisitedHeaders;
+};
+
 /** @public */
-export type Metadata = typeof inferredMetadata;
+export type Metadata = {
+  passkeyId: string;
+  credentialId: string;
+  userId: string;
+  createdAt: string;
+};
 
 export type Passkey = {
   credential: Credential;
   metadata: Metadata;
 };
 
-// This should be `passkey:${app}:${userId}`
-export type GuardPasskey = `passkey:${ServerAppName}:${string}`;
+export class DurableObjectPasskey extends DurableObject<Env> {
+  @storage
+  accessor #metadata = store<Metadata | undefined>(undefined);
 
-export const guardPasskey = (
-  app: ServerAppName,
-  userId: DurableObjectId | string
-) => {
-  return `passkey:${app}:${userId.toString()}` as const;
-};
+  @storage
+  accessor #credential = store<Credential | undefined>(undefined);
 
-const unoccupied_ = ((_: PluginContext<any>, self) => {
-  if (self.metadata !== undefined) {
-    return err(409, { message: "passkey_exists" });
+  @storage
+  accessor #counter = store<number>(-1);
+
+  @storage
+  accessor #visitors = store<Visitor[]>([]);
+
+  constructor(state: DurableObjectState, env: Env) {
+    super(state, env);
   }
 
-  return {};
-}) satisfies Plugin<[DurableObjectPasskey]>;
+  async data(userId: string) {
+    const { metadata, visitors } = await this.#assertPasskey(userId);
 
-const occupied_ = ((
-  {
-    request,
-  }: PluginContext<{
-    init: { headers: { Authorization: GuardPasskey } };
-  }>,
-  self
-) => {
-  const authorization = request.headers.get("Authorization");
-  if (authorization === null) {
-    return err(401, { message: "authorization_missing" });
+    return { metadata, visitors };
   }
 
-  if (self.metadata === undefined || self.credential === undefined) {
-    return err(404, { message: "passkey_missing" });
+  async start({ registration, visited, challengeId, userId }: Registration) {
+    await this.#assertEmpty();
+
+    try {
+      const checks = {
+        challenge: encode(challengeId),
+        origin,
+      };
+      const { authenticator, credential } = await server.verifyRegistration(
+        registration,
+        checks,
+      );
+
+      const metadata: Metadata = {
+        userId,
+        passkeyId: this.ctx.id.toString(),
+        credentialId: credential.id,
+        createdAt: now(),
+      };
+
+      this.#credential = store(credential);
+      this.#metadata = store(metadata);
+
+      const visitors = [makeVisitor(visited, authenticator.aaguid)];
+
+      this.#visitors = store(visitors);
+
+      const tenMinutesFromNow = new Date(Date.now() + 1000 * 60 * 10);
+      void this.ctx.storage.setAlarm(tenMinutesFromNow);
+
+      return { error: false, data: metadata } as const;
+    } catch (e) {
+      return { error: true, message: "registration_failed" } as const;
+    }
   }
 
-  // First word is just passkey:
-  const [, app, userId] = authorization.split(":");
+  async finish(userId: string) {
+    await this.#assertPasskey(userId);
 
-  if (app !== self.metadata.app) {
-    return err(403, { message: "app_mismatch" });
+    void this.ctx.storage.deleteAlarm();
   }
 
-  if (userId !== self.metadata.userId) {
-    return err(403, { message: "user_mismatch" });
+  async authenticate({
+    authentication,
+    challengeId,
+    visited,
+  }: TryAuthenticate) {
+    const { metadata, credential, counter } = await this.#assertPasskey();
+
+    try {
+      const { authenticator } = await server.verifyAuthentication(
+        authentication,
+        credential,
+        {
+          origin,
+          challenge: encode(challengeId),
+          counter,
+          userVerified: true,
+        },
+      );
+
+      this.#counter = store(
+        authenticator.counter === 0 ? -1 : authenticator.counter,
+      );
+
+      this.#visitors = this.#visitors.then((vs) => {
+        const visitor = makeVisitor(visited, authenticator.aaguid);
+        return [visitor, ...vs].slice(0, VISITOR_HISTORY_LENGTH);
+      });
+
+      return { error: false, data: metadata } as const;
+    } catch (e) {
+      if (e instanceof Error) console.log(e);
+      return { error: true, message: "authentication_failed" } as const;
+    }
   }
 
-  return { metadata: self.metadata, credential: self.credential } as const;
-}) satisfies Plugin<[DurableObjectPasskey]>;
+  /** self destruct the passkey, deleting all the data */
+  async destruct() {
+    void this.ctx.storage.deleteAll();
+    void this.ctx.storage.deleteAlarm();
 
-export class DurableObjectPasskey implements DurableObject {
-  metadata?: Metadata;
-  credential?: Credential;
-  counter: number = -1;
+    // get the metadata before clearing the field so we can return it
+    const metadata = await this.#metadata;
 
-  private readonly id: DurableObjectId;
+    this.#metadata = store(undefined);
+    this.#credential = store(undefined);
+    this.#visitors = store([]);
+    this.#counter = store(-1);
 
-  visitors: Visitor[] = [];
-
-  storage: DurableObjectStorage;
-
-  private readonly save = storageSaver<DurableObjectPasskey>(this);
-  private readonly load = storageLoader<DurableObjectPasskey>(this);
-
-  constructor(state: DurableObjectState) {
-    this.storage = state.storage;
-    this.id = state.id;
-
-    void state.blockConcurrencyWhile(async () => {
-      await this.load("metadata", "credential", "visitors", "counter");
-    });
+    return metadata;
   }
 
-  static router = Router<[DurableObjectPasskey]>()
-    .post(
-      "/start-register",
-      [
-        unoccupied_,
-        data_(
-          type({
-            app: "string",
-            userId: "string",
-            registration: parseRegistrationEncoded,
-            challengeId: "string",
-            origin: "string",
-            visitor: parseVisitorHeaders,
-          })
-        ),
-      ],
-      async (
-        { data: { registration, userId, app, challengeId, origin, visitor } },
-        object
-      ) => {
-        try {
-          const { authenticator, credential } = await server.verifyRegistration(
-            registration,
-            {
-              challenge: encode(challengeId),
-              origin,
-            }
-          );
-
-          const metadata: Metadata = {
-            userId,
-            app,
-            passkeyId: object.id.toString(),
-            credentialId: credential.id,
-
-            createdAt: now(),
-          };
-
-          object.save("credential", credential);
-          object.save("metadata", metadata);
-
-          const visitors = [makeVisitor(visitor, authenticator.aaguid)];
-
-          object.save("visitors", visitors);
-
-          const tenMinutesFromNow = new Date(Date.now() + 1000 * 60 * 10);
-          void object.storage.setAlarm(tenMinutesFromNow);
-
-          return ok(201, { metadata });
-        } catch (e) {
-          return err(403, { message: "registration_failed" });
-        }
-      }
-    )
-    .post("/finish-register", [occupied_], (_, object) => {
-      void object.storage.deleteAlarm();
-      return empty(204);
-    })
-    .post(
-      "/authenticate",
-      [
-        data_(
-          type({
-            app: "string",
-            challengeId: "string",
-            origin: "string",
-            authentication: parseAuthenticationEncoded,
-            visitor: parseVisitorHeaders,
-          })
-        ),
-      ],
-      async (
-        { data: { app, authentication, visitor, challengeId, origin } },
-        object
-      ) => {
-        if (
-          object.credential === undefined ||
-          object.metadata === undefined ||
-          app !== object.metadata.app
-        ) {
-          return err(404, "passkey_missing");
-        }
-
-        try {
-          const { authenticator } = await server.verifyAuthentication(
-            authentication,
-            object.credential,
-            {
-              origin,
-              challenge: encode(challengeId),
-              counter: object.counter,
-              userVerified: true,
-            }
-          );
-
-          const counter = authenticator.counter;
-          object.save("counter", counter === 0 ? -1 : counter);
-
-          const visitors = [
-            makeVisitor(visitor, authenticator.aaguid),
-            ...object.visitors,
-          ].slice(0, 10);
-          object.save("visitors", visitors);
-
-          return ok(200, { metadata: object.metadata });
-        } catch (e) {
-          if (e instanceof Error) console.log(e);
-          return err(403, "authentication_failed");
-        }
-      }
-    )
-    .get(
-      "/data",
-      [
-        occupied_,
-        query_(
-          type({ "credential?": parsedBoolean, "visitors?": parsedBoolean })
-        ),
-      ],
-      async (
-        { metadata, query: { credential = false, visitors = false } },
-        object
-      ) => {
-        const data: {
-          metadata: Metadata;
-          credential?: Credential;
-          visitors?: Visitor[];
-        } = {
-          metadata,
-        };
-
-        if (credential) {
-          data.credential = object.credential;
-        }
-
-        if (visitors) {
-          data.visitors = object.visitors;
-        }
-
-        return ok(200, data);
-      }
-    )
-    .delete("/implode", [occupied_], async ({ metadata }, object) => {
-      object.implode();
-      return ok(200, { metadata });
-    })
-    .all("/*", [], () => {
-      return new Response("Not found", { status: 404 });
-    });
-
-  implode() {
-    void this.storage.deleteAll();
-
-    this.metadata = undefined;
-    this.credential = undefined;
-    this.visitors = [];
-    this.counter = -1;
+  async alarm() {
+    await this.destruct();
   }
 
-  alarm() {
-    this.implode();
+  async #assertPasskey(userId?: string) {
+    const metadata = await this.#metadata;
+    const credential = await this.#credential;
+    const counter = await this.#counter;
+    const visitors = await this.#visitors;
+
+    if (metadata === undefined) {
+      throw new Error("Object is unoccupied");
+    }
+
+    if (userId !== undefined && userId !== metadata.userId) {
+      throw new Error("UserId mismatch");
+    }
+
+    if (credential === undefined) {
+      throw new Error("Credential missing");
+    }
+
+    return { credential, metadata, userId, counter, visitors };
   }
 
-  fetch(
-    request: Request<unknown, CfProperties<unknown>>
-  ): Response | Promise<Response> {
-    return DurableObjectPasskey.router.handle(request, this);
+  async #assertEmpty() {
+    const metadata = await this.#metadata;
+
+    if (metadata !== undefined) {
+      throw new Error("Object is occupied");
+    }
   }
 }
 
-export const $passkey = $any<typeof DurableObjectPasskey, Env["DO_PASSKEY"]>;
-
-export const makeVisitorHeaders = (request: Request): VisitorHeaders => {
+export const getVisitedHeaders = (request: Request): VisitedHeaders => {
   return {
     city: request.headers.get("cf-ipcity") ?? undefined,
     country: request.headers.get("cf-ipcountry") ?? undefined,
@@ -301,8 +207,8 @@ export const makeVisitorHeaders = (request: Request): VisitorHeaders => {
 };
 
 const makeVisitor = (
-  headers: VisitorHeaders,
-  authenticator: string
+  headers: VisitedHeaders,
+  authenticator: string,
 ): Visitor => {
   return {
     ...headers,
