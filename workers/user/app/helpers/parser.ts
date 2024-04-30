@@ -146,7 +146,6 @@ export const parseRegistrationToken = async (
   const [tokenRaw, registrationRaw] = token.split("#");
   const { claim, message } = await parseClaim<{ vis: VisitedHeaders }>(
     secret,
-
     tokenRaw,
   );
   if (claim === undefined) {

@@ -52,7 +52,7 @@ export default route(
       visited: claim.vis,
     };
 
-    using response = await passkey.start(data);
+    const response = await passkey.start(data);
     if (!response.error) {
       return err(403, { message: response.message });
     }

@@ -1,6 +1,7 @@
 name = "authfordev-user"
 main = "app/worker.ts"
-compatibility_date = "2023-09-04"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
 API_URL_MAILCHANNELS = "https://api.mailchannels.net/tx/v1"

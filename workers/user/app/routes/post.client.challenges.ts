@@ -1,12 +1,11 @@
 import { jwtTime, encodeJwt } from "@internal/jwt";
 import { minute1 } from "../helpers/time.js";
 import { getVisitedHeaders } from "../objects/passkey.js";
-import { client_ } from "../plugins/client.js";
 import { type VisitedHeaders } from "../helpers/parser.js";
 import { route, ok } from "@mewhhaha/little-worker";
 import { $get } from "../helpers/durable.js";
 
-export default route(PATTERN, [client_], async ({ request, app }, env, ctx) => {
+export default route(PATTERN, [], async ({ request }, env, ctx) => {
   const id = env.DO_CHALLENGE.newUniqueId();
 
   const claim = {
@@ -14,7 +13,7 @@ export default route(PATTERN, [client_], async ({ request, app }, env, ctx) => {
     sub: "anonymous",
     exp: jwtTime(minute1()),
     vis: getVisitedHeaders(request),
-    aud: app,
+    aud: env.AUDIENCE,
   };
 
   const token = await encodeJwt<{ vis: VisitedHeaders }>(env.SECRET_KEY, claim);

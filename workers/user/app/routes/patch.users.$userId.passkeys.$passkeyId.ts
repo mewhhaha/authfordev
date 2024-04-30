@@ -9,7 +9,7 @@ export default route(
   [server_, data_(type({ name: "string" }))],
   async ({ data, params: { userId, passkeyId } }, env) => {
     const user = $get(env.DO_USER, userId);
-    using passkey = await user.getPasskey(passkeyId);
+    const passkey = await user.getPasskey(passkeyId);
     await passkey.rename(data.name);
 
     return ok(200, data);

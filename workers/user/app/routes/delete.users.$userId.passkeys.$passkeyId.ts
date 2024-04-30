@@ -7,9 +7,9 @@ export default route(
   [server_],
   async ({ params: { userId, passkeyId } }, env) => {
     const user = $get(env.DO_USER, userId);
-    using passkey = await user.getPasskey(passkeyId);
+    const passkey = await user.getPasskey(passkeyId);
 
-    using response = await passkey.remove();
+    const response = await passkey.remove();
 
     if (response.error) {
       return err(404, { message: response.message });
