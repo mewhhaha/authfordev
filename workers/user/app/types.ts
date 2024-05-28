@@ -12,6 +12,7 @@ declare global {
     DO_USER: DurableObjectNamespace<DurableObjectUser>;
     DO_CHALLENGE: DurableObjectNamespace<DurableObjectChallenge>;
     DO_PASSKEY: DurableObjectNamespace<DurableObjectPasskey>;
+    ENVIRONMENT?: "test";
   };
 }
 

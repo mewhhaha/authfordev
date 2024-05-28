@@ -12,14 +12,14 @@ export const encodeJwt = async <
   T extends Record<any, any> = Record<never, never>,
 >(
   salt: string,
-  payload: Omit<JwtClaim<T>, "iat">
+  payload: Omit<JwtClaim<T>, "iat">,
 ) => {
   const header = encode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const claim = encode(
     JSON.stringify({
       iat: jwtTime(new Date()),
       ...payload,
-    })
+    }),
   );
 
   const hash = await hmac(salt, `${header}.${claim}`);
@@ -29,6 +29,13 @@ export const encodeJwt = async <
 
 export const decodeJwt = async <T>(salt: string, jwt: string) => {
   const [encodedHeader, encodedClaim, encodedHash] = jwt.split(".");
+  if (
+    encodedHeader === undefined ||
+    encodedClaim === undefined ||
+    encodedHash === undefined
+  ) {
+    return undefined;
+  }
 
   if (
     encode(await hmac(salt, `${encodedHeader}.${encodedClaim}`)) !== encodedHash

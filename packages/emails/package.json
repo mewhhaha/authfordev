@@ -15,20 +15,20 @@
     "build": "node -r @swc-node/register src/build.tsx"
   },
   "devDependencies": {
-    "@react-email/components": "0.0.16",
-    "@react-email/tailwind": "^0.0.15",
-    "@remix-run/eslint-config": "^2.8.1",
-    "@swc-node/register": "^1.9.0",
-    "@types/react": "^18.2.78",
-    "@types/react-dom": "^18.2.25",
-    "@vitejs/plugin-react-swc": "^3.6.0",
-    "eslint": "^9.0.0",
-    "eslint-plugin-tailwindcss": "^3.15.1",
+    "@react-email/components": "0.0.17",
+    "@react-email/tailwind": "^0.0.18",
+    "@remix-run/eslint-config": "^2.9.2",
+    "@swc-node/register": "^1.9.1",
+    "@types/react": "^18.3.2",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react-swc": "^3.7.0",
+    "eslint": "^9.3.0",
+    "eslint-plugin-tailwindcss": "^3.15.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-email": "2.1.2",
+    "react-email": "2.1.4",
     "tailwindcss": "^3.4.3",
-    "vite": "^5.2.10",
-    "wrangler": "0.0.0-d27c287a"
+    "vite": "^5.2.12",
+    "wrangler": "3.57.0"
   }
 }

@@ -1,4 +1,3 @@
-import { decodeHeader } from "@internal/keys";
 import { type PluginContext, err, type Plugin } from "@mewhhaha/little-worker";
 import { type TaggedType } from "@mewhhaha/little-worker/tagged";
 
@@ -19,8 +18,7 @@ export const server_ = (async (
     return err(401, { message: "authorization_missing" });
   }
 
-  const app = await decodeHeader(env.SECRET_KEY, "server");
-  if (app === undefined) {
+  if (header !== env.SECRET_KEY) {
     return err(403, { message: "authorization_invalid" });
   }
 

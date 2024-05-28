@@ -18,9 +18,9 @@
     "@internal/jwt": "workspace:^",
     "@mewhhaha/authfor-api": "workspace:^",
     "@mewhhaha/little-fetcher": "^0.0.50",
-    "@passwordless-id/webauthn": "^1.5.0",
+    "@passwordless-id/webauthn": "^1.6.1",
     "typescript": "^5.4.5",
-    "wrangler": "0.0.0-d27c287a"
+    "wrangler": "3.57.0"
   },
   "dependencies": {
     "@mewhhaha/little-worker": "^0.0.50"

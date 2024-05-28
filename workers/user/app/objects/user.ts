@@ -1,5 +1,11 @@
 import { DurableObject, RpcTarget } from "cloudflare:workers";
-import { store, storage, $get } from "../helpers/durable";
+import { $get } from "../helpers/durable";
+
+type Private = {
+  "#metadata": Metadata | undefined;
+  "#recovery": Recovery;
+  "#passkeys": PasskeyLink[];
+};
 
 type PasskeyLink = {
   name: string;
@@ -19,17 +25,32 @@ export type Recovery = {
 };
 
 export class DurableObjectUser extends DurableObject<Env> {
-  @storage
-  accessor #metadata = store<Metadata>();
+  #metadata: Private["#metadata"];
+  #recovery: Private["#recovery"] = { emails: [] };
+  #passkeys: Private["#passkeys"] = [];
 
-  @storage
-  accessor #recovery = store<Recovery>({ emails: [] });
+  #store<Key extends keyof Private>(key: Key, value: Private[Key]) {
+    void this.ctx.storage.put(key.toString(), value);
+    return value;
+  }
 
-  @storage
-  accessor #passkeys = store<PasskeyLink[]>([]);
+  async #load<Key extends keyof Private>(key: Key) {
+    const value = await this.ctx.storage.get<Private[Key]>(key.toString());
+    if (value !== undefined) {
+      // @ts-expect-error we can't see private variables
+      this[key] = value;
+    }
+  }
 
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
+    void state.blockConcurrencyWhile(async () => {
+      await Promise.all([
+        this.#load("#metadata"),
+        this.#load("#recovery"),
+        this.#load("#passkeys"),
+      ]);
+    });
   }
 
   async exists() {
@@ -48,14 +69,14 @@ export class DurableObjectUser extends DurableObject<Env> {
   }: Metadata & { email?: string; passkey?: PasskeyLink }) {
     await this.#assertEmpty();
 
-    this.#metadata = Promise.resolve({ username });
+    this.#metadata = this.#store("#metadata", { username });
     if (email !== undefined) {
-      this.#recovery = store({
+      this.#recovery = this.#store("#recovery", {
         emails: [{ address: email, verified: false, primary: true }],
       });
     }
     if (passkey !== undefined) {
-      this.#passkeys = store([passkey]);
+      this.#passkeys = this.#store("#passkeys", [passkey]);
     }
   }
 
@@ -73,7 +94,7 @@ export class DurableObjectUser extends DurableObject<Env> {
     }
 
     email.verified = true;
-    this.#recovery = store({ emails });
+    this.#recovery = this.#store("#recovery", { emails });
     return { error: false } as const;
   }
 
@@ -81,7 +102,7 @@ export class DurableObjectUser extends DurableObject<Env> {
     const { passkeys } = await this.#assertUser();
     const added = [...passkeys, link];
 
-    this.#passkeys = store(added);
+    this.#passkeys = this.#store("#passkeys", added);
     return { passkeys: added };
   }
 
@@ -94,7 +115,7 @@ export class DurableObjectUser extends DurableObject<Env> {
 
     const rename = async (name: string) => {
       passkey.name = name;
-      this.#passkeys = store(passkeys);
+      this.#passkeys = this.#store("#passkeys", passkeys);
 
       return { passkeys } as const;
     };
@@ -108,7 +129,7 @@ export class DurableObjectUser extends DurableObject<Env> {
       const passkey = $get(this.env.DO_PASSKEY, passkeyId);
       this.ctx.waitUntil(passkey.destruct());
 
-      this.#passkeys = store(removed);
+      this.#passkeys = this.#store("#passkeys", removed);
 
       return { error: false, passkey: removed } as const;
     };
@@ -122,9 +143,9 @@ export class DurableObjectUser extends DurableObject<Env> {
   }
 
   async #assertUser() {
-    const metadata = await this.#metadata;
-    const recovery = await this.#recovery;
-    const passkeys = await this.#passkeys;
+    const metadata = this.#metadata;
+    const recovery = this.#recovery;
+    const passkeys = this.#passkeys;
     if (metadata === undefined) {
       throw new Error("Object is unoccupied");
     }
@@ -132,7 +153,7 @@ export class DurableObjectUser extends DurableObject<Env> {
     return { metadata, recovery, passkeys };
   }
   async #assertEmpty() {
-    if ((await this.#metadata) !== undefined) {
+    if (this.#metadata !== undefined) {
       throw new Error("Object is occupied");
     }
   }

@@ -15,14 +15,14 @@
   "license": "ISC",
   "sideEffects": false,
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240405.0",
+    "@cloudflare/workers-types": "^4.20240512.0",
     "@mewhhaha/little-router": "^0.0.50",
     "@mewhhaha/typed-response": "^0.0.50",
-    "@microsoft/api-extractor": "^7.43.1",
+    "@microsoft/api-extractor": "^7.43.7",
     "@workers/authenticator": "workspace:^",
     "@workers/user": "workspace:^",
     "typescript": "^5.4.5",
-    "wrangler": "0.0.0-d27c287a"
+    "wrangler": "3.57.0"
   },
   "dependencies": {
     "@mewhhaha/json-string": "^0.0.50"

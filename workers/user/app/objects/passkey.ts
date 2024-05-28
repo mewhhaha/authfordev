@@ -9,7 +9,13 @@ import { now } from "../helpers/time.js";
 import { server } from "@passwordless-id/webauthn";
 import { encode } from "@mewhhaha/little-worker/crypto";
 import { DurableObject } from "cloudflare:workers";
-import { storage, store } from "../helpers/durable.js";
+
+type Private = {
+  "#metadata": Metadata | undefined;
+  "#credential": Credential | undefined;
+  "#counter": number;
+  "#visitors": Visitor[];
+};
 
 const VISITOR_HISTORY_LENGTH = 10;
 
@@ -42,20 +48,35 @@ export type Passkey = {
 };
 
 export class DurableObjectPasskey extends DurableObject<Env> {
-  @storage
-  accessor #metadata = store<Metadata | undefined>(undefined);
+  #metadata: Private["#metadata"] = undefined;
+  #credential: Private["#credential"] = undefined;
+  #counter: Private["#counter"] = -1;
+  #visitors: Private["#visitors"] = [];
 
-  @storage
-  accessor #credential = store<Credential | undefined>(undefined);
+  #store<Key extends keyof Private>(key: Key, value: Private[Key]) {
+    void this.ctx.storage.put(key.toString(), value);
+    return value;
+  }
 
-  @storage
-  accessor #counter = store<number>(-1);
-
-  @storage
-  accessor #visitors = store<Visitor[]>([]);
+  async #load<Key extends keyof Private>(key: Key) {
+    const value = await this.ctx.storage.get<Private[Key]>(key.toString());
+    if (value !== undefined) {
+      // @ts-expect-error we can't see private variables
+      this[key] = value;
+    }
+  }
 
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
+
+    void state.blockConcurrencyWhile(async () => {
+      await Promise.all([
+        this.#load("#metadata"),
+        this.#load("#credential"),
+        this.#load("#counter"),
+        this.#load("#visitors"),
+      ]);
+    });
   }
 
   async data(userId: string) {
@@ -64,7 +85,13 @@ export class DurableObjectPasskey extends DurableObject<Env> {
     return { metadata, visitors };
   }
 
-  async start({ registration, visited, challengeId, userId }: Registration) {
+  async start({
+    registration,
+    origin,
+    visited,
+    challengeId,
+    userId,
+  }: Registration) {
     await this.#assertEmpty();
 
     try {
@@ -72,6 +99,7 @@ export class DurableObjectPasskey extends DurableObject<Env> {
         challenge: encode(challengeId),
         origin,
       };
+
       const { authenticator, credential } = await server.verifyRegistration(
         registration,
         checks,
@@ -84,18 +112,20 @@ export class DurableObjectPasskey extends DurableObject<Env> {
         createdAt: now(),
       };
 
-      this.#credential = store(credential);
-      this.#metadata = store(metadata);
+      this.#credential = this.#store("#credential", credential);
+      this.#metadata = this.#store("#metadata", metadata);
 
       const visitors = [makeVisitor(visited, authenticator.aaguid)];
 
-      this.#visitors = store(visitors);
+      this.#visitors = this.#store("#visitors", visitors);
 
       const tenMinutesFromNow = new Date(Date.now() + 1000 * 60 * 10);
       void this.ctx.storage.setAlarm(tenMinutesFromNow);
 
       return { error: false, data: metadata } as const;
     } catch (e) {
+      console.log(e);
+      throw e;
       return { error: true, message: "registration_failed" } as const;
     }
   }
@@ -109,6 +139,7 @@ export class DurableObjectPasskey extends DurableObject<Env> {
   async authenticate({
     authentication,
     challengeId,
+    origin,
     visited,
   }: TryAuthenticate) {
     const { metadata, credential, counter } = await this.#assertPasskey();
@@ -125,14 +156,17 @@ export class DurableObjectPasskey extends DurableObject<Env> {
         },
       );
 
-      this.#counter = store(
+      this.#counter = this.#store(
+        "#counter",
         authenticator.counter === 0 ? -1 : authenticator.counter,
       );
 
-      this.#visitors = this.#visitors.then((vs) => {
-        const visitor = makeVisitor(visited, authenticator.aaguid);
-        return [visitor, ...vs].slice(0, VISITOR_HISTORY_LENGTH);
-      });
+      const visitor = makeVisitor(visited, authenticator.aaguid);
+      const visitors = [visitor, ...this.#visitors].slice(
+        0,
+        VISITOR_HISTORY_LENGTH,
+      );
+      this.#visitors = this.#store("#visitors", visitors);
 
       return { error: false, data: metadata } as const;
     } catch (e) {
@@ -147,12 +181,12 @@ export class DurableObjectPasskey extends DurableObject<Env> {
     void this.ctx.storage.deleteAlarm();
 
     // get the metadata before clearing the field so we can return it
-    const metadata = await this.#metadata;
+    const metadata = this.#metadata;
 
-    this.#metadata = store(undefined);
-    this.#credential = store(undefined);
-    this.#visitors = store([]);
-    this.#counter = store(-1);
+    this.#metadata = this.#store("#metadata", undefined);
+    this.#credential = this.#store("#credential", undefined);
+    this.#visitors = this.#store("#visitors", []);
+    this.#counter = this.#store("#counter", -1);
 
     return metadata;
   }
@@ -162,10 +196,10 @@ export class DurableObjectPasskey extends DurableObject<Env> {
   }
 
   async #assertPasskey(userId?: string) {
-    const metadata = await this.#metadata;
-    const credential = await this.#credential;
-    const counter = await this.#counter;
-    const visitors = await this.#visitors;
+    const metadata = this.#metadata;
+    const credential = this.#credential;
+    const counter = this.#counter;
+    const visitors = this.#visitors;
 
     if (metadata === undefined) {
       throw new Error("Object is unoccupied");
@@ -183,9 +217,7 @@ export class DurableObjectPasskey extends DurableObject<Env> {
   }
 
   async #assertEmpty() {
-    const metadata = await this.#metadata;
-
-    if (metadata !== undefined) {
+    if (this.#metadata !== undefined) {
       throw new Error("Object is occupied");
     }
   }

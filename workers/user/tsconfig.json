@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "lib": ["ESNext"],
-    "module": "ESNext",
+    "target": "esnext",
+    "lib": ["esnext"],
+    "module": "esnext",
     "moduleResolution": "Bundler",
     "types": [
       "@cloudflare/workers-types/experimental",
@@ -12,6 +12,7 @@
     "allowJs": true,
     "checkJs": false,
     "noEmit": true,
+    "useDefineForClassFields": false,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,

@@ -1,7 +1,7 @@
 import { fetcher } from "@mewhhaha/little-fetcher";
 import { client } from "@passwordless-id/webauthn";
 import { Routes } from "@mewhhaha/authfor-api";
-import { encode, decode } from "@mewhhaha/little-worker/dist/helpers/crypto";
+import { encode, decode } from "@mewhhaha/little-worker/crypto";
 
 export const Client = ({
   apiUrl = "https://user.authfor.dev",
@@ -18,7 +18,7 @@ export const Client = ({
     controller = new AbortController();
 
     try {
-      const response = await api.post(`/client/challenge-passkey`, {
+      const response = await api.post(`/client/challenges`, {
         body: clientKey,
         headers: {
           "Content-Type": "text/plain",
@@ -83,7 +83,7 @@ export const Client = ({
       });
 
       const registrationToken = `${token}#${encode(
-        JSON.stringify(registration)
+        JSON.stringify(registration),
       )}`;
 
       return { success: true, token: registrationToken } as const;

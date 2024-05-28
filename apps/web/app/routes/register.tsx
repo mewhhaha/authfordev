@@ -4,7 +4,6 @@ import type { ComponentProps, JSXElementConstructor } from "react";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "~/css/cn";
 import { type } from "arktype";
-import { encodeHeader } from "@internal/keys";
 import { generate } from "random-words";
 
 export const meta: MetaFunction = () => {
@@ -28,7 +27,7 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     {
       slug: `0<string<=50&/${form.slug.pattern}/`,
     },
-    { keys: "strict" }
+    { keys: "strict" },
   );
 
   const { data, problems } = parseForm({
@@ -42,23 +41,12 @@ export async function action({ request, context: { env } }: DataFunctionArgs) {
     } as const;
   }
 
-  const serverKey = await encodeHeader(
-    env.SECRET_FOR_SERVER,
-    "server",
-    data.slug
-  );
-  const clientKey = await encodeHeader(
-    env.SECRET_FOR_CLIENT,
-    "client",
-    data.slug
-  );
-
   try {
     await env.D1.prepare(`INSERT INTO app (id, created_at) VALUES (?, ?)`)
       .bind(data.slug, new Date().toISOString())
       .run();
 
-    return { status: 200, serverKey, clientKey, slug: data.slug } as const;
+    return { status: 200, serverKey, slug: data.slug } as const;
   } catch {
     return { status: 409 } as const;
   }
@@ -252,7 +240,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       children,
       ...props
     },
-    ref
+    ref,
   ) => {
     return (
       <Component
@@ -273,7 +261,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           "active:translate-x-[3px] active:translate-y-[3px] active:bg-black active:text-white active:shadow-none",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500",
           "disabled:bg-gray-100 disabled:text-black disabled:hover:bg-gray-100",
-          props.className
+          props.className,
         )}
       >
         <div className="flex items-center gap-1">
@@ -283,11 +271,11 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         </div>
       </Component>
     );
-  }
+  },
 ) as (<
   T extends keyof JSX.IntrinsicElements | JSXElementConstructor<any> = "button",
 >(
-  props: ButtonProps<T>
+  props: ButtonProps<T>,
 ) => JSX.Element) & { displayName?: string };
 
 Button.displayName = "Button";
@@ -302,11 +290,11 @@ const Dialog = forwardRef<HTMLDialogElement, JSX.IntrinsicElements["dialog"]>(
         {...props}
         className={cn(
           "relative mx-auto my-10 w-full max-w-sm bg-white sm:border sm:px-4 sm:py-10 sm:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]",
-          props.className
+          props.className,
         )}
       />
     );
-  }
+  },
 );
 
 Dialog.displayName = "Dialog";
@@ -321,7 +309,7 @@ const InputText = (props: JSX.IntrinsicElements["input"]) => {
         "block w-full rounded-md border-2 border-black font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] placeholder:font-bold focus:border-2 focus:border-black",
         "transition-[transform,box-shadow] focus-visible:translate-x-[4px] focus-visible:translate-y-[4px] focus-visible:shadow-none",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500",
-        props.className
+        props.className,
       )}
     />
   );

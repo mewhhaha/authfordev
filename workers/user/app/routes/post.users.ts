@@ -53,7 +53,8 @@ export default route(
     };
 
     const response = await passkey.start(data);
-    if (!response.error) {
+
+    if (response.error) {
       return err(403, { message: response.message });
     }
 

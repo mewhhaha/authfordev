@@ -1,5 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
-import { storage, store } from "../helpers/durable";
+
+type Private = {
+  "#valid": boolean;
+  "#code": string | undefined;
+  "#value": string;
+};
 
 type Start = {
   ms: number;
@@ -8,40 +13,59 @@ type Start = {
 };
 
 export class DurableObjectChallenge extends DurableObject {
-  @storage
-  accessor #valid = store(false);
+  #valid: Private["#valid"] = false;
+  #code: Private["#code"] = undefined;
+  #value: Private["#value"] = "";
 
-  @storage
-  accessor #code = store<string>();
+  #store<Key extends keyof Private>(key: Key, value: Private[Key]) {
+    void this.ctx.storage.put(key.toString(), value);
+    return value;
+  }
 
-  @storage
-  accessor #value = store<string>("");
+  async #load<Key extends keyof Private>(key: Key) {
+    const value = await this.ctx.storage.get<Private[Key]>(key.toString());
+    if (value !== undefined) {
+      // @ts-expect-error we can't see private variables
+      this[key] = value;
+    }
+  }
 
   constructor(state: DurableObjectState, env: unknown) {
     super(state, env);
+    void state.blockConcurrencyWhile(async () => {
+      await Promise.all([
+        this.#load("#valid"),
+        this.#load("#code"),
+        this.#load("#value"),
+      ]);
+    });
   }
 
   async start({ ms, code, value }: Start) {
-    this.#valid = store(true);
+    this.#valid = this.#store("#valid", true);
 
-    if (code !== undefined) this.#code = store(code);
-    if (value !== undefined) this.#value = store(value);
+    if (code !== undefined) {
+      this.#code = this.#store("#code", code);
+    }
+    if (value !== undefined) {
+      this.#value = this.#store("#value", value);
+    }
 
     const expiry = new Date(Date.now() + ms);
     void this.ctx.storage.setAlarm(expiry);
   }
 
   async finish(code?: string) {
-    const valid = await this.#valid;
+    const valid = this.#valid;
     if (!valid) {
       return { error: true, message: "challenge_expired" } as const;
     }
 
-    this.#valid = store(false);
+    this.#valid = this.#store("#valid", false);
     void this.ctx.storage.deleteAll();
     void this.ctx.storage.deleteAlarm();
 
-    if (await this.#code.then((c) => c !== undefined && code !== c)) {
+    if (this.#code !== undefined && this.#code !== code) {
       return { error: true, message: "code_mismatch" } as const;
     }
 
@@ -49,7 +73,7 @@ export class DurableObjectChallenge extends DurableObject {
   }
 
   async alarm() {
-    this.#valid = store(false);
+    this.#valid = this.#store("#valid", false);
     await this.ctx.storage.deleteAll();
   }
 }

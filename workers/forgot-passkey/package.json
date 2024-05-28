@@ -14,28 +14,27 @@
     "d1-remote": "wrangler d1 execute d1-authfordev --file=./schema.sql"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240405.0",
+    "@cloudflare/workers-types": "^4.20240512.0",
     "@internal/emails": "workspace:^",
     "@internal/jwt": "workspace:^",
-    "@internal/keys": "workspace:^",
     "@mewhhaha/little-router-plugin-data": "^0.0.50",
     "@mewhhaha/little-router-plugin-query": "^0.0.50",
     "@mewhhaha/little-worker": "^0.0.50",
-    "@passwordless-id/webauthn": "^1.5.0",
+    "@passwordless-id/webauthn": "^1.6.1",
     "@types/invariant": "^2.2.37",
-    "@typescript-eslint/eslint-plugin": "^7.8.0",
-    "@typescript-eslint/parser": "^7.8.0",
-    "arktype": "2.0.0-dev.10",
-    "eslint": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.11.0",
+    "@typescript-eslint/parser": "^7.11.0",
+    "arktype": "1.0.29-alpha",
+    "eslint": "^9.3.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-config-standard-with-typescript": "^43.0.1",
     "eslint-plugin-import": "^2.29.1",
-    "eslint-plugin-n": "^17.4.0",
-    "eslint-plugin-promise": "^6.0.0",
+    "eslint-plugin-n": "^17.7.0",
+    "eslint-plugin-promise": "^6.2.0",
     "invariant": "^2.2.4",
     "prettier": "^3.2.5",
     "typescript": "^5.4.5",
-    "wrangler": "0.0.0-d27c287a"
+    "wrangler": "3.57.0"
   },
   "sideEffects": false
 }

@@ -24,6 +24,10 @@ const handler: ExportedHandler<Env> = {
 };
 
 const setJurisdiction = (env: Env, jurisdiction: DurableObjectJurisdiction) => {
+  if (env.ENVIRONMENT === "test") {
+    return env;
+  }
+
   for (const key in env) {
     const value = env[key as keyof typeof env];
     if (typeof value === "object" && "jurisdiction" in value) {

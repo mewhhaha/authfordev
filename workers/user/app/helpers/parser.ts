@@ -144,6 +144,10 @@ export const parseRegistrationToken = async (
   { secret }: { secret: string },
 ) => {
   const [tokenRaw, registrationRaw] = token.split("#");
+  if (tokenRaw === undefined || registrationRaw === undefined) {
+    return { message: "token_invalid" } as const;
+  }
+
   const { claim, message } = await parseClaim<{ vis: VisitedHeaders }>(
     secret,
     tokenRaw,
